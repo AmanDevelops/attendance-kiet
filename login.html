@@ -10,7 +10,7 @@
     <div class="login-container">
         <div class="login-card">
             <h1>Student Login</h1>
-            <form class="login-form">
+            <div class="login-form">
                 <div class="form-group">
                     <label for="username">Username</label>
                     <input type="text" id="username" name="username" required>
@@ -19,9 +19,10 @@
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" required>
                 </div>
-                <button type="submit" class="login-button">Login</button>
-            </form>
+                <button type="submit" class="login-button" onclick="getData()">Login</button>
+            </div>
         </div>
     </div>
 </body>
+<script src="login.js"></script>
 </html>
