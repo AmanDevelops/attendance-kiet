@@ -5,6 +5,10 @@ import { BookOpen, User, AlertTriangle, CheckCircle } from 'lucide-react';
 import type { AttendanceResponse, LoginResponse } from './types';
 
 const AUTH_COOKIE_NAME = 'auth_token';
+const USERNAME_COOKIE = 'username';
+const PASSWORD_COOKIE = 'password';
+const REMEMBER_ME_COOKIE = 'remember_me';
+const COOKIE_EXPIRY = 28; // days
 
 function calculateAttendanceProjection(present: number, total: number) {
   const currentPercentage = (present / total) * 100;
@@ -33,6 +37,16 @@ function App() {
   const [attendanceData, setAttendanceData] = useState<AttendanceResponse['data'] | null>(null);
 
   useEffect(() => {
+    // Load saved credentials
+    const savedUsername = Cookies.get(USERNAME_COOKIE) || '';
+    const savedRememberMe = Cookies.get(REMEMBER_ME_COOKIE) === 'true';
+    const savedPassword = savedRememberMe ? Cookies.get(PASSWORD_COOKIE) || '' : '';
+
+    setUsername(savedUsername);
+    setPassword(savedPassword);
+    setRememberMe(savedRememberMe);
+
+    // Check for auth token
     const token = Cookies.get(AUTH_COOKIE_NAME);
     if (token) {
       fetchAttendanceData(token);
@@ -69,9 +83,16 @@ function App() {
 
       const token = loginResponse.data.data.token;
       
+      // Save credentials
+      Cookies.set(USERNAME_COOKIE, username, { expires: COOKIE_EXPIRY });
+      Cookies.set(REMEMBER_ME_COOKIE, rememberMe.toString(), { expires: COOKIE_EXPIRY });
+      
       if (rememberMe) {
-        // Set cookie with no expiry (persists until browser is closed)
-        Cookies.set(AUTH_COOKIE_NAME, token, { expires: 365 });
+        Cookies.set(PASSWORD_COOKIE, password, { expires: COOKIE_EXPIRY });
+        Cookies.set(AUTH_COOKIE_NAME, token, { expires: COOKIE_EXPIRY });
+      } else {
+        Cookies.remove(PASSWORD_COOKIE);
+        Cookies.set(AUTH_COOKIE_NAME, token); // Session cookie
       }
 
       await fetchAttendanceData(token);
