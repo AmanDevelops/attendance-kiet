@@ -114,12 +114,12 @@ function App() {
               <BookOpen className="h-12 w-12 text-blue-600" />
             </div>
             <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">
-              Student Attendance Portal
+              CyberVidya Attendance
             </h2>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                  Username
+                  University Roll Number
                 </label>
                 <input
                   id="username"
@@ -132,7 +132,7 @@ function App() {
               </div>
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password
+                  CyberVidya Password
                 </label>
                 <input
                   id="password"
