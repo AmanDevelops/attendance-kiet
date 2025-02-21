@@ -1,61 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>KIET Attendance Dashboard</title>
-    <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-    <div class="container">
-        <div class="student-info">
-            <h1>Student Information</h1>
-            <div class="info-grid">
-                <div class="info-item">
-                    <label>Name</label>
-                    <span id="full-name">Loading...</span>
-                </div>
-                <div class="info-item">
-                    <label>Registration Number</label>
-                    <span id="reg-no">Loading...</span>
-                </div>
-                <div class="info-item">
-                    <label>Branch</label>
-                    <span id="branch">Loading...</span>
-                </div>
-                <div class="info-item">
-                    <label>Semester</label>
-                    <span id="semester">Loading...</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="courses">
-            <h2>Course Attendance</h2>
-            <div class="course-list">
-                <div class="course-card">
-                    <div class="course-header">
-                        <span class="course-name">Loading...</span>
-                        <span class="course-code">Loading...</span>
-                    </div>
-                    <div class="attendance-details">
-                        <div class="attendance-item">
-                            <label>Component</label>
-                            <span id="component">Loading..</span>
-                        </div>
-                        <div class="attendance-item">
-                            <label>Attendance</label>
-                            <span class="percentage">Loading...</span>
-                        </div>
-                        <div class="attendance-item">
-                            <label>Classes Attended</label>
-                            <span id="classes-attended">Loading...</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</body>
-<script src="index.js"></script>
+    <title>KIET Attendance</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
