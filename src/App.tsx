@@ -169,28 +169,29 @@ function App() {
         </div>
       ) : (
         <div className="container mx-auto px-4 py-8">
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div className="flex items-center gap-4 mb-6">
-              <User className="h-12 w-12 text-blue-600" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">{attendanceData.fullName}</h1>
-                <p className="text-gray-600">
-                  {attendanceData.registrationNumber} | {attendanceData.branchShortName} - Section {attendanceData.sectionName}
-                </p>
-                <p className="text-gray-600">
-                  {attendanceData.degreeName} | Semester {attendanceData.semesterName}
-                </p>
-              </div>
-            </div>
-          </div>
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8 manga-border manga-fade-in">
+  <div className="flex items-center gap-6 mb-6">
+    <User className="h-16 w-16 text-blue-600" /> {/* Increased size for better visibility */}
+      <div className="flex flex-col">
+      <h1 className="text-2xl font-black text-black mb-2 text-center manga-text">{attendanceData.fullName}</h1> {/* Adjusted margin */}
+        <p className="text-sm text-black font-semibold manga-text mb-1">
+          {attendanceData.registrationNumber} | {attendanceData.branchShortName} - Section {attendanceData.sectionName}</p>
+        <p className="text-sm text-black font-semibold manga-text">
+          {attendanceData.degreeName} | Semester {attendanceData.semesterName}
+        </p>
+
+    </div>
+  </div>
+</div>
+
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {attendanceData.attendanceCourseComponentInfoList.map((course) => (
-              <div key={course.courseCode} className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              <div key={course.courseCode} className="bg-white rounded-lg shadow-md p-6 manga-border manga-fade-in">
+                <h3 className="text-sm font-semibold text-gray-800 mb-2 manga-text">
                   {course.courseName}
                 </h3>
-                <p className="text-sm text-gray-600 mb-4">Code: {course.courseCode}</p>
+                <p className="text-sm text-gray-600 mb-4 manga-text">Code: {course.courseCode}</p>
                 <div className="space-y-4">
                   {course.attendanceCourseComponentNameInfoList.map((component, index) => {
                     const projection = component.numberOfPeriods > 0 
@@ -198,9 +199,9 @@ function App() {
                       : null;
                     
                     return (
-                      <div key={index} className="border-t pt-4">
+                      <div key={index} className="border-t-2 pt-4 border-black">
                         <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm font-medium text-gray-700">
+                          <span className="text-sm font-medium text-gray-700 manga-text">
                             {component.componentName}
                           </span>
                           <span className="text-sm font-semibold" style={{
@@ -232,50 +233,53 @@ function App() {
           </div>
         </div>
       )}
-      <footer className="bg-white shadow-md mt-auto">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <div className="flex items-center space-x-2">
-              <a 
-                href="https://github.com/AmanDevelops/attendance-kiet" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <span>View on GitHub</span>
-              </a>
-            </div>
-            
-            <div className="flex flex-wrap justify-center gap-2">
-              <span className="text-gray-600">Contributors:</span>
-              <div className="flex -space-x-2">
-                <img
-                  className="inline-block h-8 w-8 rounded-full ring-2 ring-white"
-                  src="https://avatars.githubusercontent.com/AmanDevelops"
-                  alt="Contributor 1"
-                />
-                <img
-                  className="inline-block h-8 w-8 rounded-full ring-2 ring-white"
-                  src="https://avatars.githubusercontent.com/webdevgeeks"
-                  alt="Contributor 2"
-                />
-                <img
-                  className="inline-block h-8 w-8 rounded-full ring-2 ring-white"
-                  src="https://avatars.githubusercontent.com/rishav76dev"
-                  alt="Contributor 3"
-                />
-                <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 ring-2 ring-white">
-                  <span className="text-xs font-medium text-gray-500">+1</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="mt-4 text-center text-sm text-gray-500">
-            Made with ❤️ by WebDevGeeks
+      <footer className="bg-white shadow-md mt-auto manga-border">
+  <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+      <div className="flex items-center space-x-2">
+        <a 
+          href="https://github.com/AmanDevelops/attendance-kiet" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="inline-flex items-center space-x-2 text-gray-600 hover:text-black transition-colors manga-text font-extrabold"
+        >
+          <span>View on GitHub</span>
+        </a>
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <span className="text-gray-600 manga-text font-extrabold">Contributors:</span>
+        <div className="flex -space-x-2">
+          <img
+            className="inline-block h-8 w-8 rounded-full ring-2 ring-white manga-border"
+            src="https://avatars.githubusercontent.com/AmanDevelops"
+            alt="Contributor 1"
+          />
+          <img
+            className="inline-block h-8 w-8 rounded-full ring-2 ring-white manga-border"
+            src="https://avatars.githubusercontent.com/webdevgeeks"
+            alt="Contributor 2"
+          />
+          <img
+            className="inline-block h-8 w-8 rounded-full ring-2 ring-white manga-border"
+            src="https://avatars.githubusercontent.com/rishav76dev"
+            alt="Contributor 3"
+          />
+          <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 ring-2 ring-white manga-border">
+            <span className="text-xs font-medium text-gray-500 manga-text">+1</span>
           </div>
         </div>
-      </footer>
+      </div>
+    </div>
+
+    <div className="mt-4 text-center text-sm text-gray-500 manga-text font-extrabold">
+      Made with ❤️ by WebDevGeeks
+    </div>
+  </div>
+</footer>
+
+
+
     </div>
   );
 }
