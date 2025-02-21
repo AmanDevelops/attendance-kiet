@@ -3,6 +3,7 @@ import axios from 'axios';
 import Cookies from 'js-cookie';
 import { BookOpen, User, AlertTriangle, CheckCircle } from 'lucide-react';
 import type { AttendanceResponse, LoginResponse } from './types';
+import { Analytics } from '@vercel/analytics/react';
 
 const AUTH_COOKIE_NAME = 'auth_token';
 const USERNAME_COOKIE = 'username';
@@ -104,7 +105,8 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+      <div className="min-h-screen bg-gray-100">
+      <Analytics />
       {!attendanceData ? (
         <div className="flex min-h-screen items-center justify-center">
           <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-md">
