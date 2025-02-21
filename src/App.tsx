@@ -231,6 +231,50 @@ function App() {
           </div>
         </div>
       )}
+      <footer className="bg-white shadow-md mt-auto">
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+            <div className="flex items-center space-x-2">
+              <a 
+                href="https://github.com/AmanDevelops/attendance-kiet" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <span>View on GitHub</span>
+              </a>
+            </div>
+            
+            <div className="flex flex-wrap justify-center gap-2">
+              <span className="text-gray-600">Contributors:</span>
+              <div className="flex -space-x-2">
+                <img
+                  className="inline-block h-8 w-8 rounded-full ring-2 ring-white"
+                  src="https://avatars.githubusercontent.com/AmanDevelops"
+                  alt="Contributor 1"
+                />
+                <img
+                  className="inline-block h-8 w-8 rounded-full ring-2 ring-white"
+                  src="https://avatars.githubusercontent.com/webdevgeeks"
+                  alt="Contributor 2"
+                />
+                <img
+                  className="inline-block h-8 w-8 rounded-full ring-2 ring-white"
+                  src="https://avatars.githubusercontent.com/rishav76dev"
+                  alt="Contributor 3"
+                />
+                <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 ring-2 ring-white">
+                  <span className="text-xs font-medium text-gray-500">+1</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-4 text-center text-sm text-gray-500">
+            Made with ❤️ by WebDevGeeks
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
