@@ -1,3 +1,39 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.manga-panel {
+  position: relative;
+  background: white;
+}
+
+.manga-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 65%, rgba(0,0,0,0.05) 100%);
+  pointer-events: none;
+}
+
+.manga-text {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.manga-border {
+  border: 2px solid black;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.9);
+}
+
+.manga-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
