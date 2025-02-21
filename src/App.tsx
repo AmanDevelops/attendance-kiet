@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Cookies from 'js-cookie';
-import { BookOpen, User, AlertTriangle, CheckCircle } from 'lucide-react';
+import { BookOpen, User, AlertTriangle, CheckCircle ,Sparkles} from 'lucide-react';
 import type { AttendanceResponse, LoginResponse } from './types';
 import { Analytics } from '@vercel/analytics/react';
 
@@ -18,7 +18,7 @@ function calculateAttendanceProjection(present: number, total: number) {
     const canMiss = Math.floor((present - (0.75 * total)) / 0.75);
     return {
       status: 'safe',
-      message: canMiss > 0 ? `You can miss ${canMiss} more class${canMiss === 1 ? '' : 'es'}` : 'Try not to miss any more classes',
+      message: canMiss > 0 ? `You can miss ${canMiss} class only${canMiss === 1 ? '' : 'es'}` : 'Try not to miss any more classes',
     };
   } else {
     const needToAttend = Math.ceil((0.75 * total - present) / 0.25);
@@ -108,17 +108,18 @@ function App() {
       <div className="min-h-screen bg-gray-100">
       <Analytics />
       {!attendanceData ? (
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-md">
+        <div className="flex min-h-screen items-center justify-center p-4">
+          <div className="manga-panel manga-border w-full max-w-md bg-white p-8 manga-fade-in">
             <div className="flex items-center justify-center mb-8">
-              <BookOpen className="h-12 w-12 text-blue-600" />
+            <BookOpen className="h-16 w-16 text-black transform -rotate-12" />
+            <Sparkles className="h-8 w-8 text-black absolute translate-x-8 -translate-y-8" />
             </div>
-            <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">
+            <h2 className="anga-text text-3xl font-black text-center text-black mb-8 transform -rotate-2">
               CyberVidya Attendance
             </h2>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="username" className="manga-text block text-sm font-bold text-black">
                   University Roll Number
                 </label>
                 <input
@@ -126,12 +127,12 @@ function App() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 block w-full manga-border rounded-none px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-black"
                   required
                 />
               </div>
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="password" className="manga-text block text-sm font-bold text-black">
                   CyberVidya Password
                 </label>
                 <input
@@ -139,7 +140,7 @@ function App() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 block w-full manga-border rounded-none px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-black"
                   required
                 />
               </div>
@@ -149,17 +150,17 @@ function App() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-5 w-5 manga-border rounded-none"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                <label htmlFor="remember-me" className="ml-2 block manga-text-sm font-bold text-black">
                   Remember me
                 </label>
               </div>
-              {error && <p className="text-red-600 text-sm">{error}</p>}
+              {error && <p className="manga-text text-red-600 text-sm bg-red-100 p-2 manga-border">{error}</p>}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="w-full manga-border manga-text py-3 px-4 text-sm font-black text-white bg-black hover:bg-gray-800 focus:outline-none disabled:opacity-50 transform hover:-translate-y-1 transition-transform"
               >
                 {loading ? 'Loading...' : 'View Attendance'}
               </button>
