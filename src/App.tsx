@@ -18,7 +18,7 @@ function calculateAttendanceProjection(present: number, total: number) {
     const canMiss = Math.floor((present - (0.75 * total)) / 0.75);
     return {
       status: 'safe',
-      message: canMiss > 0 ? `You can miss ${canMiss} class only${canMiss === 1 ? '' : 'es'}` : 'Try not to miss any more classes',
+      message: canMiss > 0 ? `You can miss ${canMiss} class${canMiss === 1 ? '' : 'es'} only` : 'Try not to miss any more classes',
     };
   } else {
     const needToAttend = Math.ceil((0.75 * total - present) / 0.25);
