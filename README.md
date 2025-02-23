@@ -67,7 +67,7 @@ This project is licensed under the MIT License.
 ## Contributors: 
 <br>
 <p align="left">
-   <a href="https://github.com{/AmanDevelops/attendance-kiet/}graphs/contributors">
+   <a href="https://github.com/AmanDevelops/attendance-kiet/graphs/contributors">
       <img src="https://contrib.rocks/image?repo=AmanDevelops/attendance-kiet">
    </a>
 </p>
