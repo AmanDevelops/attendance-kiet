@@ -42,6 +42,13 @@ npm start
 
 - **Login**: Login through the cyber vidya credentials
 
+## Screenshots
+### Login
+![image](https://github.com/user-attachments/assets/ef34b744-3d9c-40e2-8928-57c239433296)
+### Dashboard
+![image](https://github.com/user-attachments/assets/dedd3a4a-218c-4862-80ee-bf294e02574d)
+
+
 ## Contributing
 
 Contributions are welcome! If you'd like to contribute:
