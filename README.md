@@ -23,7 +23,16 @@ git clone https://github.com/AmanDevelops/attendance-kiet
 cd attendance-kiet
 ```
 
-3. Install dependencies for the project:
+3. Set up environment variables:
+```sh
+# Copy the example environment file
+cp .env.example .env.local
+
+# Edit .env.local and add your reCAPTCHA site key
+# VITE_RECAPTCHA_SITE_KEY=your_recaptcha_site_key_here
+```
+
+4. Install dependencies for the project:
 
 **Using `npm`** &nbsp; [<img align="center" src="https://img.shields.io/badge/npm-CB3837.svg?style={badge_style}&logo=npm&logoColor=white" />](https://www.npmjs.com/)
 
@@ -31,10 +40,10 @@ cd attendance-kiet
 npm install
 ```
 
-4. Start the application:
+5. Start the application:
 
 ```sh
-npm start
+npm run dev
 ```
 ---
 
