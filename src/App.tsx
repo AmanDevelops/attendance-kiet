@@ -17,7 +17,7 @@ const USERNAME_COOKIE = "username";
 const PASSWORD_COOKIE = "password";
 const REMEMBER_ME_COOKIE = "remember_me";
 const COOKIE_EXPIRY = 28; // days
-const RECAPTCHA_SITE_KEY = "6Lf1NPYqAAAAAJuFBUJjeboe1zlBdNTV2aiYVjFu";
+const RECAPTCHA_SITE_KEY = "6LefrcAqAAAAAAtZfDekeyxDXnwy872FU7phEwwc";
 
 function calculateAttendanceProjection(present: number, total: number) {
   const currentPercentage = (present / total) * 100;
