@@ -193,7 +193,7 @@ function App() {
                 <div className="space-y-4">
                   {course.attendanceCourseComponentNameInfoList.map((component, index) => {
                     const projection = component.numberOfPeriods > 0 
-                      ? calculateAttendanceProjection(component.numberOfPresent, component.numberOfPeriods)
+                      ? calculateAttendanceProjection(component.numberOfPresent+component.numberOfExtraAttendance, component.numberOfPeriods)
                       : null;
                     
                     return (
