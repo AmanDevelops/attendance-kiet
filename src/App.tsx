@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Cookies from 'js-cookie';
-import { BookOpen, User, AlertTriangle, CheckCircle ,Sparkles} from 'lucide-react';
+import { BookOpen, User, AlertTriangle, CheckCircle ,Sparkles, LogOut} from 'lucide-react';
 import type { AttendanceResponse, LoginResponse } from './types';
 
 const AUTH_COOKIE_NAME = 'auth_token';
@@ -103,6 +103,21 @@ function App() {
     }
   };
 
+  const handleLogout = () => {
+    // Clear all auth-related cookies
+    Cookies.remove(AUTH_COOKIE_NAME);
+
+    // Only clear password if remember me is not set
+    if (!rememberMe) {
+      Cookies.remove(PASSWORD_COOKIE);
+      setPassword('');
+    }
+
+    // Reset attendance data to trigger login screen
+    setAttendanceData(null);
+    setError('');
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       {!attendanceData ? (
@@ -166,21 +181,32 @@ function App() {
           </div>
         </div>
       ) : (
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-8 flex-grow">
           <div className="bg-white rounded-lg shadow-md p-6 mb-8 manga-border manga-fade-in">
-  <div className="flex items-center gap-6 mb-6">
-    <User className="h-16 w-16 text-blue-600" /> {/* Increased size for better visibility */}
-      <div className="flex flex-col">
-      <h1 className="text-2xl font-black text-black mb-2 text-center manga-text">{attendanceData.fullName}</h1> {/* Adjusted margin */}
-        <p className="text-sm text-black font-semibold manga-text mb-1">
-          {attendanceData.registrationNumber} | {attendanceData.branchShortName} - Section {attendanceData.sectionName}</p>
-        <p className="text-sm text-black font-semibold manga-text">
-          {attendanceData.degreeName} | Semester {attendanceData.semesterName}
-        </p>
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex items-center gap-4">
+        <User className="h-14 w-14 text-blue-600" /> {/* Slightly smaller for better balance */}
+        <div className="flex flex-col">
+          <h1 className="text-xl font-black text-black mb-1 text-center manga-text">{attendanceData.fullName}</h1>
+          <p className="text-xs text-black font-semibold manga-text mb-0.5">
+            {attendanceData.registrationNumber} | {attendanceData.branchShortName} - Section {attendanceData.sectionName}
+          </p>
+          <p className="text-xs text-black font-semibold manga-text">
+            {attendanceData.degreeName} | Semester {attendanceData.semesterName}
+          </p>
+        </div>
+      </div>
 
+      {/* Logout button */}
+      <button
+        onClick={handleLogout}
+        className="manga-border manga-text py-2 px-3 text-xs font-bold text-white bg-black hover:bg-gray-800 focus:outline-none transform hover:-translate-y-1 transition-transform flex items-center gap-1 self-start md:self-auto"
+      >
+        <LogOut className="h-4 w-4" />
+        Logout
+      </button>
     </div>
   </div>
-</div>
 
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
