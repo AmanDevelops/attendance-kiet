@@ -13,6 +13,7 @@ export interface AttendanceResponse {
       courseName: string;
       courseCode: string;
       attendanceCourseComponentNameInfoList: {
+        numberOfExtraAttendance: number;
         componentName: string;
         numberOfPeriods: number;
         numberOfPresent: number;
