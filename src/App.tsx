@@ -235,7 +235,7 @@ function App() {
                           </span>
                         </div>
                         <div className="text-sm text-gray-600 mb-2">
-                          Present: {component.numberOfPresent}/{component.numberOfPeriods}
+                          Present: {component.numberOfPresent+component.numberOfExtraAttendance}/{component.numberOfPeriods}
                         </div>
                         {projection && (
                           <div className={`flex items-center gap-2 text-sm ${
