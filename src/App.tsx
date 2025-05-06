@@ -49,7 +49,7 @@ function processCourseData(courses: AttendanceResponse['data']['attendanceCourse
         ...course,
         attendanceCourseComponentNameInfoList: [combined],
       };
-    } else {
+    } else if (components.length > 0) {
       const c = components[0];
       const present = c.numberOfPresent + c.numberOfExtraAttendance;
       const percentage = c.numberOfPeriods > 0 ? (present / c.numberOfPeriods) * 100 : 0;
