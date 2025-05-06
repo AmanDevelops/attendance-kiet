@@ -27,6 +27,45 @@ function calculateAttendanceProjection(present: number, total: number) {
     };
   }
 }
+function processCourseData(courses: AttendanceResponse['data']['attendanceCourseComponentInfoList']) {
+  return courses.map(course => {
+    const components = course.attendanceCourseComponentNameInfoList;
+
+    if (components.length > 1) {
+      const totalPresent = components.reduce((sum, c) => sum + c.numberOfPresent + c.numberOfExtraAttendance, 0);
+      const totalPeriods = components.reduce((sum, c) => sum + c.numberOfPeriods, 0);
+      const percentage = totalPeriods > 0 ? (totalPresent / totalPeriods) * 100 : 0;
+
+      const combined = {
+        componentName: 'AVERAGE (ALL COMPONENTS)',
+        numberOfPresent: totalPresent,
+        numberOfPeriods: totalPeriods,
+        numberOfExtraAttendance: 0,
+        presentPercentage: percentage,
+        presentPercentageWith: `${percentage.toFixed(2)}%`,
+      };
+
+      return {
+        ...course,
+        attendanceCourseComponentNameInfoList: [combined],
+      };
+    } else if (components.length > 0) {
+      const c = components[0];
+      const present = c.numberOfPresent + c.numberOfExtraAttendance;
+      const percentage = c.numberOfPeriods > 0 ? (present / c.numberOfPeriods) * 100 : 0;
+
+      return {
+        ...course,
+        attendanceCourseComponentNameInfoList: [{
+          ...c,
+          presentPercentage: percentage,
+          presentPercentageWith: `${percentage.toFixed(2)}%`,
+        }],
+      };
+    }
+  });
+}
+
 
 function App() {
   const [username, setUsername] = useState('');
@@ -210,7 +249,8 @@ function App() {
 
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {attendanceData.attendanceCourseComponentInfoList.map((course) => (
+            {processCourseData(attendanceData.attendanceCourseComponentInfoList).map((course) => (
+
               <div key={course.courseCode} className="bg-white rounded-lg shadow-md p-6 manga-border manga-fade-in">
                 <h3 className="text-sm font-semibold text-gray-800 mb-2 manga-text">
                   {course.courseName}
