@@ -26,7 +26,7 @@ function Footer() {
               >
                 <img
                   className="inline-block h-8 w-8 rounded-full ring-2 ring-white manga-border transform hover:-translate-y-1 transition-transform"
-                  src="https://avatars.githubusercontent.com/AmanDevelops"
+                  src="./AmanDevelops.webp"
                   alt="Contributor 1"
                 />
               </a>
@@ -59,7 +59,7 @@ function Footer() {
               >
                 <img
                   className="inline-block h-8 w-8 rounded-full ring-2 ring-white manga-border transform hover:-translate-y-1 transition-transform"
-                  src="https://avatars.githubusercontent.com/webdevgeeks"
+                  src="./webdevgeeks.webp"
                   alt="Contributor 2"
                 />
               </a>
