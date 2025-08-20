@@ -116,18 +116,17 @@ function LoginForm({
   return (
     <div className="flex flex-col min-h-screen items-center justify-center p-4">
       <div className="flex gap-5 align-center mb-5 items-center">
-        <div className="follow-btn">
+        <div>
           <a
-            className="github-button follow-btn"
+            className="github-button follow-btn p-10"
             href="https://github.com/amandevelops"
-            data-color-scheme="no-preference: light; light: light; dark: light;"
             data-size="large"
             aria-label="Follow @amandevelops on GitHub"
           >
-            Follow @AmanDevelops
+            Aman Pal
           </a>
         </div>
-        <div>
+        <div className="flex-1">
           <a
             href="https://github.com/AmanDevelops/attendance-kiet"
             target="_blank"
