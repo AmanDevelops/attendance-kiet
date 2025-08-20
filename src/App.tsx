@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Attendance from "./components/Attendance";
+import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
 import type { AttendanceResponse } from "./types/response";
 
@@ -9,7 +10,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="overflow-hidden m-auto bg-green-100 ">
+      <div className="overflow-hidden m-auto bg-green-100">
         <div className="py-2 text-center text-sm font-medium text-green-600">
           YOUR CREDENTIALS ARE NEVER SHARED WITH US. THEY ARE SENT DIRECTLY TO
           CYBERVIDYA AND STORED LOCALLY.
@@ -32,6 +33,7 @@ function App() {
           setAttendanceData={setAttendanceData}
         />
       )}
+      <Footer />
     </div>
   );
 }

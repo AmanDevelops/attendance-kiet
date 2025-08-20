@@ -114,8 +114,8 @@ function LoginForm({
   };
 
   return (
-    <div className="flex flex-col min-h-screen items-center justify-center p-4">
-      <div className="flex gap-5 align-center mb-5 items-center">
+    <div className="flex flex-col mb-20 mt-20 items-center justify-center p-4">
+      {/* <div className="flex gap-5 align-center mb-5 items-center">
         <div>
           <a
             className="github-button follow-btn p-10"
@@ -138,7 +138,7 @@ function LoginForm({
             />
           </a>
         </div>
-      </div>
+      </div> */}
       <div className="manga-panel manga-border w-full max-w-md bg-white p-8 manga-fade-in">
         <div className="flex items-center justify-center mb-8">
           <BookOpen className="h-16 w-16 text-black transform -rotate-12" />
