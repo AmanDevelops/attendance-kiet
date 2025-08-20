@@ -1,3 +1,16 @@
+export interface LoginResponse {
+  data: {
+    token: string;
+  };
+}
+
+export interface AttendanceDataSummaryResponse {
+  data: {
+    presentPerc: number;
+    absentPerc: number;
+  };
+}
+
 export interface AttendanceResponse {
   data: {
     fullName: string;
@@ -25,8 +38,15 @@ export interface AttendanceResponse {
   message: string;
 }
 
-export interface LoginResponse {
-  data: {
-    token: string;
-  };
+export interface Course {
+  courseName: string;
+  courseCode: string;
+  attendanceCourseComponentNameInfoList: {
+    numberOfExtraAttendance: number;
+    componentName: string;
+    numberOfPeriods: number;
+    numberOfPresent: number;
+    presentPercentage: number | null;
+    presentPercentageWith: string;
+  }[];
 }

@@ -1,7 +1,23 @@
+import axios from "axios";
+import Cookies from "js-cookie";
 import { BookOpen, Eye, EyeOff, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  AUTH_COOKIE_NAME,
+  COOKIE_EXPIRY,
+  PASSWORD_COOKIE,
+  REMEMBER_ME_COOKIE,
+  USERNAME_COOKIE,
+} from "../types/CookieVars";
+import type { AttendanceResponse, LoginResponse } from "../types/response";
 
-function LoginForm() {
+function LoginForm({
+  setAttendanceData,
+}: {
+  setAttendanceData: React.Dispatch<
+    React.SetStateAction<AttendanceResponse | null>
+  >;
+}) {
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [rememberMe, setRememberMe] = useState<boolean>(true);
@@ -16,6 +32,22 @@ function LoginForm() {
     script.defer = true;
     document.head.appendChild(script);
 
+    const savedUsername = Cookies.get(USERNAME_COOKIE) || "";
+    const savedRememberMe = Cookies.get(REMEMBER_ME_COOKIE) === "true";
+    const savedPassword = savedRememberMe
+      ? Cookies.get(PASSWORD_COOKIE) || ""
+      : "";
+
+    setUsername(savedUsername);
+    setPassword(savedPassword);
+    setRememberMe(savedRememberMe);
+
+    const token = Cookies.get(AUTH_COOKIE_NAME);
+
+    if (token) {
+      fetchAttendanceData(token);
+    }
+
     return () => {
       document.head.removeChild(script);
     };
@@ -29,6 +61,56 @@ function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    try {
+      const loginResponse = await axios.post<LoginResponse>(
+        "https://kiet.cybervidya.net/api/auth/login",
+        {
+          userName: username,
+          password: password,
+        }
+      );
+
+      const token = loginResponse.data.data.token;
+
+      Cookies.set(USERNAME_COOKIE, username, { expires: COOKIE_EXPIRY });
+      Cookies.set(REMEMBER_ME_COOKIE, rememberMe.toString(), {
+        expires: COOKIE_EXPIRY,
+      });
+
+      if (rememberMe) {
+        Cookies.set(PASSWORD_COOKIE, password, { expires: COOKIE_EXPIRY });
+        Cookies.set(AUTH_COOKIE_NAME, token, { expires: COOKIE_EXPIRY });
+      } else {
+        Cookies.remove(PASSWORD_COOKIE);
+        Cookies.set(AUTH_COOKIE_NAME, token);
+      }
+      if (token) {
+        fetchAttendanceData(token);
+      }
+    } catch (err) {
+      setError(
+        "Failed to fetch attendance data. Please check your credentials."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAttendanceData = async (token: string) => {
+    try {
+      const attendanceResponse = await axios.get<AttendanceResponse>(
+        "https://kiet.cybervidya.net/api/attendance/course/component/student",
+        {
+          headers: {
+            Authorization: `GlobalEducation ${token}`,
+          },
+        }
+      );
+      setAttendanceData(attendanceResponse.data);
+    } catch (err) {
+      setError("Session expired. Please login again.");
+      Cookies.remove(AUTH_COOKIE_NAME);
+    }
   };
 
   return (
@@ -42,7 +124,7 @@ function LoginForm() {
             data-size="large"
             aria-label="Follow @amandevelops on GitHub"
           >
-            Follow @amandevelops
+            Follow @AmanDevelops
           </a>
         </div>
         <div>
