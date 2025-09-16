@@ -74,10 +74,10 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
       <table className="w-full border border-gray-300">
         <thead className="bg-gray-100">
           <tr className="text-sm font-semibold text-gray-700">
-            <th className="p-3 border">Date</th>
-            <th className="p-3 border">Day</th>
-            <th className="p-3 border">Time Slot</th>
-            <th className="p-3 border">Attendance</th>
+            <th className="p-1 border">Date</th>
+            <th className="p-1 border">Day</th>
+            <th className="p-1 border">Time Slot</th>
+            <th className="p-1 border">Attendance</th>
           </tr>
         </thead>
         <tbody className="text-center text-gray-800 text-sm">
