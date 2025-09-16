@@ -87,7 +87,7 @@ function LoginForm({
       if (token) {
         fetchAttendanceData(token);
       }
-    } catch (err) {
+    } catch (err:any) {
       setError(
         "Failed to fetch attendance data. Please check your credentials."
       );
@@ -107,7 +107,7 @@ function LoginForm({
         }
       );
       setAttendanceData(attendanceResponse.data);
-    } catch (err) {
+    } catch (err:any) {
       setError("Session expired. Please login again.");
       Cookies.remove(AUTH_COOKIE_NAME);
     }
@@ -139,7 +139,7 @@ function LoginForm({
           </a>
         </div>
       </div> */}
-      <div className="manga-panel manga-border w-full max-w-md bg-white p-8 manga-fade-in">
+      <div className="style-panel style-border w-full max-w-md bg-white p-8 style-fade-in">
         <div className="flex items-center justify-center mb-8">
           <BookOpen className="h-16 w-16 text-black transform -rotate-12" />
           <Sparkles className="h-8 w-8 text-black absolute translate-x-8 -translate-y-8" />
@@ -151,7 +151,7 @@ function LoginForm({
           <div>
             <label
               htmlFor="username"
-              className="manga-text block text-sm font-bold text-black"
+              className="style-text block text-sm font-bold text-black"
             >
               University Roll Number
             </label>
@@ -161,14 +161,14 @@ function LoginForm({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="20240XXXXXXXXXX"
-              className="mt-1 block w-full manga-border rounded-none px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+              className="mt-1 block w-full style-border rounded-none px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-black"
               required
             />
           </div>
           <div>
             <label
               htmlFor="password"
-              className="manga-text block text-sm font-bold text-black"
+              className="style-text block text-sm font-bold text-black"
             >
               CyberVidya Password
             </label>
@@ -178,7 +178,7 @@ function LoginForm({
                 type={isPasswordVisible ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full manga-border rounded-none px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                className="mt-1 block w-full style-border rounded-none px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-black"
                 required
               />
               {isPasswordVisible ? (
@@ -200,11 +200,11 @@ function LoginForm({
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-5 w-5 manga-border rounded-none"
+              className="h-5 w-5 style-border rounded-none"
             />
             <label
               htmlFor="remember-me"
-              className="ml-2 block manga-text-sm font-bold text-black"
+              className="ml-2 block style-text-sm font-bold text-black"
             >
               Remember me
             </label>
@@ -220,14 +220,14 @@ function LoginForm({
           </div>
 
           {error && (
-            <p className="manga-text text-red-600 text-sm bg-red-100 p-2 manga-border">
+            <p className="style-text text-red-600 text-sm bg-red-100 p-2 style-border">
               {error}
             </p>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="w-full manga-border manga-text py-3 px-4 text-sm font-black text-white bg-black hover:bg-gray-800 focus:outline-none disabled:opacity-50 transform hover:-translate-y-1 transition-transform cursor-pointer"
+            className="w-full style-border style-text py-3 px-4 text-sm font-black text-white bg-black hover:bg-gray-800 focus:outline-none disabled:opacity-50 transform hover:-translate-y-1 transition-transform cursor-pointer"
           >
             {loading ? "Loading..." : "View Attendance"}
           </button>

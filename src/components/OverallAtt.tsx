@@ -61,7 +61,7 @@ function OverallAtt() {
     }
   }
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 mb-8 manga-border manga-fade-in m-auto">
+    <div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in m-auto">
       <h1 className="text-2xl mb-1 ml-1 font-bold">Overall Attendance</h1>
       {attendanceDataSummary && (
         // TODO: Make an object to store all the properties and calculate all at once

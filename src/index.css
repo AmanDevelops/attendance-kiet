@@ -11,12 +11,12 @@
   }
 }
 
-.manga-panel {
+.style-panel {
   position: relative;
   background: white;
 }
 
-.manga-panel::before {
+.style-panel::before {
   content: "";
   position: absolute;
   top: 0;
@@ -27,17 +27,17 @@
   pointer-events: none;
 }
 
-.manga-text {
+.style-text {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-.manga-border {
+.style-border {
   border: 2px solid black;
   box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.9);
 }
 
-.manga-fade-in {
+.style-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
 }
