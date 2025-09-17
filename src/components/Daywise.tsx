@@ -70,7 +70,7 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
     return <p>No daywise attendance data available.</p>;
 
   return (
-    <div className="bg-white rounded-lg shadow-md style-border style-fade-in overflow-x-auto max-h-[500px] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+    <div className="bg-white rounded-lg border-2 border-black style-fade-in overflow-x-auto max-h-[500px] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
       <table className="w-full border border-gray-300">
         <thead className="bg-gray-100">
           <tr className="text-sm font-semibold text-gray-700">
