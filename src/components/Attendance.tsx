@@ -1,5 +1,6 @@
 import Cookies from "js-cookie";
 import { AlertTriangle, CheckCircle, LogOut, User, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   AUTH_COOKIE_NAME,
   PASSWORD_COOKIE,
@@ -7,10 +8,9 @@ import {
   USERNAME_COOKIE,
 } from "../types/CookieVars";
 import type { AttendanceResponse } from "../types/response";
-import OverallAtt from "./OverallAtt";
-import { useEffect, useState } from "react";
-import DaywiseReport from "./Daywise";
 import { fetchStudentId } from "../types/utils";
+import DaywiseReport from "./Daywise";
+import OverallAtt from "./OverallAtt";
 
 type AttendanceHook = {
   attendanceData: AttendanceResponse;
@@ -59,6 +59,15 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
     setSelectedComponent({ course, component });
     setIsDaywiseModalOpen(true);
   }
+
+  useEffect(() => {
+    if (isDaywiseModalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+  }, [isDaywiseModalOpen]);
+
   useEffect(() => {
     const token = Cookies.get(AUTH_COOKIE_NAME) || "";
     fetchStudentId(token).then((id) => {
@@ -183,7 +192,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
       </div>
       {/* ✅ Modal to Show Daywise Attendance */}
       {isDaywiseModalOpen && selectedComponent && (
-        <div className="fixed inset-0 bg-transparent backdrop-blur-[1px]  flex items-center justify-center z-50 px-4">
+        <div className="fixed inset-0 bg-transparent backdrop-blur-[3px]  flex items-center justify-center z-50 px-4">
           <div className="relative bg-white bg-opacity-90 backdrop-blur-md p-4 rounded-lg shadow-lg max-w-3xl w-full border-2 border-black">
             <div className="flex justify-between items-center mb-4 ">
               <h2 className="text-lg">
@@ -195,7 +204,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
               </h2>
 
               <button
-                className="text-red-500 text-xl font-bold"
+                className="text-red-500 text-xl font-bold cursor-pointer"
                 onClick={() => setIsDaywiseModalOpen(false)}
               >
                 <X />

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import axios from "axios";
+import { useEffect, useState } from "react";
 
 type DaywiseReportProps = {
   token: string;
@@ -15,7 +15,7 @@ function formatDate(dateString: string) {
   const date = new Date(dateString);
   const day = String(date.getDate()).padStart(2, "0");
   const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
+  const year = String(date.getFullYear()).slice(-2);
   return `${day}-${month}-${year}`;
 }
 function DaywiseReport({ token, payload }: DaywiseReportProps) {
@@ -70,7 +70,7 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
     return <p>No daywise attendance data available.</p>;
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-1 sm:p-6 style-border style-fade-in overflow-x-auto max-h-[500px]">
+    <div className="bg-white rounded-lg shadow-md style-border style-fade-in overflow-x-auto max-h-[500px]">
       <table className="w-full border border-gray-300">
         <thead className="bg-gray-100">
           <tr className="text-sm font-semibold text-gray-700">
@@ -84,8 +84,8 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
           {daywiseData.map((lecture, index) => (
             <tr key={index} className="hover:bg-gray-50 transition-colors">
               <td className="p-2 border">{formatDate(lecture.planLecDate)}</td>
-              <td className="p-2 border">{lecture.dayName}</td>
-              <td className="p-2 border">{lecture.timeSlot}</td>
+              <td className="p-2 border">{lecture.dayName.substring(0, 3)}</td>
+              <td className="p-2 border text-xs">{lecture.timeSlot}</td>
               <td className="p-2 border font-semibold">
                 {lecture.attendance === "PRESENT" ? (
                   <span className="text-green-600">{lecture.attendance}</span>
