@@ -87,9 +87,13 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
               <td className="p-2 border">{lecture.dayName.substring(0, 3)}</td>
               <td className="p-2 border text-xs">{lecture.timeSlot}</td>
               <td className="p-2 border font-semibold">
-                {lecture.attendance === "PRESENT" ? (
+                {lecture.attendance === "PRESENT" && (
                   <span className="text-green-600">{lecture.attendance}</span>
-                ) : (
+                )}
+                {lecture.attendance === "ADJUSTED" && (
+                  <span className="text-green-800">{lecture.attendance}</span>
+                )}
+                {lecture.attendance === "ABSENT" && (
                   <span className="text-red-600">{lecture.attendance}</span>
                 )}
               </td>

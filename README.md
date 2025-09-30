@@ -73,4 +73,4 @@ This project is licensed under the MIT License.
 </p>
 
 
-For more information, visit the [live application](https://attendance-kiet.vercel.app/). 
+For more information, visit the [live application](https://cybervidya.pages.dev/). 
