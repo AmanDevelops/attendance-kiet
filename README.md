@@ -51,7 +51,7 @@ npm start
 
 ## Contributing
 
-Contributions are welcome! If you'd like to contribute:
+Contributions are welcome! If you'd like to contribute kindly open an issue first and take approval before working on it:
 
 1. Fork the repository.
 2. Create a new branch (`git checkout -b feature/YourFeature`).
