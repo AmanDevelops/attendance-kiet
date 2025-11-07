@@ -44,6 +44,9 @@ function calculateAttendanceProjection(present: number, total: number) {
 
 function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
   const [studentId, setStudentId] = useState<number | null>(null);
+  const [selectedComponent, setSelectedComponent] = useState<any | null>(null);
+  const [isDaywiseModalOpen, setIsDaywiseModalOpen] = useState(false);
+
   function handleLogout(): void {
     Cookies.remove(AUTH_COOKIE_NAME);
     if (!Cookies.get(REMEMBER_ME_COOKIE)) {
@@ -52,8 +55,6 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
     }
     setAttendanceData(null);
   }
-  const [selectedComponent, setSelectedComponent] = useState<any | null>(null);
-  const [isDaywiseModalOpen, setIsDaywiseModalOpen] = useState(false);
 
   function handleViewDaywiseAttendance(course: any, component: any) {
     setSelectedComponent({ course, component });
@@ -61,11 +62,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
   }
 
   useEffect(() => {
-    if (isDaywiseModalOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "auto";
-    }
+    document.body.style.overflow = isDaywiseModalOpen ? "hidden" : "auto";
   }, [isDaywiseModalOpen]);
 
   useEffect(() => {
@@ -74,45 +71,51 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
       if (id) setStudentId(id);
     });
   }, []);
+
   return (
     <div className="container mx-auto px-4 py-8 flex-grow">
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center sm:gap-4 justify-between">
-            <div className="flex items-center gap-4">
-              <User className="h-14 w-14" />{" "}
-              <div className="flex flex-col">
-                <h1 className="text-xl font-black text-black mb-1 style-text">
-                  {attendanceData.data.fullName}
-                </h1>
-                <p className="text-xs text-black font-semibold style-text mb-0.5">
-                  {attendanceData.data.registrationNumber} |{" "}
-                  {attendanceData.data.branchShortName} - Section{" "}
-                  {attendanceData.data.sectionName}
-                </p>
-                <p className="text-xs text-black font-semibold style-text">
-                  {attendanceData.data.degreeName} | Semester{" "}
-                  {attendanceData.data.semesterName}
-                </p>
-              </div>
+      {/* 🧑 Profile + Logout Section */}
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8 style-border style-fade-in">
+        <div className="flex items-center justify-between gap-3 sm:gap-6 overflow-hidden">
+          {/* Student Info */}
+          <div className="flex items-center gap-3 sm:gap-5 overflow-hidden min-w-0">
+            <User className="h-10 w-10 sm:h-14 sm:w-14 flex-shrink-0" />
+            <div className="min-w-0 truncate">
+              <h1 className="text-lg sm:text-xl font-black text-black mb-1 truncate style-text">
+                {attendanceData.data.fullName}
+              </h1>
+              <p className="text-[11px] sm:text-xs text-black font-semibold style-text truncate">
+                {attendanceData.data.registrationNumber} |{" "}
+                {attendanceData.data.branchShortName} - Section{" "}
+                {attendanceData.data.sectionName}
+              </p>
+              <p className="text-[11px] sm:text-xs text-black font-semibold style-text truncate">
+                {attendanceData.data.degreeName} | Semester{" "}
+                {attendanceData.data.semesterName}
+              </p>
             </div>
-
-            <button
-              onClick={handleLogout}
-              className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300"
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </button>
           </div>
+
+          {/* Logout Button — fixed horizontally */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1 sm:gap-2 style-border style-text py-1.5 sm:py-2 px-3 sm:px-5 text-[11px] sm:text-sm font-bold whitespace-nowrap hover:text-white hover:bg-black transition-transform duration-300 transform hover:-translate-y-1 focus:outline-none"
+          >
+            <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
+            Logout
+          </button>
         </div>
       </div>
+
+      {/* 📊 Overall Attendance */}
       <OverallAtt />
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+
+      {/* 📚 Course Cards */}
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {attendanceData.data.attendanceCourseComponentInfoList.map((course) => (
           <div
             key={course.courseCode}
-            className="bg-white rounded-lg shadow-md p-6 style-border style-fade-in"
+            className="bg-white rounded-lg shadow-md p-5 sm:p-6 style-border style-fade-in"
           >
             <h3 className="text-sm font-bold text-gray-800 mb-2 style-text">
               {course.courseName}
@@ -120,6 +123,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
             <p className="text-sm text-gray-600 mb-4 style-text">
               Code: {course.courseCode}
             </p>
+
             <div className="space-y-4">
               {course.attendanceCourseComponentNameInfoList.map(
                 (component, index) => {
@@ -133,8 +137,11 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
                       : null;
 
                   return (
-                    <div key={index} className="border-t-2 pt-4 border-black">
-                      <div className="flex justify-between items-center mb-2">
+                    <div
+                      key={index}
+                      className="border-t-2 pt-4 border-black overflow-hidden"
+                    >
+                      <div className="flex justify-between items-center mb-2 flex-wrap">
                         <span className="text-sm font-medium text-gray-700 style-text">
                           {component.componentName}
                         </span>
@@ -150,12 +157,14 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
                           {component.presentPercentageWith}
                         </span>
                       </div>
+
                       <div className="text-sm text-gray-600 mb-2">
                         Present:{" "}
                         {component.numberOfPresent +
                           component.numberOfExtraAttendance}
                         /{component.numberOfPeriods}
                       </div>
+
                       {projection && (
                         <div
                           className={`flex items-center gap-2 text-sm ${
@@ -172,12 +181,13 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
                           {projection.message}
                         </div>
                       )}
-                      <div className="pt-2 ">
+
+                      <div className="pt-2">
                         <button
                           onClick={() =>
                             handleViewDaywiseAttendance(course, component)
                           }
-                          className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300"
+                          className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none"
                         >
                           See Daywise Attendance
                         </button>
@@ -190,11 +200,12 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
           </div>
         ))}
       </div>
-      {/* ✅ Modal to Show Daywise Attendance */}
+
+      {/* Daywise Attendance Modal */}
       {isDaywiseModalOpen && selectedComponent && (
-        <div className="fixed inset-0 bg-transparent backdrop-blur-[3px]  flex items-center justify-center z-50 px-4">
-          <div className="relative bg-white bg-opacity-90 backdrop-blur-md p-4 rounded-lg shadow-lg max-w-3xl w-full style-border">
-            <div className="flex justify-between items-center mb-4 ">
+        <div className="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-6">
+          <div className="relative bg-white bg-opacity-95 rounded-xl shadow-lg w-full max-w-[95%] sm:max-w-3xl p-4 sm:p-6 overflow-y-auto max-h-[90vh] style-border">
+            <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg">
                 Daywise Attendance for{" "}
                 <span className="font-bold">
