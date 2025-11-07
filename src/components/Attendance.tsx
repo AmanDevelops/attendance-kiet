@@ -1,5 +1,13 @@
 import Cookies from "js-cookie";
-import { AlertTriangle, CheckCircle, LogOut, User, X, CalendarDays, Wand2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle,
+  LogOut,
+  User,
+  X,
+  CalendarDays,
+  Wand2,
+} from "lucide-react";
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import {
@@ -8,18 +16,23 @@ import {
   REMEMBER_ME_COOKIE,
   USERNAME_COOKIE,
 } from "../types/CookieVars";
-import type { AttendanceResponse, ScheduleEntry, ScheduleResponse } from "../types/response";
+import type {
+  AttendanceResponse,
+  ScheduleEntry,
+  ScheduleResponse,
+} from "../types/response";
 import { fetchStudentId, getWeekRange } from "../types/utils";
 import DaywiseReport from "./Daywise";
 import OverallAtt from "./OverallAtt";
 
 // Define the type for the specific objects passed to the daywise modal
 interface SelectedComponentType {
-  course: AttendanceResponse['data']['attendanceCourseComponentInfoList'][0];
-  component: AttendanceResponse['data']['attendanceCourseComponentInfoList'][0]['attendanceCourseComponentNameInfoList'][0];
+  course: AttendanceResponse["data"]["attendanceCourseComponentInfoList"][0];
+  component: AttendanceResponse["data"]["attendanceCourseComponentInfoList"][0]["attendanceCourseComponentNameInfoList"][0];
 }
 
-type CourseComponentList = AttendanceResponse['data']['attendanceCourseComponentInfoList'][0]['attendanceCourseComponentNameInfoList'];
+type CourseComponentList =
+  AttendanceResponse["data"]["attendanceCourseComponentInfoList"][0]["attendanceCourseComponentNameInfoList"];
 
 type AttendanceHook = {
   attendanceData: AttendanceResponse;
@@ -31,41 +44,66 @@ type AttendanceHook = {
 const TARGET_PERCENTAGE = 75;
 const COMBINED_COMPONENT_ID = -1;
 
-function calculateAttendanceProjection(present: number, total: number, percent: number) {
+function calculateAttendanceProjection(
+  present: number,
+  total: number,
+  percent: number
+) {
   if (total === 0) {
-    return { status: 'safe', message: 'No classes held yet.' };
+    return { status: "safe", message: "No classes held yet." };
   }
   const currentPercentage = (present / total) * 100;
 
   if (currentPercentage >= percent) {
-    const canMiss = Math.floor((present - ((percent/100) * total)) / (percent/100));
+    const canMiss = Math.floor(
+      (present - (percent / 100) * total) / (percent / 100)
+    );
     return {
-      status: 'safe',
-      message: canMiss > 0 ? `You can miss ${canMiss} class${canMiss === 1 ? '' : 'es'} only` : 'Try not to miss any more classes',
+      status: "safe",
+      message:
+        canMiss > 0
+          ? `You can miss ${canMiss} class${canMiss === 1 ? "" : "es"} only`
+          : "Try not to miss any more classes",
     };
   } else {
     if (percent === 100) {
-      return { status: 'warning', message: 'Need to attend all future classes.'};
+      return {
+        status: "warning",
+        message: "Need to attend all future classes.",
+      };
     }
-    const needToAttend = Math.ceil(((percent/100) * total - present) / (1-percent/100));
+    const needToAttend = Math.ceil(
+      ((percent / 100) * total - present) / (1 - percent / 100)
+    );
     return {
-      status: 'warning',
-      message: `Need to attend next ${needToAttend} class${needToAttend === 1 ? '' : 'es'}`,
+      status: "warning",
+      message: `Need to attend next ${needToAttend} class${
+        needToAttend === 1 ? "" : "es"
+      }`,
     };
   }
 }
 
-function processCourseData(courses: AttendanceResponse['data']['attendanceCourseComponentInfoList']) {
-  return courses.map(course => {
+function processCourseData(
+  courses: AttendanceResponse["data"]["attendanceCourseComponentInfoList"]
+) {
+  return courses.map((course) => {
     const components = course.attendanceCourseComponentNameInfoList;
 
     if (components.length > 1) {
-      const totalPresent = components.reduce((sum, c) => sum + c.numberOfPresent + c.numberOfExtraAttendance, 0);
-      const totalPeriods = components.reduce((sum, c) => sum + c.numberOfPeriods, 0);
-      const percentage = totalPeriods > 0 ? (totalPresent / totalPeriods) * 100 : 0;
+      const totalPresent = components.reduce(
+        (sum, c) => sum + c.numberOfPresent + c.numberOfExtraAttendance,
+        0
+      );
+      const totalPeriods = components.reduce(
+        (sum, c) => sum + c.numberOfPeriods,
+        0
+      );
+      const percentage =
+        totalPeriods > 0 ? (totalPresent / totalPeriods) * 100 : 0;
 
       const combined = {
-        componentName: 'AVERAGE (ALL COMPONENTS)',
+        componentName: "AVERAGE (ALL COMPONENTS)",
         numberOfPresent: totalPresent,
         numberOfPeriods: totalPeriods,
         numberOfExtraAttendance: 0,
@@ -75,27 +113,30 @@ function processCourseData(courses: AttendanceResponse['data']['attendanceCourse
       };
 
       return {
-          ...course,
-          attendanceCourseComponentNameInfoList: [combined] as CourseComponentList
+        ...course,
+        attendanceCourseComponentNameInfoList: [
+          combined,
+        ] as CourseComponentList,
       };
-
     } else if (components.length > 0) {
       const c = components[0];
       const present = c.numberOfPresent + c.numberOfExtraAttendance;
-      const percentage = c.numberOfPeriods > 0 ? (present / c.numberOfPeriods) * 100 : 0;
+      const percentage =
+        c.numberOfPeriods > 0 ? (present / c.numberOfPeriods) * 100 : 0;
       return {
         ...course,
-        attendanceCourseComponentNameInfoList: [{
-          ...c,
-          presentPercentage: percentage,
-          presentPercentageWith: `${percentage.toFixed(2)}%`,
-        }],
+        attendanceCourseComponentNameInfoList: [
+          {
+            ...c,
+            presentPercentage: percentage,
+            presentPercentageWith: `${percentage.toFixed(2)}%`,
+          },
+        ],
       };
     }
     return course;
   });
 }
-
 
 function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
   const [studentId, setStudentId] = useState<number | null>(null);
@@ -108,7 +149,8 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
     setAttendanceData(null);
   }
 
-  const [selectedComponent, setSelectedComponent] = useState<SelectedComponentType | null>(null);
+  const [selectedComponent, setSelectedComponent] =
+    useState<SelectedComponentType | null>(null);
   const [isDaywiseModalOpen, setIsDaywiseModalOpen] = useState(false);
 
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
@@ -121,26 +163,32 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
     }
     let totalPresent = 0;
     let totalPeriods = 0;
-    attendanceData.data.attendanceCourseComponentInfoList.forEach(course => {
-      course.attendanceCourseComponentNameInfoList.forEach(component => {
-        totalPresent += component.numberOfPresent + component.numberOfExtraAttendance;
+    attendanceData.data.attendanceCourseComponentInfoList.forEach((course) => {
+      course.attendanceCourseComponentNameInfoList.forEach((component) => {
+        totalPresent +=
+          component.numberOfPresent + component.numberOfExtraAttendance;
         totalPeriods += component.numberOfPeriods;
       });
     });
-    const percentage = totalPeriods > 0 ? (totalPresent / totalPeriods) * 100 : 0;
+    const percentage =
+      totalPeriods > 0 ? (totalPresent / totalPeriods) * 100 : 0;
     return { present: totalPresent, total: totalPeriods, percentage };
   }, [attendanceData]);
 
   const projectionAdjustments = useMemo(() => {
     const adjustments = {
       overall: 0,
-      byCourseCode: new Map<string, number>()
+      byCourseCode: new Map<string, number>(),
     };
 
-    const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const todayStr = new Date().toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
 
-    missedClasses.forEach(classStartString => {
-      const missedClass = schedule.find(c => c.start === classStartString);
+    missedClasses.forEach((classStartString) => {
+      const missedClass = schedule.find((c) => c.start === classStartString);
 
       if (missedClass && missedClass.lectureDate >= todayStr) {
         adjustments.overall += 1;
@@ -157,15 +205,30 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
     today.setHours(0, 0, 0, 0);
 
     schedule
-      .filter(c => c.type === 'CLASS')
-      .sort((a, b) => new Date(a.start.split(' ')[0].split('/').reverse().join('-') + 'T' + a.start.split(' ')[1]).getTime()
-                    - new Date(b.start.split(' ')[0].split('/').reverse().join('-') + 'T' + b.start.split(' ')[1]).getTime())
-      .forEach(c => {
-        const [day, month, year] = c.lectureDate.split('/').map(Number);
+      .filter((c) => c.type === "CLASS")
+      .sort(
+        (a, b) =>
+          new Date(
+            a.start.split(" ")[0].split("/").reverse().join("-") +
+              "T" +
+              a.start.split(" ")[1]
+          ).getTime() -
+          new Date(
+            b.start.split(" ")[0].split("/").reverse().join("-") +
+              "T" +
+              b.start.split(" ")[1]
+          ).getTime()
+      )
+      .forEach((c) => {
+        const [day, month, year] = c.lectureDate.split("/").map(Number);
         const classDate = new Date(year, month - 1, day);
 
         if (classDate >= today) {
-          const dayName = classDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+          const dayName = classDate.toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "short",
+            day: "numeric",
+          });
           if (!grouped.has(dayName)) {
             grouped.set(dayName, []);
           }
@@ -175,10 +238,9 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
     return grouped;
   }, [schedule]);
 
-
   function handleViewDaywiseAttendance(
-    course: SelectedComponentType['course'],
-    component: SelectedComponentType['component']
+    course: SelectedComponentType["course"],
+    component: SelectedComponentType["component"]
   ) {
     setSelectedComponent({ course, component });
     setIsDaywiseModalOpen(true);
@@ -201,7 +263,6 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
     //  Scroll to the top after login
     window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
-
 
   useEffect(() => {
     const fetchSchedule = async () => {
@@ -226,7 +287,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
   }, [attendanceData]);
 
   const handleMissClassToggle = (classStartString: string) => {
-    setMissedClasses(prev => {
+    setMissedClasses((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(classStartString)) {
         newSet.delete(classStartString);
@@ -238,7 +299,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
   };
 
   const handleDayToggle = (classStarts: string[], dayIsSelected: boolean) => {
-    setMissedClasses(prev => {
+    setMissedClasses((prev) => {
       const newSet = new Set(prev);
       if (dayIsSelected) {
         for (const start of classStarts) newSet.delete(start);
@@ -252,19 +313,19 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
   const overallMissed = projectionAdjustments.overall;
 
   const projectedOverallTotal = overallAttendance.total + overallMissed;
-  const projectedOverallPercent = projectedOverallTotal > 0
-    ? (overallAttendance.present / projectedOverallTotal) * 100
-    : 0;
+  const projectedOverallPercent =
+    projectedOverallTotal > 0
+      ? (overallAttendance.present / projectedOverallTotal) * 100
+      : 0;
 
   // The 'currentOverallProjection' variable is intentionally removed as it was unused.
-
 
   return (
     <div className="container mx-auto px-4 py-8 flex-grow">
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col  gap-4">
           <div className="flex items-center sm:gap-4 justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-responsive">
               <User className="h-14 w-14" />{" "}
               <div className="flex flex-col">
                 <h1 className="text-xl font-black text-black mb-1 style-text">
