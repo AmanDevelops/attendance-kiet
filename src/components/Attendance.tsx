@@ -58,12 +58,12 @@ function calculateAttendanceProjection(present: number, total: number, percent: 
 function processCourseData(courses: AttendanceResponse['data']['attendanceCourseComponentInfoList']) {
   return courses.map(course => {
     const components = course.attendanceCourseComponentNameInfoList;
-    
+
     if (components.length > 1) {
       const totalPresent = components.reduce((sum, c) => sum + c.numberOfPresent + c.numberOfExtraAttendance, 0);
       const totalPeriods = components.reduce((sum, c) => sum + c.numberOfPeriods, 0);
       const percentage = totalPeriods > 0 ? (totalPresent / totalPeriods) * 100 : 0;
-      
+
       const combined = {
         componentName: 'AVERAGE (ALL COMPONENTS)',
         numberOfPresent: totalPresent,
@@ -71,13 +71,13 @@ function processCourseData(courses: AttendanceResponse['data']['attendanceCourse
         numberOfExtraAttendance: 0,
         presentPercentage: percentage,
         presentPercentageWith: `${percentage.toFixed(2)}%`,
-        courseComponentId: COMBINED_COMPONENT_ID, 
+        courseComponentId: COMBINED_COMPONENT_ID,
       };
-      
-      return { 
-          ...course, 
-          attendanceCourseComponentNameInfoList: [combined] as CourseComponentList 
-      }; 
+
+      return {
+          ...course,
+          attendanceCourseComponentNameInfoList: [combined] as CourseComponentList
+      };
 
     } else if (components.length > 0) {
       const c = components[0];
@@ -107,7 +107,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
     }
     setAttendanceData(null);
   }
-  
+
   const [selectedComponent, setSelectedComponent] = useState<SelectedComponentType | null>(null);
   const [isDaywiseModalOpen, setIsDaywiseModalOpen] = useState(false);
 
@@ -141,7 +141,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 
     missedClasses.forEach(classStartString => {
       const missedClass = schedule.find(c => c.start === classStartString);
-      
+
       if (missedClass && missedClass.lectureDate >= todayStr) {
         adjustments.overall += 1;
         const count = adjustments.byCourseCode.get(missedClass.courseCode) || 0;
@@ -177,7 +177,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 
 
   function handleViewDaywiseAttendance(
-    course: SelectedComponentType['course'], 
+    course: SelectedComponentType['course'],
     component: SelectedComponentType['component']
   ) {
     setSelectedComponent({ course, component });
@@ -250,12 +250,12 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
   };
 
   const overallMissed = projectionAdjustments.overall;
-  
+
   const projectedOverallTotal = overallAttendance.total + overallMissed;
   const projectedOverallPercent = projectedOverallTotal > 0
     ? (overallAttendance.present / projectedOverallTotal) * 100
     : 0;
-  
+
   // The 'currentOverallProjection' variable is intentionally removed as it was unused.
 
 
@@ -284,23 +284,20 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 
             <div className="flex flex-col md:flex-row gap-2 self-start md:self-auto">
               <button
-                onClick={() => setShowProjection(prev => !prev)}
-                className="style-border style-text py-2 px-3 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 focus:outline-none transform hover:-translate-y-1 transition-transform flex items-center gap-1.5"
+                onClick={() => setShowProjection((prev) => !prev)}
+                className="style-border style-text py-2 px-1.5 sm:px-3 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 focus:outline-none transform hover:-translate-y-1 transition-transform flex items-center gap-1.5 w-auto"
               >
-                <Wand2 className="h-4 w-4" />
-                <span className="hide-text-below-400">
-                  {showProjection ? 'Hide Projection' : 'Show Projection'}
+                <Wand2 className="h-4 w-4 flex-shrink-0" />
+                <span className="hide-text-below-352 text-xs">
+                  {showProjection ? "Hide Projection" : "Show Projection"}
                 </span>
-
-
               </button>
               <button
                 onClick={handleLogout}
-                className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300"
+                className="style-border style-text py-2 px-1.5 sm:px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300 w-auto"
               >
-                <LogOut className="h-4 w-4" />
-                <span className="hide-text-below-400">Logout</span>
-
+                <LogOut className="h-4 w-4 flex-shrink-0" />
+                <span className="hide-text-below-352">Logout</span>
               </button>
             </div>
           </div>
@@ -315,57 +312,81 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
               Weekly Projection (Today Onwards)
             </h3>
           </div>
-          <p className="style-text text-sm text-gray-600 mb-4">Select classes you plan to miss to see the live impact on your attendance.</p>
+          <p className="style-text text-sm text-gray-600 mb-4">
+            Select classes you plan to miss to see the live impact on your
+            attendance.
+          </p>
           <div className="max-h-64 overflow-y-auto space-y-4 pr-2">
-            {groupedSchedule.size === 0 && <p className="style-text text-gray-500">No upcoming classes found for the rest of the week.</p>}
-            
+            {groupedSchedule.size === 0 && (
+              <p className="style-text text-gray-500">
+                No upcoming classes found for the rest of the week.
+              </p>
+            )}
+
             {Array.from(groupedSchedule.entries()).map(([day, classes]) => {
-                
-                const allDayClasses = classes.map(c => c.start);
-                const allDaySelected = allDayClasses.every(start => missedClasses.has(start));
-                const someDaySelected = allDayClasses.some(start => missedClasses.has(start)) && !allDaySelected;
+              const allDayClasses = classes.map((c) => c.start);
+              const allDaySelected = allDayClasses.every((start) =>
+                missedClasses.has(start)
+              );
+              const someDaySelected =
+                allDayClasses.some((start) => missedClasses.has(start)) &&
+                !allDaySelected;
 
-                return (
-                  <div key={day}>
-                    <h4 className="style-text font-bold text-black border-b-2 border-black pb-1 mb-2">{day}</h4>
-                    
-                    <div className="flex items-center gap-3 mb-2 pb-2 border-b border-gray-200">
-                      <input
-                        type="checkbox"
-                        id={`day-${day}`}
-                        className="h-5 w-5 style-border rounded-none"
-                        checked={allDaySelected}
-                        ref={(el) => {
-                          if (el) el.indeterminate = someDaySelected;
-                        }}
-                        onChange={() => handleDayToggle(allDayClasses, allDaySelected)}
-                      />
-                      <label htmlFor={`day-${day}`} className="flex-1 style-text text-sm font-bold">
-                        Select All (for {day})
-                      </label>
-                    </div>
+              return (
+                <div key={day}>
+                  <h4 className="style-text font-bold text-black border-b-2 border-black pb-1 mb-2">
+                    {day}
+                  </h4>
 
-                    <ul className="space-y-2">
-                      {classes.map(c => (
-                        <li key={c.start} className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            id={c.start}
-                            className="h-5 w-5 style-border rounded-none"
-                            checked={missedClasses.has(c.start)}
-                            onChange={() => handleMissClassToggle(c.start)}
-                          />
-                          <label htmlFor={c.start} className="flex-1 style-text text-sm">
-                            <span className="font-bold">{c.courseName}</span> ({c.courseCompName})
-                            <br />
-                            <span className="text-xs text-gray-600">{c.start.split(' ')[1]} - {c.end.split(' ')[1]} | {c.facultyName}</span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
+                  <div className="flex items-center gap-3 mb-2 pb-2 border-b border-gray-200">
+                    <input
+                      type="checkbox"
+                      id={`day-${day}`}
+                      className="h-5 w-5 style-border rounded-none"
+                      checked={allDaySelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someDaySelected;
+                      }}
+                      onChange={() =>
+                        handleDayToggle(allDayClasses, allDaySelected)
+                      }
+                    />
+                    <label
+                      htmlFor={`day-${day}`}
+                      className="flex-1 style-text text-sm font-bold"
+                    >
+                      Select All (for {day})
+                    </label>
                   </div>
-                );
-              })}
+
+                  <ul className="space-y-2">
+                    {classes.map((c) => (
+                      <li key={c.start} className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id={c.start}
+                          className="h-5 w-5 style-border rounded-none"
+                          checked={missedClasses.has(c.start)}
+                          onChange={() => handleMissClassToggle(c.start)}
+                        />
+                        <label
+                          htmlFor={c.start}
+                          className="flex-1 style-text text-sm"
+                        >
+                          <span className="font-bold">{c.courseName}</span> (
+                          {c.courseCompName})
+                          <br />
+                          <span className="text-xs text-gray-600">
+                            {c.start.split(" ")[1]} - {c.end.split(" ")[1]} |{" "}
+                            {c.facultyName}
+                          </span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -382,22 +403,34 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
               <span className="text-sm font-medium text-gray-700 style-text">
                 Projected Overall
               </span>
-              <span className="text-2xl font-semibold" style={{ color: projectedOverallPercent >= TARGET_PERCENTAGE ? '#059669' : '#DC2626' }}>
-                {projectedOverallPercent.toFixed(2) + '%'}
+              <span
+                className="text-2xl font-semibold"
+                style={{
+                  color:
+                    projectedOverallPercent >= TARGET_PERCENTAGE
+                      ? "#059669"
+                      : "#DC2626",
+                }}
+              >
+                {projectedOverallPercent.toFixed(2) + "%"}
               </span>
             </div>
-            
+
             <div className="text-sm text-gray-600">
-              {overallMissed > 0 
-                ? `Projected after missing ${overallMissed} class${overallMissed === 1 ? '' : 'es'}.`
-                : 'No classes selected to miss.'}
+              {overallMissed > 0
+                ? `Projected after missing ${overallMissed} class${
+                    overallMissed === 1 ? "" : "es"
+                  }.`
+                : "No classes selected to miss."}
             </div>
           </div>
         </div>
       )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {processCourseData(attendanceData.data.attendanceCourseComponentInfoList).map((course) => (
+        {processCourseData(
+          attendanceData.data.attendanceCourseComponentInfoList
+        ).map((course) => (
           <div
             key={course.courseCode}
             className="bg-white rounded-lg shadow-md p-6 style-border style-fade-in"
@@ -411,46 +444,85 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
             <div className="space-y-4">
               {course.attendanceCourseComponentNameInfoList.map(
                 (component, index) => {
-                  
-                  const subjectMissed = projectionAdjustments.byCourseCode.get(course.courseCode) || 0;
-                  const projectedPresent = component.numberOfPresent + component.numberOfExtraAttendance;
-                  const projectedTotal = component.numberOfPeriods + subjectMissed;
-                  const projectedSubjectPercent = projectedTotal > 0
-                    ? (projectedPresent / projectedTotal) * 100
-                    : 0;
-                    
-                  const currentSubjectProjection = calculateAttendanceProjection(
-                      component.numberOfPresent + component.numberOfExtraAttendance,
+                  const subjectMissed =
+                    projectionAdjustments.byCourseCode.get(course.courseCode) ||
+                    0;
+                  const projectedPresent =
+                    component.numberOfPresent +
+                    component.numberOfExtraAttendance;
+                  const projectedTotal =
+                    component.numberOfPeriods + subjectMissed;
+                  const projectedSubjectPercent =
+                    projectedTotal > 0
+                      ? (projectedPresent / projectedTotal) * 100
+                      : 0;
+
+                  const currentSubjectProjection =
+                    calculateAttendanceProjection(
+                      component.numberOfPresent +
+                        component.numberOfExtraAttendance,
                       component.numberOfPeriods,
                       TARGET_PERCENTAGE
                     );
-                    
+
                   return (
                     <div key={index} className="border-t-2 pt-4 border-black">
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-sm font-medium text-gray-700 style-text">
                           {component.componentName}
                         </span>
-                        
+
                         {showProjection && subjectMissed > 0 ? (
-                           <span className="text-sm font-semibold" style={{ color: projectedSubjectPercent >= TARGET_PERCENTAGE ? '#059669' : '#DC2626' }}>
-                              {`${projectedSubjectPercent.toFixed(2)}% (Projected)`}
-                           </span>
+                          <span
+                            className="text-sm font-semibold"
+                            style={{
+                              color:
+                                projectedSubjectPercent >= TARGET_PERCENTAGE
+                                  ? "#059669"
+                                  : "#DC2626",
+                            }}
+                          >
+                            {`${projectedSubjectPercent.toFixed(
+                              2
+                            )}% (Projected)`}
+                          </span>
                         ) : (
-                          <span className="text-sm font-semibold" style={{ color: (component.presentPercentage ?? 0) >= TARGET_PERCENTAGE ? '#059669' : '#DC2626' }}>
+                          <span
+                            className="text-sm font-semibold"
+                            style={{
+                              color:
+                                (component.presentPercentage ?? 0) >=
+                                TARGET_PERCENTAGE
+                                  ? "#059669"
+                                  : "#DC2626",
+                            }}
+                          >
                             {component.presentPercentageWith}
                           </span>
                         )}
                       </div>
-                      
+
                       {!showProjection || subjectMissed === 0 ? (
                         <>
                           <div className="text-sm text-gray-600 mb-2">
-                            Present: {component.numberOfPresent+component.numberOfExtraAttendance}/{component.numberOfPeriods}
+                            Present:{" "}
+                            {component.numberOfPresent +
+                              component.numberOfExtraAttendance}
+                            /{component.numberOfPeriods}
                           </div>
                           {currentSubjectProjection && (
-                            <div className={`flex items-center gap-2 text-sm ${currentSubjectProjection.status === 'safe' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                              {currentSubjectProjection.status === 'safe' ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                            <div
+                              className={`flex items-center gap-2 text-sm ${
+                                currentSubjectProjection.status === "safe"
+                                  ? "text-emerald-600"
+                                  : "text-amber-600"
+                              }`}
+                            >
+                              {currentSubjectProjection.status === "safe" ? (
+                                <CheckCircle className="h-4 w-4" />
+                              ) : (
+                                <AlertTriangle className="h-4 w-4" />
+                              )}
                               {currentSubjectProjection.message}
                             </div>
                           )}
@@ -467,7 +539,9 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
                         </>
                       ) : (
                         <div className="text-sm text-gray-600">
-                          {`Projected after missing ${subjectMissed} class${subjectMissed === 1 ? '' : 'es'}.`}
+                          {`Projected after missing ${subjectMissed} class${
+                            subjectMissed === 1 ? "" : "es"
+                          }.`}
                         </div>
                       )}
                     </div>

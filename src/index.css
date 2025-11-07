@@ -11,13 +11,6 @@
   }
 }
 
-@media (max-width: 400px) {
-  .hide-text-below-400 {
-    display: none !important;
-  }
-}
-
-
 .style-panel {
   position: relative;
   background: white;
@@ -47,4 +40,10 @@
 
 .style-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
+}
+
+@media (max-width: 352px) {
+  .hide-text-below-352 {
+    display: none;
+  }
 }
