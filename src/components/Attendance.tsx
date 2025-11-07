@@ -44,6 +44,9 @@ function calculateAttendanceProjection(present: number, total: number) {
 
 function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
   const [studentId, setStudentId] = useState<number | null>(null);
+  const [selectedComponent, setSelectedComponent] = useState<any | null>(null);
+  const [isDaywiseModalOpen, setIsDaywiseModalOpen] = useState(false);
+
   function handleLogout(): void {
     Cookies.remove(AUTH_COOKIE_NAME);
     if (!Cookies.get(REMEMBER_ME_COOKIE)) {
@@ -52,21 +55,10 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
     }
     setAttendanceData(null);
   }
-  const [selectedComponent, setSelectedComponent] = useState<any | null>(null);
-  const [isDaywiseModalOpen, setIsDaywiseModalOpen] = useState(false);
-
-  function handleViewDaywiseAttendance(course: any, component: any) {
-    setSelectedComponent({ course, component });
-    setIsDaywiseModalOpen(true);
-  }
 
   useEffect(() => {
-    if (isDaywiseModalOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "auto";
-    }
-  }, [isDaywiseModalOpen]);
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
 
   useEffect(() => {
     const token = Cookies.get(AUTH_COOKIE_NAME) || "";
@@ -74,23 +66,33 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
       if (id) setStudentId(id);
     });
   }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = isDaywiseModalOpen ? "hidden" : "auto";
+  }, [isDaywiseModalOpen]);
+
+  function handleViewDaywiseAttendance(course: any, component: any) {
+    setSelectedComponent({ course, component });
+    setIsDaywiseModalOpen(true);
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 flex-grow">
       <div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center sm:gap-4 justify-between">
-            <div className="flex items-center gap-4">
-              <User className="h-14 w-14" />{" "}
-              <div className="flex flex-col">
-                <h1 className="text-xl font-black text-black mb-1 style-text">
+          <div className="flex items-center justify-between gap-4 flex-nowrap min-w-0">
+            <div className="flex items-center gap-4 min-w-0">
+              <User className="h-14 w-14 shrink-0" />
+              <div className="flex flex-col min-w-0">
+                <h1 className="text-xl font-black text-black mb-1 style-text truncate">
                   {attendanceData.data.fullName}
                 </h1>
-                <p className="text-xs text-black font-semibold style-text mb-0.5">
+                <p className="text-xs text-black font-semibold style-text mb-0.5 truncate">
                   {attendanceData.data.registrationNumber} |{" "}
                   {attendanceData.data.branchShortName} - Section{" "}
                   {attendanceData.data.sectionName}
                 </p>
-                <p className="text-xs text-black font-semibold style-text">
+                <p className="text-xs text-black font-semibold style-text truncate">
                   {attendanceData.data.degreeName} | Semester{" "}
                   {attendanceData.data.semesterName}
                 </p>
@@ -99,15 +101,19 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 
             <button
               onClick={handleLogout}
-              className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300"
+              className="style-border style-text py-2 px-3 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer 
+              transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:text-white hover:bg-black 
+              hover:shadow-[0_0_10px_rgba(0,0,0,0.4)] focus:outline-none shrink-0"
             >
               <LogOut className="h-4 w-4" />
-              Logout
+              <span className="hidden xs:inline sm:inline md:inline">Logout</span>
             </button>
           </div>
         </div>
       </div>
+
       <OverallAtt />
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {attendanceData.data.attendanceCourseComponentInfoList.map((course) => (
           <div
@@ -177,7 +183,9 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
                           onClick={() =>
                             handleViewDaywiseAttendance(course, component)
                           }
-                          className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300"
+                          className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer 
+                          hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 
+                          hover:shadow-[0_0_10px_rgba(0,0,0,0.4)] focus:outline-none"
                         >
                           See Daywise Attendance
                         </button>
@@ -190,9 +198,9 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
           </div>
         ))}
       </div>
-      {/* ✅ Modal to Show Daywise Attendance */}
+
       {isDaywiseModalOpen && selectedComponent && (
-        <div className="fixed inset-0 bg-transparent backdrop-blur-[3px]  flex items-center justify-center z-50 px-4">
+        <div className="fixed inset-0 bg-transparent backdrop-blur-[3px] flex items-center justify-center z-50 px-4">
           <div className="relative bg-white bg-opacity-90 backdrop-blur-md p-4 rounded-lg shadow-lg max-w-3xl w-full style-border">
             <div className="flex justify-between items-center mb-4 ">
               <h2 className="text-lg">
