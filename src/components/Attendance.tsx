@@ -74,10 +74,10 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 
   return (
     <div className="container mx-auto px-4 py-8 flex-grow">
-      {/* 🧑 Profile + Logout Section */}
+ 
       <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8 style-border style-fade-in">
-        <div className="flex items-center justify-between gap-3 sm:gap-6 overflow-hidden">
-          {/* Student Info */}
+        <div className="flex items-center justify-between gap-3 sm:gap-6 overflow-hidden flex-nowrap">
+
           <div className="flex items-center gap-3 sm:gap-5 overflow-hidden min-w-0">
             <User className="h-10 w-10 sm:h-14 sm:w-14 flex-shrink-0" />
             <div className="min-w-0 truncate">
@@ -96,21 +96,20 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
             </div>
           </div>
 
-          {/* Logout Button — fixed horizontally */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1 sm:gap-2 style-border style-text py-1.5 sm:py-2 px-3 sm:px-5 text-[11px] sm:text-sm font-bold whitespace-nowrap hover:text-white hover:bg-black transition-transform duration-300 transform hover:-translate-y-1 focus:outline-none"
-          >
-            <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
-            Logout
-          </button>
+          <div className="flex-shrink-0">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1 sm:gap-2 style-border style-text py-1.5 sm:py-2 px-3 sm:px-5 text-[11px] sm:text-sm font-bold whitespace-nowrap hover:text-white hover:bg-black transition-transform duration-300 transform hover:-translate-y-1 focus:outline-none"
+            >
+              <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 📊 Overall Attendance */}
       <OverallAtt />
 
-      {/* 📚 Course Cards */}
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {attendanceData.data.attendanceCourseComponentInfoList.map((course) => (
           <div
@@ -201,9 +200,8 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
         ))}
       </div>
 
-      {/* Daywise Attendance Modal */}
       {isDaywiseModalOpen && selectedComponent && (
-        <div className="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-6">
+        <div className="fixed inset-0 bg-blur bg-opacity-20 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-6">
           <div className="relative bg-white bg-opacity-95 rounded-xl shadow-lg w-full max-w-[95%] sm:max-w-3xl p-4 sm:p-6 overflow-y-auto max-h-[90vh] style-border">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg">
