@@ -11,6 +11,13 @@
   }
 }
 
+@media (max-width: 400px) {
+  .hide-text-below-400 {
+    display: none !important;
+  }
+}
+
+
 .style-panel {
   position: relative;
   background: white;
