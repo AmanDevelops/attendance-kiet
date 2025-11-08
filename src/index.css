@@ -1,65 +1,65 @@
 @import "tailwindcss";
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 .style-panel {
-  position: relative;
-  background: white;
+	position: relative;
+	background: white;
 }
 
 .style-panel::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(45deg, transparent 65%, rgba(0, 0, 0, 0.05) 100%);
-  pointer-events: none;
+	content: "";
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: linear-gradient(45deg, transparent 65%, rgba(0, 0, 0, 0.05) 100%);
+	pointer-events: none;
 }
 
 .style-text {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
 }
 
 .style-border {
-  border: 2px solid black;
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.9);
+	border: 2px solid black;
+	box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.9);
 }
 
 .style-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
+	animation: fadeIn 0.5s ease-out forwards;
 }
 
 @media (max-width: 338px) {
-  .hide-text-below-352 {
-    display: none;
-  }
+	.hide-text-below-352 {
+		display: none;
+	}
 
-  .gap-responsive {
-    gap: 0.125rem; /* gap-0.5 */
-  }
+	.gap-responsive {
+		gap: 0.125rem; /* gap-0.5 */
+	}
 }
 
 @media (min-width: 347px) {
-  .gap-responsive {
-    gap: 0.5rem; /* gap-2 */
-  }
+	.gap-responsive {
+		gap: 0.5rem; /* gap-2 */
+	}
 }
 
 @media (min-width: 640px) {
-  .gap-responsive {
-    gap: 1rem; /* gap-4 */
-  }
+	.gap-responsive {
+		gap: 1rem; /* gap-4 */
+	}
 }
