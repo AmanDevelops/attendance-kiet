@@ -1,1 +1,3 @@
+echo "Performing Code Quality Checks..."
+
 npm run lint

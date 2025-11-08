@@ -34,8 +34,27 @@ npm install
 4. Start the application:
 
 ```sh
-npm start
+npm run dev
 ```
+
+5. Build the project
+
+```sh
+npm run build
+```
+
+6. Run the build
+
+```sh
+npm run preview
+```
+
+7. Run the linter/formatter (optional)
+
+```sh
+npm run lint
+```
+
 ---
 
 ## Usage

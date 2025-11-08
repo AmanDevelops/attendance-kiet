@@ -48,14 +48,10 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
 					setDaywiseData([]);
 				}
 			} catch (err: unknown) {
-				let errorMessage =
-					"Failed to load daywise attendance data. Or this subject does not have any classes yet";
-
-				if (err instanceof Error) {
-					errorMessage += `: ${err.message}`;
-				}
 				console.error(err);
-				setError(errorMessage);
+				setError(
+					"Failed to load daywise attendance data. Or this subject does not have any classes yet",
+				);
 			} finally {
 				setLoading(false);
 			}

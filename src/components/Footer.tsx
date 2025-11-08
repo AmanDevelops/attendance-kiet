@@ -26,7 +26,7 @@ function Footer() {
 							>
 								<img
 									className="inline-block h-8 w-8 rounded-full ring-2 ring-white style-border transform hover:-translate-y-1 transition-transform"
-									src="./AmanDevelops.webp"
+									src="https://avatars.githubusercontent.com/AmanDevelops?s=36"
 									alt="Contributor 1"
 								/>
 							</a>
@@ -37,10 +37,11 @@ function Footer() {
 							>
 								<img
 									className="inline-block h-8 w-8 rounded-full ring-2 ring-white style-border transform hover:-translate-y-1 transition-transform"
-									src="https://avatars.githubusercontent.com/rishav76dev"
+									src="https://avatars.githubusercontent.com/rishav76dev?s=16"
 									alt="Contributor 3"
 								/>
 							</a>
+
 							<a
 								href="http://github.com/honoursbhaduria"
 								target="_blank"
@@ -48,19 +49,19 @@ function Footer() {
 							>
 								<img
 									className="inline-block h-8 w-8 rounded-full ring-2 ring-white style-border transform hover:-translate-y-1 transition-transform"
-									src="https://avatars.githubusercontent.com/honoursbhaduria"
+									src="https://avatars.githubusercontent.com/honoursbhaduria?s=48"
 									alt="Contributor 1"
 								/>
 							</a>
 							<a
-								href="http://github.com/webdevgeeks"
+								href="http://github.com/RudreshRajvansh"
 								target="_blank"
 								rel="noopener noreferrer"
 							>
 								<img
 									className="inline-block h-8 w-8 rounded-full ring-2 ring-white style-border transform hover:-translate-y-1 transition-transform"
-									src="./webdevgeeks.webp"
-									alt="Contributor 2"
+									src="https://avatars.githubusercontent.com/RudreshRajvansh?s=48"
+									alt="Contributor 1"
 								/>
 							</a>
 							<div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 ring-2 ring-white style-border transform hover:-translate-y-1 transition-transform">
