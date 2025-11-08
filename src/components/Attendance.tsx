@@ -197,7 +197,11 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
     fetchStudentId(token).then((id) => {
       if (id) setStudentId(id);
     });
+
+    //  Scroll to the top after login
+    window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
+
 
   useEffect(() => {
     const fetchSchedule = async () => {
@@ -284,14 +288,18 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
                 className="style-border style-text py-2 px-3 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 focus:outline-none transform hover:-translate-y-1 transition-transform flex items-center gap-1.5"
               >
                 <Wand2 className="h-4 w-4" />
-                {showProjection ? 'Hide Projection' : 'Show Projection'}
+                <span className="hide-text-below-420">
+                  {showProjection ? 'Hide Projection' : 'Show Projection'}
+                </span>
+
               </button>
               <button
                 onClick={handleLogout}
                 className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300"
               >
                 <LogOut className="h-4 w-4" />
-                Logout
+                <span className="hide-text-below-420">Logout</span>
+
               </button>
             </div>
           </div>
