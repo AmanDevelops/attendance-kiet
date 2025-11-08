@@ -282,10 +282,11 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 			}
 		};
 
-		if (attendanceData) {
+		if (showProjection && schedule.length === 0) {
 			fetchSchedule();
 		}
-	}, [attendanceData]);
+		console.log(schedule);
+	}, [showProjection, schedule]);
 
 	const handleMissClassToggle = (classStartString: string) => {
 		setMissedClasses((prev) => {
@@ -455,8 +456,9 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 				</div>
 			)}
 
-			{!showProjection && <OverallAtt />}
-
+			<div style={{ display: showProjection ? "none" : "block" }}>
+				<OverallAtt />
+			</div>
 			{showProjection && (
 				<div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
 					<div className="mt-0">

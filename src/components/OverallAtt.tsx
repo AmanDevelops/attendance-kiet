@@ -1,7 +1,7 @@
 import ProgressBar from "@ramonak/react-progress-bar";
 import axios from "axios";
 import Cookies from "js-cookie";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { AUTH_COOKIE_NAME } from "../types/CookieVars";
 import type { AttendanceDataSummaryResponse } from "../types/response";
 
@@ -11,7 +11,7 @@ const attendanceColour = {
 	below75: "dc2626",
 };
 
-function OverallAtt() {
+const OverallAtt = memo(function OverallAtt() {
 	const [attendanceDataSummary, setSetAndanceDataSummary] =
 		useState<AttendanceDataSummaryResponse | null>(null);
 	useEffect(() => {
@@ -27,9 +27,10 @@ function OverallAtt() {
 
 			setSetAndanceDataSummary(response.data);
 		};
-
-		fetchData();
-	}, []);
+		if (!attendanceDataSummary) {
+			fetchData();
+		}
+	}, [attendanceDataSummary]);
 
 	function handleAttendanceSliderColour(): string {
 		if (attendanceDataSummary) {
@@ -78,6 +79,6 @@ function OverallAtt() {
 			)}
 		</div>
 	);
-}
+});
 
 export default OverallAtt;
