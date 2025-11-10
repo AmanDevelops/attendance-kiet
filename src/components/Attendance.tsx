@@ -157,6 +157,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 	const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
 	const [missedClasses, setMissedClasses] = useState<Set<string>>(new Set());
 	const [showProjection, setShowProjection] = useState(false);
+	const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
 	const overallAttendance = useMemo(() => {
 		if (!attendanceData) {
@@ -349,20 +350,23 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 							<button
 								type="button"
 								onClick={() => setShowProjection((prev) => !prev)}
-								className="style-border style-text py-2 px-1.5 sm:px-3 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 focus:outline-none transform hover:-translate-y-1 transition-transform flex items-center gap-1.5 w-auto"
+								className="style-border style-text py-2 px-2 text-xs font-bold flex items-center gap-0 [@media(min-width:395px)]:gap-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 focus:outline-none transform hover:-translate-y-1 transition-transform w-auto"
 							>
 								<Wand2 className="h-4 w-4 flex-shrink-0" />
-								<span className="hide-text-below-352 text-xs">
+								<span className="hidden [@media(min-width:395px)]:inline text-xs">
 									{showProjection ? "Hide Projection" : "Show Projection"}
 								</span>
 							</button>
+
 							<button
 								type="button"
 								onClick={handleLogout}
 								className="style-border style-text py-2 px-1.5 sm:px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300 w-auto"
 							>
 								<LogOut className="h-4 w-4 flex-shrink-0" />
-								<span className="hide-text-below-352">Logout</span>
+								<span className="hidden [@media(min-width:395px)]:inline">
+									Logout
+								</span>
 							</button>
 						</div>
 					</div>
@@ -378,9 +382,9 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 						</h3>
 					</div>
 					<p className="style-text text-sm text-gray-600 mb-4">
-						Select classes you plan to miss to see the live impact on your
-						attendance.
+						Select classes you plan to miss:
 					</p>
+
 					<div className="max-h-64 overflow-y-auto space-y-4 pr-2">
 						{groupedSchedule.size === 0 && (
 							<p className="style-text text-gray-500">
@@ -389,66 +393,94 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 						)}
 
 						{Array.from(groupedSchedule.entries()).map(([day, classes]) => {
+							const isExpanded = expandedDays.has(day);
 							const allDayClasses = classes.map((c) => c.start);
 							const allDaySelected = allDayClasses.every((start) =>
 								missedClasses.has(start),
 							);
-							const someDaySelected =
-								allDayClasses.some((start) => missedClasses.has(start)) &&
-								!allDaySelected;
 
 							return (
-								<div key={day}>
-									<h4 className="style-text font-bold text-black border-b-2 border-black pb-1 mb-2">
-										{day}
-									</h4>
-
-									<div className="flex items-center gap-3 mb-2 pb-2 border-b border-gray-200">
-										<input
-											type="checkbox"
-											id={`day-${day}`}
-											className="h-5 w-5 style-border rounded-none"
-											checked={allDaySelected}
-											ref={(el) => {
-												if (el) el.indeterminate = someDaySelected;
-											}}
-											onChange={() =>
-												handleDayToggle(allDayClasses, allDaySelected)
-											}
-										/>
-										<label
-											htmlFor={`day-${day}`}
-											className="flex-1 style-text text-sm font-bold"
+								<div
+									key={day}
+									className="border rounded-lg mb-3 overflow-hidden transition-all"
+								>
+									{/* Header that toggles the day */}
+									<button
+										type="button"
+										onClick={() => {
+											setExpandedDays((prev) => {
+												const newSet = new Set(prev);
+												if (newSet.has(day)) {
+													newSet.delete(day);
+												} else {
+													newSet.add(day);
+												}
+												return newSet;
+											});
+										}}
+										className="w-full flex justify-between items-center bg-gray-100 hover:bg-gray-200 px-4 py-2"
+									>
+										<span className="font-semibold text-sm text-gray-800">
+											{day}
+										</span>
+										<span
+											className={`text-xl font-bold transform transition-transform ${
+												isExpanded ? "rotate-45 text-red-600" : "text-gray-600"
+											}`}
 										>
-											Select All (for {day})
-										</label>
-									</div>
+											{isExpanded ? "−" : "+"}
+										</span>
+									</button>
 
-									<ul className="space-y-2">
-										{classes.map((c) => (
-											<li key={c.start} className="flex items-center gap-3">
+									{/* Expandable class list */}
+									{isExpanded && (
+										<div className="bg-white px-4 py-3 space-y-3">
+											{/* Select all for day */}
+											<div className="flex items-center gap-2 pb-2 border-b border-gray-200">
 												<input
 													type="checkbox"
-													id={c.start}
-													className="h-5 w-5 style-border rounded-none"
-													checked={missedClasses.has(c.start)}
-													onChange={() => handleMissClassToggle(c.start)}
+													id={`day-${day}`}
+													className="h-4 w-4 border-gray-400"
+													checked={allDaySelected}
+													onChange={() =>
+														handleDayToggle(allDayClasses, allDaySelected)
+													}
 												/>
 												<label
-													htmlFor={c.start}
-													className="flex-1 style-text text-sm"
+													htmlFor={`day-${day}`}
+													className="text-xs font-semibold text-gray-700"
 												>
-													<span className="font-bold">{c.courseName}</span> (
-													{c.courseCompName})
-													<br />
-													<span className="text-xs text-gray-600">
-														{c.start.split(" ")[1]} - {c.end.split(" ")[1]} |{" "}
-														{c.facultyName}
-													</span>
+													Select all for {day}
 												</label>
-											</li>
-										))}
-									</ul>
+											</div>
+
+											{/* Class list */}
+											<ul className="space-y-2">
+												{classes.map((c) => (
+													<li key={c.start} className="flex items-center gap-2">
+														<input
+															type="checkbox"
+															id={c.start}
+															className="h-4 w-4 border-gray-400"
+															checked={missedClasses.has(c.start)}
+															onChange={() => handleMissClassToggle(c.start)}
+														/>
+														<label
+															htmlFor={c.start}
+															className="text-xs font-medium text-gray-800"
+														>
+															<span className="block text-[0.85rem] font-semibold">
+																{c.courseName}
+															</span>
+															<span className="text-[0.75rem] text-gray-500">
+																{c.start.split(" ")[1]} – {c.end.split(" ")[1]}
+															</span>
+														</label>
+													</li>
+												))}
+											</ul>
+										</div>
+									)}
 								</div>
 							);
 						})}
@@ -623,7 +655,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 				))}
 			</div>
 
-			{/* ✅ Modal to Show Daywise Attendance */}
+			{/*  Modal to Show Daywise Attendance */}
 			{isDaywiseModalOpen && selectedComponent && (
 				<div className="fixed inset-0 bg-transparent backdrop-blur-[3px]  flex items-center justify-center z-50 px-4">
 					<div className="relative bg-white bg-opacity-90 backdrop-blur-md p-4 rounded-lg shadow-lg max-w-3xl w-full style-border">
