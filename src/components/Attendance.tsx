@@ -417,12 +417,12 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 										}}
 className="group w-full flex justify-between items-center cursor-pointer style-border style-text hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300 px-4 py-2"
 									>
-										<span className="font-semibold text-sm text-gray-800">
-											{day}
-										</span>
+<span className="font-semibold text-sm ">{day}</span>
 										<span
 											className={`text-xl font-bold transform transition-transform ${
-												isExpanded ? "rotate-45 text-red-600" : "text-gray-600"
+												isExpanded
+													? "rotate-45 text-red-600"
+													: "group-[&:not(:hover)]:text-black"
 											}`}
 										>
 											{isExpanded ? "−" : "+"}
