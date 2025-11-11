@@ -327,7 +327,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 
 	return (
 		<div className="container mx-auto px-4 py-8 flex-grow">
-			<div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
+			<div className="bg-white rounded-lg shadow-md p-4 mb-8 style-border style-fade-in">
 				<div className="flex flex-col  gap-4">
 					<div className="flex items-center sm:gap-4 justify-between">
 						<div className="flex items-center gap-responsive">
