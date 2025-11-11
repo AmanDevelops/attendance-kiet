@@ -415,7 +415,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 												return newSet;
 											});
 										}}
-										className="w-full flex justify-between items-center bg-gray-100 hover:bg-gray-200 px-4 py-2"
+className="group w-full flex justify-between items-center cursor-pointer style-border style-text hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300 px-4 py-2"
 									>
 										<span className="font-semibold text-sm text-gray-800">
 											{day}
