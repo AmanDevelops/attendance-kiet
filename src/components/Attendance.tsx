@@ -4,6 +4,8 @@ import {
 	AlertTriangle,
 	CalendarDays,
 	CheckCircle,
+	ChevronDown,
+	ChevronUp,
 	LogOut,
 	User,
 	Wand2,
@@ -374,11 +376,11 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 				<div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
 					<div className="flex items-center gap-2 mb-4">
 						<CalendarDays className="h-6 w-6 text-blue-600" />
-						<h3 className="style-text text-xl font-bold text-black">
+						<h3 className="style-text text-md font-semibold text-black">
 							Weekly Projection (Today Onwards)
 						</h3>
 					</div>
-					<p className="style-text text-sm text-gray-600 mb-4">
+					<p className="style-text text-xs text-gray-600 mb-4">
 						Select classes you plan to miss:
 					</p>
 
@@ -397,86 +399,92 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 							);
 
 							return (
-								<div key={day} className=" mb-3 gap-2 transition-all ">
-									{/* Header that toggles the day */}
-									<button
-										type="button"
-										onClick={() => {
-											setExpandedDays((prev) => {
-												const newSet = new Set(prev);
-												if (newSet.has(day)) {
-													newSet.delete(day);
-												} else {
-													newSet.add(day);
-												}
-												return newSet;
-											});
-										}}
-										className="group w-full flex justify-between items-center cursor-pointer style-border style-text hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300 px-4 py-2"
-									>
-										<span className="font-semibold text-sm ">{day}</span>
-										<span
-											className={`text-xl font-bold transform transition-transform ${
-												isExpanded
-													? "rotate-45 text-red-600"
-													: "group-[&:not(:hover)]:text-black"
-											}`}
-										>
-											{isExpanded ? "−" : "+"}
-										</span>
-									</button>
+                <div key={day} className=" mb-3 gap-2 transition-all ">
+                  {/* Header that toggles the day */}
 
-									{/* Expandable class list */}
-									{isExpanded && (
-										<div className="bg-white px-4 py-3 space-y-3">
-											{/* Select all for day */}
-											<div className="flex items-center gap-2 pb-2 border-b border-gray-200">
-												<input
-													type="checkbox"
-													id={`day-${day}`}
-													className="h-4 w-4 border-gray-400"
-													checked={allDaySelected}
-													onChange={() =>
-														handleDayToggle(allDayClasses, allDaySelected)
-													}
-												/>
-												<label
-													htmlFor={`day-${day}`}
-													className="text-xs font-semibold text-gray-700"
-												>
-													Select all for {day}
-												</label>
-											</div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExpandedDays((prev) => {
+                        const newSet = new Set(prev);
+                        if (newSet.has(day)) {
+                          newSet.delete(day);
+                        } else {
+                          newSet.add(day);
+                        }
+                        return newSet;
+                      });
+                    }}
+                    aria-expanded={isExpanded}
+                    className="group w-full flex justify-between items-center cursor-pointer style-border style-text hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300 px-4 py-2"
+                  >
+                    <span className="font-semibold text-sm ">{day}</span>
+                    <span
+                      className={`text-xl font-bold transform transition-transform ${
+                        isExpanded
+                          ? "text-red-600"
+                          : "group-[&:not(:hover)]:text-black"
+                      }`}
+                    >
+                      {isExpanded ? (
+                        <ChevronUp className="h-5 w-5" aria-hidden="true" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5" aria-hidden="true" />
+                      )}
+                    </span>
+                  </button>
 
-											{/* Class list */}
-											<ul className="space-y-2">
-												{classes.map((c) => (
-													<li key={c.start} className="flex items-center gap-2">
-														<input
-															type="checkbox"
-															id={c.start}
-															className="h-4 w-4 border-gray-400"
-															checked={missedClasses.has(c.start)}
-															onChange={() => handleMissClassToggle(c.start)}
-														/>
-														<label
-															htmlFor={c.start}
-															className="text-xs font-medium text-gray-800"
-														>
-															<span className="block text-[0.85rem] font-semibold">
-																{c.courseName}
-															</span>
-															<span className="text-[0.75rem] text-gray-500">
-																{c.start.split(" ")[1]} – {c.end.split(" ")[1]}
-															</span>
-														</label>
-													</li>
-												))}
-											</ul>
-										</div>
-									)}
-								</div>
-							);
+                  {/* Expandable class list */}
+                  {isExpanded && (
+                    <div className="bg-white px-4 py-3 space-y-3  border-2">
+                      {/* Select all for day */}
+                      <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+                        <input
+                          type="checkbox"
+                          id={`day-${day}`}
+                          className="h-4 w-4 border-gray-400"
+                          checked={allDaySelected}
+                          onChange={() =>
+                            handleDayToggle(allDayClasses, allDaySelected)
+                          }
+                        />
+                        <label
+                          htmlFor={`day-${day}`}
+                          className="text-xs font-semibold text-gray-700"
+                        >
+                          Select all for {day}
+                        </label>
+                      </div>
+
+                      {/* Class list */}
+                      <ul className="space-y-2">
+                        {classes.map((c) => (
+                          <li key={c.start} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id={c.start}
+                              className="h-4 w-4 border-gray-400"
+                              checked={missedClasses.has(c.start)}
+                              onChange={() => handleMissClassToggle(c.start)}
+                            />
+                            <label
+                              htmlFor={c.start}
+                              className="text-xs font-medium text-gray-800"
+                            >
+                              <span className="block text-[0.85rem] font-semibold">
+                                {c.courseName}
+                              </span>
+                              <span className="text-[0.75rem] text-gray-500">
+                                {c.start.split(" ")[1]} – {c.end.split(" ")[1]}
+                              </span>
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
 						})}
 					</div>
 				</div>
