@@ -397,10 +397,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 							);
 
 							return (
-								<div
-									key={day}
-									className=" mb-3 gap-2 transition-all "
-								>
+								<div key={day} className=" mb-3 gap-2 transition-all ">
 									{/* Header that toggles the day */}
 									<button
 										type="button"
@@ -415,9 +412,9 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 												return newSet;
 											});
 										}}
-className="group w-full flex justify-between items-center cursor-pointer style-border style-text hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300 px-4 py-2"
+										className="group w-full flex justify-between items-center cursor-pointer style-border style-text hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300 px-4 py-2"
 									>
-<span className="font-semibold text-sm ">{day}</span>
+										<span className="font-semibold text-sm ">{day}</span>
 										<span
 											className={`text-xl font-bold transform transition-transform ${
 												isExpanded
