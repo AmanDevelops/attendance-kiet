@@ -353,7 +353,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 								className="style-border style-text py-2 px-2 text-xs font-bold flex items-center gap-responsive text-blue-600 bg-blue-50 hover:bg-blue-100 focus:outline-none transform hover:-translate-y-1 transition-transform w-auto"
 							>
 								<Wand2 className="h-4 w-4 flex-shrink-0" />
-								<span className="btn-text">
+								<span className="hide-text-below-352 text-xs">
 									{showProjection ? "Hide Projection" : "Show Projection"}
 								</span>
 							</button>
@@ -364,7 +364,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 								className="style-border style-text py-2 px-1.5 sm:px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300 w-auto"
 							>
 								<LogOut className="h-4 w-4 flex-shrink-0" />
-								<span className="btn-text">Logout</span>
+								<span className="hide-text-below-352">Logout</span>
 							</button>
 						</div>
 					</div>
