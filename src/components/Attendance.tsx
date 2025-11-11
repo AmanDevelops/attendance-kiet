@@ -399,7 +399,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 							return (
 								<div
 									key={day}
-									className="border rounded-lg mb-3 overflow-hidden transition-all"
+<div key={day} className=" mb-3 gap-2 transition-all ">
 								>
 									{/* Header that toggles the day */}
 									<button
