@@ -1,5 +1,34 @@
 @import "tailwindcss";
 
+/*hide text for small screens*/
+.btn-text {
+	display: none;
+}
+
+@media (min-width: 395px) {
+	.btn-text {
+		display: inline;
+	}
+}
+
+@media (max-width: 338px) {
+	.gap-responsive {
+		gap: 0.125rem;
+	}
+}
+
+@media (min-width: 347px) {
+	.gap-responsive {
+		gap: 0.5rem;
+	}
+}
+
+@media (min-width: 640px) {
+	.gap-responsive {
+		gap: 1rem;
+	}
+}
+
 @keyframes fadeIn {
 	from {
 		opacity: 0;
