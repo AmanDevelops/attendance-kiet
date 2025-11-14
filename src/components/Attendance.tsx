@@ -326,7 +326,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 	// The 'currentOverallProjection' variable is intentionally removed as it was unused.
 
 	return (
-		<div className="container mx-auto px-4 py-8 flex-grow">
+		<div className="container mx-auto px-4 py-8 grow">
 			<div className="bg-white rounded-lg shadow-md p-4 mb-8 style-border style-fade-in">
 				<div className="flex flex-col  gap-4">
 					<div className="flex items-center sm:gap-4 justify-between">
@@ -354,7 +354,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 								onClick={() => setShowProjection((prev) => !prev)}
 								className="style-border style-text py-2 px-2 text-xs font-bold flex items-center gap-responsive text-blue-600 bg-blue-50 hover:bg-blue-100 focus:outline-none transform hover:-translate-y-1 transition-transform w-auto"
 							>
-								<Wand2 className="h-4 w-4 flex-shrink-0" />
+								<Wand2 className="h-4 w-4 shrink-0" />
 								<span className="hide-text-below-352 text-xs">
 									{showProjection ? "Hide Projection" : "Show Projection"}
 								</span>
@@ -365,7 +365,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 								onClick={handleLogout}
 								className="style-border style-text py-2 px-1.5 sm:px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300 w-auto"
 							>
-								<LogOut className="h-4 w-4 flex-shrink-0" />
+								<LogOut className="h-4 w-4 shrink-0" />
 								<span className="hide-text-below-352">Logout</span>
 							</button>
 						</div>
@@ -423,7 +423,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 											className={`text-xl font-bold transform transition-transform ${
 												isExpanded
 													? "text-red-600"
-													: "group-[&:not(:hover)]:text-black"
+													: "group-not-[&:hover]:text-black"
 											}`}
 										>
 											{isExpanded ? (
