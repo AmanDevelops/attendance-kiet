@@ -373,7 +373,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 				</div>
 			</div>
 			{showProjection && (
-				<div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
+				<div className="bg-white rounded-lg shadow-md p-6 mb-4 style-border style-fade-in">
 					<div className="flex items-center gap-2 mb-4">
 						<CalendarDays className="h-6 w-6 text-blue-600" />
 						<h3 className="style-text text-md font-semibold text-black">
@@ -490,9 +490,9 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 				</div>
 			)}
 			<div className={`${showProjection ? "hidden" : "block"}`}>
-				` <OverallAtt />
+				<OverallAtt />
 			</div>
-			`
+
 			{showProjection && (
 				<div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
 					<div className="mt-0">
