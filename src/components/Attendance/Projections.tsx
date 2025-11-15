@@ -2,6 +2,7 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { CalendarDays, ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useAppContext } from "../../contexts/AppContext";
 import { AUTH_COOKIE_NAME } from "../../types/CookieVars";
 import type { ScheduleEntry, ScheduleResponse } from "../../types/response";
 import { getWeekRange } from "../../types/utils";
@@ -10,6 +11,49 @@ export default function Projections() {
 	const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
 	const [missedClasses, setMissedClasses] = useState<Set<string>>(new Set());
 	const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+	const { setAttendanceData } = useAppContext();
+
+	const updateProjectedAttendance = (
+		courseCode: string,
+		action: "add" | "subtract",
+	) => {
+		const adjustment = action === "add" ? 1 : -1;
+
+		setAttendanceData((prevData) => {
+			if (!prevData) return prevData;
+
+			const courseList = prevData.data.attendanceCourseComponentInfoList;
+			if (!courseList) return prevData;
+
+			const newCourseList = courseList.map((course) => {
+				if (course.courseCode === courseCode) {
+					const updatedNameInfoList = [
+						...course.attendanceCourseComponentNameInfoList,
+					];
+
+					updatedNameInfoList[0] = {
+						...updatedNameInfoList[0],
+						numberOfPeriods:
+							updatedNameInfoList[0].numberOfPeriods + adjustment,
+					};
+
+					return {
+						...course,
+						attendanceCourseComponentNameInfoList: updatedNameInfoList,
+					};
+				}
+				return course;
+			});
+
+			return {
+				...prevData,
+				data: {
+					...prevData.data,
+					attendanceCourseComponentInfoList: newCourseList,
+				},
+			};
+		});
+	};
 
 	useEffect(() => {
 		const fetchSchedule = async () => {
@@ -28,10 +72,7 @@ export default function Projections() {
 			}
 		};
 
-		// if (showProjection && schedule.length === 0) {
 		fetchSchedule();
-		// }
-		// console.log(schedule);
 	}, []);
 
 	const groupedSchedule = useMemo(() => {
@@ -39,59 +80,97 @@ export default function Projections() {
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 
+		const parseDate = (lectureDate: string, startTime: string): Date => {
+			const [day, month, year] = lectureDate.split("/").map(Number);
+			const [hours, minutes, seconds] = startTime.split(":");
+			return new Date(
+				year,
+				month - 1,
+				day,
+				Number(hours),
+				Number(minutes),
+				Number(seconds),
+			);
+		};
+
 		schedule
-			.filter((c) => c.type === "CLASS")
-			.sort(
-				(a, b) =>
-					new Date(
-						a.start.split(" ")[0].split("/").reverse().join("-") +
-							"T" +
-							a.start.split(" ")[1],
-					).getTime() -
-					new Date(
-						b.start.split(" ")[0].split("/").reverse().join("-") +
-							"T" +
-							b.start.split(" ")[1],
-					).getTime(),
-			)
+			.filter((c) => {
+				if (c.type !== "CLASS") return false;
+				const [day, month, year] = c.lectureDate.split("/").map(Number);
+				const classDate = new Date(year, month - 1, day);
+				return classDate <= today;
+			})
+			.map((c) => ({
+				...c,
+				timestamp: parseDate(c.lectureDate, c.start.split(" ")[1]).getTime(),
+			}))
+			.sort((a, b) => a.timestamp - b.timestamp)
 			.forEach((c) => {
 				const [day, month, year] = c.lectureDate.split("/").map(Number);
 				const classDate = new Date(year, month - 1, day);
 
-				if (classDate >= today) {
-					const dayName = classDate.toLocaleDateString("en-US", {
-						weekday: "long",
-						month: "short",
-						day: "numeric",
-					});
-					if (!grouped.has(dayName)) {
-						grouped.set(dayName, []);
-					}
-					grouped.get(dayName)?.push(c);
+				const dayName = classDate.toLocaleDateString("en-US", {
+					weekday: "long",
+					month: "short",
+					day: "numeric",
+				});
+
+				if (!grouped.has(dayName)) {
+					grouped.set(dayName, []);
 				}
+				grouped.get(dayName)?.push(c);
 			});
+
 		return grouped;
 	}, [schedule]);
 
-	const handleMissClassToggle = (classStartString: string) => {
-		setMissedClasses((prev) => {
-			const newSet = new Set(prev);
-			if (newSet.has(classStartString)) {
-				newSet.delete(classStartString);
-			} else {
-				newSet.add(classStartString);
-			}
-			return newSet;
-		});
+	const handleMissClassToggle = (
+		classStartString: string,
+		courseCode: string,
+	) => {
+		const newSet = new Set(missedClasses);
+		if (newSet.has(classStartString)) {
+			newSet.delete(classStartString);
+			setMissedClasses(newSet);
+			updateProjectedAttendance(courseCode, "subtract");
+		} else {
+			newSet.add(classStartString);
+			updateProjectedAttendance(courseCode, "add");
+
+			setMissedClasses(newSet);
+		}
 	};
 
-	const handleDayToggle = (classStarts: string[], dayIsSelected: boolean) => {
+	const handleDayToggle = (
+		classData: { start: string; courseCode: string }[],
+		dayIsSelected: boolean,
+	) => {
+		const newSet = new Set(missedClasses);
+
+		console.log(classData);
+
+		if (dayIsSelected) {
+			for (const classItem of classData) {
+				newSet.delete(classItem.start);
+				updateProjectedAttendance(classItem.courseCode, "subtract");
+			}
+		} else {
+			for (const classItem of classData) {
+				newSet.add(classItem.start);
+				updateProjectedAttendance(classItem.courseCode, "add");
+			}
+		}
+
 		setMissedClasses((prev) => {
 			const newSet = new Set(prev);
 			if (dayIsSelected) {
-				for (const start of classStarts) newSet.delete(start);
+				for (const classItem of classData) {
+					newSet.delete(classItem.start);
+				}
 			} else {
-				for (const start of classStarts) newSet.add(start);
+				for (const classItem of classData) {
+					newSet.add(classItem.start);
+				}
 			}
 			return newSet;
 		});
@@ -116,9 +195,12 @@ export default function Projections() {
 				)}
 				{Array.from(groupedSchedule.entries()).map(([day, classes]) => {
 					const isExpanded = expandedDays.has(day);
-					const allDayClasses = classes.map((c) => c.start);
-					const allDaySelected = allDayClasses.every((start) =>
-						missedClasses.has(start),
+					const allDayClasses = classes.map((c) => ({
+						start: c.start,
+						courseCode: c.courseCode,
+					}));
+					const allDaySelected = allDayClasses.every((c) =>
+						missedClasses.has(c.start),
 					);
 
 					return (
@@ -188,7 +270,9 @@ export default function Projections() {
 													id={c.start}
 													className="h-4 w-4 border-gray-400"
 													checked={missedClasses.has(c.start)}
-													onChange={() => handleMissClassToggle(c.start)}
+													onChange={() =>
+														handleMissClassToggle(c.start, c.courseCode)
+													}
 												/>
 												<label
 													htmlFor={c.start}

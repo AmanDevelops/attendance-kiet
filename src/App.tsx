@@ -2,6 +2,7 @@ import { useState } from "react";
 import Attendance from "./components/Attendance";
 import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
+import { AttendanceDataContext } from "./contexts/AppContext";
 import type { AttendanceResponse } from "./types/response";
 
 function App() {
@@ -25,15 +26,19 @@ function App() {
 					</a>
 				</div>
 			</div>
+			<AttendanceDataContext.Provider
+				value={{ attendanceData, setAttendanceData }}
+			>
+				{!attendanceData ? (
+					<LoginForm setAttendanceData={setAttendanceData} />
+				) : (
+					<Attendance
+						attendanceData={attendanceData}
+						setAttendanceData={setAttendanceData}
+					/>
+				)}
+			</AttendanceDataContext.Provider>
 
-			{!attendanceData ? (
-				<LoginForm setAttendanceData={setAttendanceData} />
-			) : (
-				<Attendance
-					attendanceData={attendanceData}
-					setAttendanceData={setAttendanceData}
-				/>
-			)}
 			<Footer />
 		</div>
 	);

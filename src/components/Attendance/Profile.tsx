@@ -13,8 +13,8 @@ interface ProfileProps {
 	setAttendanceData: React.Dispatch<
 		React.SetStateAction<AttendanceResponse | null>
 	>;
-	setShowProjection: React.Dispatch<React.SetStateAction<boolean>>;
-	showProjection: boolean;
+	setShowProjection: React.Dispatch<React.SetStateAction<number>>;
+	showProjection: number;
 }
 
 export default function Profile({
@@ -54,7 +54,7 @@ export default function Profile({
 			<div className="flex flex-col md:flex-row gap-2 self-start md:self-auto">
 				<button
 					type="button"
-					onClick={() => setShowProjection((prev) => !prev)}
+					onClick={() => setShowProjection((prev) => prev + 1)}
 					className="style-border style-text py-2 px-2 text-xs font-bold flex items-center gap-responsive text-blue-600 bg-blue-50 hover:bg-blue-100 focus:outline-none transform hover:-translate-y-1 transition-transform w-auto"
 				>
 					<Wand2 className="h-4 w-4 shrink-0" />

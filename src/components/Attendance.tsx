@@ -32,7 +32,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 		useState<SelectedComponentType | null>(null);
 	const [isDaywiseModalOpen, setIsDaywiseModalOpen] = useState(false);
 
-	const [showProjection, setShowProjection] = useState(false);
+	const [showProjection, setShowProjection] = useState<number>(0);
 
 	function handleViewDaywiseAttendance(
 		course: SelectedComponentType["course"],
@@ -72,10 +72,10 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 					/>
 				</div>
 			</div>
-			<div className={`${showProjection ? "block" : "hidden"}`}>
-				<Projections />
+			<div className={`${showProjection % 2 === 1 ? "block" : "hidden"}`}>
+				{showProjection > 0 && <Projections />}
 			</div>
-			<div className={`${showProjection ? "hidden" : "block"}`}>
+			<div className={`${showProjection % 2 === 1 ? "hidden" : "block"}`}>
 				<OverallAtt />
 			</div>
 
