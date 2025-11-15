@@ -2,7 +2,11 @@ import Cookies from "js-cookie";
 import { X } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
-import { AUTH_COOKIE_NAME } from "../types/CookieVars";
+import {
+	AUTH_COOKIE_NAME,
+	COOKIE_EXPIRY,
+	STUDENT_ID_COOKIE,
+} from "../types/CookieVars";
 import type { AttendanceResponse } from "../types/response";
 import { fetchStudentId } from "../types/utils";
 import CourseCard from "./Attendance/CourseCard";
@@ -52,9 +56,20 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 
 	useEffect(() => {
 		const token = Cookies.get(AUTH_COOKIE_NAME) || "";
-		fetchStudentId(token).then((id) => {
-			if (id) setStudentId(id);
-		});
+		const cookieId = Cookies.get(STUDENT_ID_COOKIE) || "";
+
+		if (cookieId) {
+			setStudentId(Number(cookieId));
+		} else if (token) {
+			fetchStudentId(token).then((id) => {
+				if (id) {
+					Cookies.set(STUDENT_ID_COOKIE, String(id), {
+						expires: COOKIE_EXPIRY,
+					});
+					setStudentId(id);
+				}
+			});
+		}
 
 		//  Scroll to the top after login
 		window.scrollTo({ top: 0, behavior: "instant" });

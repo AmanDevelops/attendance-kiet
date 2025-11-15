@@ -3,3 +3,4 @@ export const USERNAME_COOKIE = "username";
 export const PASSWORD_COOKIE = "password";
 export const REMEMBER_ME_COOKIE = "remember_me";
 export const COOKIE_EXPIRY = 28; // Days
+export const STUDENT_ID_COOKIE = "studentId";
