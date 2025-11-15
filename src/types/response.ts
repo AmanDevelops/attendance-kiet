@@ -97,3 +97,24 @@ export interface ScheduleResponse {
 	data: ScheduleEntry[];
 	message: string;
 }
+
+// ----- Registered Course API response --------
+
+export interface studentCourseCompDetails {
+	courseCompId: number;
+	courseCompName: string;
+	presentLecture: number;
+	totalLecture: number;
+	courseRegType: string;
+}
+
+export interface RegisteredCourseAPIResponse {
+	data: {
+		studentId: number;
+		courseId: number;
+		courseCode: string;
+		courseName: string;
+		courseRegCategory: string;
+		studentCourseCompDetails: studentCourseCompDetails[];
+	}[];
+}
