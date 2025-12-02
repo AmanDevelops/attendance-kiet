@@ -3,7 +3,7 @@ import Cookies from "js-cookie";
 import { CalendarDays, ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
-import { AUTH_COOKIE_NAME } from "../../types/CookieVars";
+import { AUTH_COOKIE_NAME } from "../../types/constants";
 import type { ScheduleEntry, ScheduleResponse } from "../../types/response";
 import { getWeekRange } from "../../types/utils";
 

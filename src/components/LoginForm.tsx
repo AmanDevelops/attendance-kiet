@@ -6,9 +6,9 @@ import {
 	AUTH_COOKIE_NAME,
 	COOKIE_EXPIRY,
 	PASSWORD_COOKIE,
-	REMEMBER_ME_COOKIE,
-	USERNAME_COOKIE,
-} from "../types/CookieVars";
+	REMEMBER_ME_COOKIE_NAME,
+	USERNAME_COOKIE_NAME,
+} from "../types/constants";
 import type { AttendanceResponse, LoginResponse } from "../types/response";
 
 function LoginForm({
@@ -46,8 +46,8 @@ function LoginForm({
 	);
 
 	useEffect(() => {
-		const savedUsername = Cookies.get(USERNAME_COOKIE) || "";
-		const savedRememberMe = Cookies.get(REMEMBER_ME_COOKIE) === "true";
+		const savedUsername = Cookies.get(USERNAME_COOKIE_NAME) || "";
+		const savedRememberMe = Cookies.get(REMEMBER_ME_COOKIE_NAME) === "true";
 		const savedPassword = savedRememberMe
 			? Cookies.get(PASSWORD_COOKIE) || ""
 			: "";
@@ -82,8 +82,8 @@ function LoginForm({
 
 			const token = loginResponse.data.data.token;
 
-			Cookies.set(USERNAME_COOKIE, username, { expires: COOKIE_EXPIRY });
-			Cookies.set(REMEMBER_ME_COOKIE, rememberMe.toString(), {
+			Cookies.set(USERNAME_COOKIE_NAME, username, { expires: COOKIE_EXPIRY });
+			Cookies.set(REMEMBER_ME_COOKIE_NAME, rememberMe.toString(), {
 				expires: COOKIE_EXPIRY,
 			});
 

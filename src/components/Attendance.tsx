@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import {
 	AUTH_COOKIE_NAME,
 	COOKIE_EXPIRY,
-	STUDENT_ID_COOKIE,
-} from "../types/CookieVars";
+	STUDENT_ID_COOKIE_NAME,
+} from "../types/constants";
 import type { AttendanceResponse } from "../types/response";
 import { fetchStudentId } from "../types/utils";
 import CourseCard from "./Attendance/CourseCard";
@@ -26,8 +26,6 @@ type AttendanceHook = {
 		React.SetStateAction<AttendanceResponse | null>
 	>;
 };
-
-export const TARGET_PERCENTAGE = 75;
 
 function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 	const [studentId, setStudentId] = useState<number | null>(null);
@@ -56,14 +54,14 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 
 	useEffect(() => {
 		const token = Cookies.get(AUTH_COOKIE_NAME) || "";
-		const cookieId = Cookies.get(STUDENT_ID_COOKIE) || "";
+		const cookieId = Cookies.get(STUDENT_ID_COOKIE_NAME) || "";
 
 		if (cookieId) {
 			setStudentId(Number(cookieId));
 		} else if (token) {
 			fetchStudentId(token).then((id) => {
 				if (id) {
-					Cookies.set(STUDENT_ID_COOKIE, String(id), {
+					Cookies.set(STUDENT_ID_COOKIE_NAME, String(id), {
 						expires: COOKIE_EXPIRY,
 					});
 					setStudentId(id);

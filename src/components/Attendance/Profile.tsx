@@ -3,9 +3,9 @@ import { LogOut, User, Wand2 } from "lucide-react";
 import {
 	AUTH_COOKIE_NAME,
 	PASSWORD_COOKIE,
-	REMEMBER_ME_COOKIE,
-	USERNAME_COOKIE,
-} from "../../types/CookieVars";
+	REMEMBER_ME_COOKIE_NAME,
+	USERNAME_COOKIE_NAME,
+} from "../../types/constants";
 import type { AttendanceResponse } from "../../types/response";
 
 interface ProfileProps {
@@ -25,8 +25,8 @@ export default function Profile({
 }: ProfileProps) {
 	function handleLogout(): void {
 		Cookies.remove(AUTH_COOKIE_NAME);
-		if (!Cookies.get(REMEMBER_ME_COOKIE)) {
-			Cookies.remove(USERNAME_COOKIE);
+		if (!Cookies.get(REMEMBER_ME_COOKIE_NAME)) {
+			Cookies.remove(USERNAME_COOKIE_NAME);
 			Cookies.remove(PASSWORD_COOKIE);
 		}
 		setAttendanceData(null);

@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle } from "lucide-react";
+import { TARGET_PERCENTAGE } from "../../types/constants";
 import type { AttendanceResponse } from "../../types/response";
-import { type SelectedComponentType, TARGET_PERCENTAGE } from "../Attendance";
+import type { SelectedComponentType } from "../Attendance";
 
 interface CourseCardProps {
 	onViewDaywiseAttendance: (
@@ -10,19 +11,15 @@ interface CourseCardProps {
 	course: AttendanceResponse["data"]["attendanceCourseComponentInfoList"][number];
 }
 
-function calculateAttendanceProjection(
-	present: number,
-	total: number,
-	percent: number,
-) {
+function calculateAttendanceProjection(present: number, total: number) {
 	if (total === 0) {
 		return { status: "safe", message: "No classes held yet." };
 	}
 	const currentPercentage = (present / total) * 100;
 
-	if (currentPercentage >= percent) {
+	if (currentPercentage >= TARGET_PERCENTAGE) {
 		const canMiss = Math.floor(
-			(present - (percent / 100) * total) / (percent / 100),
+			(present - (TARGET_PERCENTAGE / 100) * total) / (TARGET_PERCENTAGE / 100),
 		);
 		return {
 			status: "safe",
@@ -32,15 +29,9 @@ function calculateAttendanceProjection(
 					: "Try not to miss any more classes",
 		};
 	} else {
-		if (percent === 100) {
-			// I hope it never gets used
-			return {
-				status: "warning",
-				message: "Need to attend all future classes.",
-			};
-		}
 		const needToAttend = Math.ceil(
-			((percent / 100) * total - present) / (1 - percent / 100),
+			((TARGET_PERCENTAGE / 100) * total - present) /
+				(1 - TARGET_PERCENTAGE / 100),
 		);
 		return {
 			status: "warning",
@@ -82,7 +73,6 @@ export default function CourseCard({
 						const currentSubjectProjection = calculateAttendanceProjection(
 							component.numberOfPresent + component.numberOfExtraAttendance,
 							component.numberOfPeriods + subjectMissed,
-							TARGET_PERCENTAGE,
 						);
 
 						return (
