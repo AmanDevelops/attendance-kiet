@@ -3,11 +3,12 @@ import Attendance from "./components/Attendance";
 import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
 import { AttendanceDataContext } from "./contexts/AppContext";
-import type { AttendanceResponse } from "./types/response";
+import type { StudentDetails } from "./types/response";
 
 function App() {
-	const [attendanceData, setAttendanceData] =
-		useState<AttendanceResponse | null>(null);
+	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
+		null,
+	);
 
 	return (
 		<div className="min-h-screen bg-gray-100">
@@ -29,14 +30,7 @@ function App() {
 			<AttendanceDataContext.Provider
 				value={{ attendanceData, setAttendanceData }}
 			>
-				{!attendanceData ? (
-					<LoginForm setAttendanceData={setAttendanceData} />
-				) : (
-					<Attendance
-						attendanceData={attendanceData}
-						setAttendanceData={setAttendanceData}
-					/>
-				)}
+				{!attendanceData ? <LoginForm /> : <Attendance />}
 			</AttendanceDataContext.Provider>
 
 			<Footer />

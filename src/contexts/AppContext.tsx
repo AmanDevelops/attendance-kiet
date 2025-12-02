@@ -4,20 +4,21 @@ import {
 	type SetStateAction,
 	useContext,
 } from "react";
-import type { AttendanceResponse } from "../types/response";
+import type { StudentDetails } from "../types/response";
 
-type AttendanceDataContextType = {
-	attendanceData: AttendanceResponse | null;
-	setAttendanceData: Dispatch<SetStateAction<AttendanceResponse | null>>;
+export type AttendanceDataContextType = {
+	attendanceData: StudentDetails | null;
+	setAttendanceData: Dispatch<SetStateAction<StudentDetails | null>>;
 };
 
-export const AttendanceDataContext =
-	createContext<AttendanceDataContextType | null>(null);
+export const AttendanceDataContext = createContext<
+	AttendanceDataContextType | undefined
+>(undefined);
 
-export function useAppContext() {
+export const useAppContext = (): AttendanceDataContextType => {
 	const context = useContext(AttendanceDataContext);
-	if (!context) {
+	if (context === undefined) {
 		throw new Error("useAppContext must be used within an AppProvider");
 	}
 	return context;
-}
+};

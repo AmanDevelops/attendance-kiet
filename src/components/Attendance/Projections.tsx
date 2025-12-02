@@ -22,7 +22,7 @@ export default function Projections() {
 		setAttendanceData((prevData) => {
 			if (!prevData) return prevData;
 
-			const courseList = prevData.data.attendanceCourseComponentInfoList;
+			const courseList = prevData.attendanceCourseComponentInfoList;
 			if (!courseList) return prevData;
 
 			const newCourseList = courseList.map((course) => {
@@ -47,10 +47,7 @@ export default function Projections() {
 
 			return {
 				...prevData,
-				data: {
-					...prevData.data,
-					attendanceCourseComponentInfoList: newCourseList,
-				},
+				attendanceCourseComponentInfoList: newCourseList,
 			};
 		});
 	};
@@ -98,7 +95,7 @@ export default function Projections() {
 				if (c.type !== "CLASS") return false;
 				const [day, month, year] = c.lectureDate.split("/").map(Number);
 				const classDate = new Date(year, month - 1, day);
-				return classDate <= today;
+				return classDate >= today;
 			})
 			.map((c) => ({
 				...c,

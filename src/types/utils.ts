@@ -36,6 +36,8 @@ export function getWeekRange() {
 		return `${yyyy}-${mm}-${dd}`;
 	};
 
+	console.log(startDate, endDate);
+
 	return {
 		startDate: formatDate(startDate),
 		endDate: formatDate(endDate),

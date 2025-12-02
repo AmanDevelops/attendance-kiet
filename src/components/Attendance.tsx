@@ -1,13 +1,16 @@
 import Cookies from "js-cookie";
 import { X } from "lucide-react";
-import type React from "react";
 import { useEffect, useState } from "react";
+import { useAppContext } from "../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
 	COOKIE_EXPIRY,
 	STUDENT_ID_COOKIE_NAME,
 } from "../types/constants";
-import type { AttendanceResponse } from "../types/response";
+import type {
+	AttendanceComponentInfo,
+	CourseAttendanceInfo,
+} from "../types/response";
 import { fetchStudentId } from "../types/utils";
 import CourseCard from "./Attendance/CourseCard";
 import Profile from "./Attendance/Profile";
@@ -16,18 +19,12 @@ import DaywiseReport from "./Daywise";
 import OverallAtt from "./OverallAtt";
 
 export interface SelectedComponentType {
-	course: AttendanceResponse["data"]["attendanceCourseComponentInfoList"][0];
-	component: AttendanceResponse["data"]["attendanceCourseComponentInfoList"][0]["attendanceCourseComponentNameInfoList"][0];
+	course: CourseAttendanceInfo;
+	component: AttendanceComponentInfo;
 }
 
-type AttendanceHook = {
-	attendanceData: AttendanceResponse;
-	setAttendanceData: React.Dispatch<
-		React.SetStateAction<AttendanceResponse | null>
-	>;
-};
-
-function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
+function Attendance() {
+	const { attendanceData } = useAppContext();
 	const [studentId, setStudentId] = useState<number | null>(null);
 
 	const [selectedComponent, setSelectedComponent] =
@@ -73,13 +70,13 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 		window.scrollTo({ top: 0, behavior: "instant" });
 	}, []);
 
+	if (!attendanceData) return;
+
 	return (
 		<div className="container mx-auto px-4 py-8 grow">
 			<div className="bg-white rounded-lg shadow-md p-4 mb-8 style-border style-fade-in">
 				<div className="flex flex-col  gap-4">
 					<Profile
-						attendanceData={attendanceData}
-						setAttendanceData={setAttendanceData}
 						setShowProjection={setShowProjection}
 						showProjection={showProjection}
 					/>
@@ -93,7 +90,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 			</div>
 
 			<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-				{attendanceData.data.attendanceCourseComponentInfoList.map((course) => (
+				{attendanceData.attendanceCourseComponentInfoList.map((course) => (
 					<CourseCard
 						key={course.courseCode}
 						onViewDaywiseAttendance={handleViewDaywiseAttendance}

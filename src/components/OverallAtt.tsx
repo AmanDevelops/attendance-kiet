@@ -16,7 +16,7 @@ const OverallAtt = memo(function OverallAtt() {
 	let totalClasses = 0;
 	let presentClasses = 0;
 
-	attendanceData.data.attendanceCourseComponentInfoList.forEach((course) => {
+	attendanceData.attendanceCourseComponentInfoList.forEach((course) => {
 		const courseData = course.attendanceCourseComponentNameInfoList[0];
 
 		totalClasses += courseData.numberOfPeriods;

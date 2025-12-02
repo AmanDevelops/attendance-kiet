@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle } from "lucide-react";
 import { TARGET_PERCENTAGE } from "../../types/constants";
-import type { AttendanceResponse } from "../../types/response";
+import type { CourseAttendanceInfo } from "../../types/response";
 import type { SelectedComponentType } from "../Attendance";
 
 interface CourseCardProps {
@@ -8,7 +8,7 @@ interface CourseCardProps {
 		course: SelectedComponentType["course"],
 		component: SelectedComponentType["component"],
 	) => void;
-	course: AttendanceResponse["data"]["attendanceCourseComponentInfoList"][number];
+	course: CourseAttendanceInfo;
 }
 
 function calculateAttendanceProjection(present: number, total: number) {
