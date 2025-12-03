@@ -25,7 +25,10 @@ export interface SelectedComponentType {
 
 function Attendance() {
 	const { attendanceData } = useAppContext();
-	const [studentId, setStudentId] = useState<number | null>(null);
+	const [studentId, setStudentId] = useState<number | null>(() => {
+		const cookieStudentId = Cookies.get(STUDENT_ID_COOKIE_NAME);
+		return cookieStudentId ? Number(cookieStudentId) : null;
+	});
 
 	const [selectedComponent, setSelectedComponent] =
 		useState<SelectedComponentType | null>(null);
@@ -50,25 +53,24 @@ function Attendance() {
 	}, [isDaywiseModalOpen]);
 
 	useEffect(() => {
-		const token = Cookies.get(AUTH_COOKIE_NAME) || "";
-		const cookieId = Cookies.get(STUDENT_ID_COOKIE_NAME) || "";
+		if (studentId === null) {
+			const token = Cookies.get(AUTH_COOKIE_NAME) || "";
 
-		if (cookieId) {
-			setStudentId(Number(cookieId));
-		} else if (token) {
-			fetchStudentId(token).then((id) => {
-				if (id) {
-					Cookies.set(STUDENT_ID_COOKIE_NAME, String(id), {
-						expires: COOKIE_EXPIRY,
-					});
-					setStudentId(id);
-				}
-			});
+			if (token) {
+				fetchStudentId(token).then((id) => {
+					if (id) {
+						setStudentId(id);
+						Cookies.set(STUDENT_ID_COOKIE_NAME, String(id), {
+							expires: COOKIE_EXPIRY,
+						});
+					}
+				});
+			}
 		}
 
 		//  Scroll to the top after login
 		window.scrollTo({ top: 0, behavior: "instant" });
-	}, []);
+	}, [studentId]);
 
 	if (!attendanceData) return;
 
