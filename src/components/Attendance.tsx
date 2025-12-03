@@ -1,6 +1,6 @@
 import Cookies from "js-cookie";
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAppContext } from "../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
@@ -36,13 +36,16 @@ function Attendance() {
 
 	const [showProjection, setShowProjection] = useState<number>(0);
 
-	function handleViewDaywiseAttendance(
-		course: SelectedComponentType["course"],
-		component: SelectedComponentType["component"],
-	) {
-		setSelectedComponent({ course, component });
-		setIsDaywiseModalOpen(true);
-	}
+	const handleViewDaywiseAttendance = useCallback(
+		(
+			course: SelectedComponentType["course"],
+			component: SelectedComponentType["component"],
+		) => {
+			setSelectedComponent({ course, component });
+			setIsDaywiseModalOpen(true);
+		},
+		[],
+	);
 
 	useEffect(() => {
 		if (isDaywiseModalOpen) {
@@ -84,10 +87,10 @@ function Attendance() {
 					/>
 				</div>
 			</div>
-			<div className={`${showProjection % 2 === 1 ? "block" : "hidden"}`}>
-				{showProjection > 0 && <Projections />}
-			</div>
-			<div className={`${showProjection % 2 === 1 ? "hidden" : "block"}`}>
+			<div>
+				<div className={`${showProjection % 2 === 1 ? "block" : "hidden"}`}>
+					{showProjection > 0 && <Projections />}
+				</div>
 				<OverallAtt />
 			</div>
 

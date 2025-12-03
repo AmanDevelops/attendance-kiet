@@ -10,7 +10,7 @@ import {
 	REMEMBER_ME_COOKIE_NAME,
 	USERNAME_COOKIE_NAME,
 } from "../types/constants";
-import type { LoginResponse } from "../types/response";
+import type { LoginResponse, StudentDetails } from "../types/response";
 import PasswordInput from "../ui/PasswordInput";
 import { fetchAttendanceData } from "../utils/LoginUtils";
 
@@ -39,7 +39,22 @@ function LoginForm() {
 			const loadData = async () => {
 				try {
 					const data = await fetchAttendanceData(token);
-					setAttendanceData(data);
+					const updatedStudentDetails: StudentDetails = {
+						...data,
+						attendanceCourseComponentInfoList:
+							data.attendanceCourseComponentInfoList.map((course) => ({
+								...course,
+								attendanceCourseComponentNameInfoList:
+									course.attendanceCourseComponentNameInfoList.map(
+										(component) => ({
+											...component,
+											isProjected: false,
+										}),
+									),
+							})),
+					};
+
+					setAttendanceData(updatedStudentDetails);
 				} catch (error) {
 					setError(error instanceof Error ? error.message : String(error));
 				}

@@ -36,6 +36,7 @@ export interface AttendanceComponentInfo {
 	numberOfPresent: number;
 	presentPercentage: number | null;
 	presentPercentageWith: string;
+	isProjected: boolean;
 }
 
 // ---------------- DAYWISE-ATTENDANCE-API-RESPONSE ----------------

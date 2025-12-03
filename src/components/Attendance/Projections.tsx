@@ -1,7 +1,7 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 import { CalendarDays, ChevronDown, ChevronUp } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
 import { AUTH_COOKIE_NAME } from "../../types/constants";
 import type { ScheduleEntry, ScheduleResponse } from "../../types/response";
@@ -13,44 +13,45 @@ export default function Projections() {
 	const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 	const { setAttendanceData } = useAppContext();
 
-	const updateProjectedAttendance = (
-		courseCode: string,
-		action: "add" | "subtract",
-	) => {
-		const adjustment = action === "add" ? 1 : -1;
+	const updateProjectedAttendance = useCallback(
+		(courseCode: string, action: "add" | "subtract") => {
+			const adjustment = action === "add" ? 1 : -1;
 
-		setAttendanceData((prevData) => {
-			if (!prevData) return prevData;
+			setAttendanceData((prevData) => {
+				if (!prevData) return prevData;
 
-			const courseList = prevData.attendanceCourseComponentInfoList;
-			if (!courseList) return prevData;
+				const courseList = prevData.attendanceCourseComponentInfoList;
+				if (!courseList) return prevData;
 
-			const newCourseList = courseList.map((course) => {
-				if (course.courseCode === courseCode) {
-					const updatedNameInfoList = [
-						...course.attendanceCourseComponentNameInfoList,
-					];
+				const newCourseList = courseList.map((course) => {
+					if (course.courseCode === courseCode) {
+						const updatedNameInfoList = [
+							...course.attendanceCourseComponentNameInfoList,
+						];
 
-					updatedNameInfoList[0] = {
-						...updatedNameInfoList[0],
-						numberOfPeriods:
-							updatedNameInfoList[0].numberOfPeriods + adjustment,
-					};
+						updatedNameInfoList[0] = {
+							...updatedNameInfoList[0],
+							numberOfPeriods:
+								updatedNameInfoList[0].numberOfPeriods + adjustment,
+							isProjected: action === "add",
+						};
 
-					return {
-						...course,
-						attendanceCourseComponentNameInfoList: updatedNameInfoList,
-					};
-				}
-				return course;
+						return {
+							...course,
+							attendanceCourseComponentNameInfoList: updatedNameInfoList,
+						};
+					}
+					return course;
+				});
+
+				return {
+					...prevData,
+					attendanceCourseComponentInfoList: newCourseList,
+				};
 			});
-
-			return {
-				...prevData,
-				attendanceCourseComponentInfoList: newCourseList,
-			};
-		});
-	};
+		},
+		[setAttendanceData],
+	);
 
 	useEffect(() => {
 		const fetchSchedule = async () => {

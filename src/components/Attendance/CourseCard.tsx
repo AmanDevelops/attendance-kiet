@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle } from "lucide-react";
+import { memo } from "react";
 import { TARGET_PERCENTAGE } from "../../types/constants";
 import type { CourseAttendanceInfo } from "../../types/response";
 import type { SelectedComponentType } from "../Attendance";
@@ -42,10 +43,7 @@ function calculateAttendanceProjection(present: number, total: number) {
 	}
 }
 
-export default function CourseCard({
-	onViewDaywiseAttendance,
-	course,
-}: CourseCardProps) {
+function CourseCard({ onViewDaywiseAttendance, course }: CourseCardProps) {
 	const subjectMissed = 0;
 
 	return (
@@ -91,7 +89,7 @@ export default function CourseCard({
 												: "text-red-600"
 										}`}
 									>
-										{`${projectedSubjectPercent.toFixed(0)}% ${subjectMissed ? "(Projected)" : ""}`}
+										{`${projectedSubjectPercent.toFixed(1)}% ${component.isProjected ? "(Projected)" : ""}`}
 									</span>
 								</div>
 								<div className="text-sm text-gray-600 mb-2">
@@ -137,3 +135,5 @@ export default function CourseCard({
 		</div>
 	);
 }
+
+export default memo(CourseCard);
