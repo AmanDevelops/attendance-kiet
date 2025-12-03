@@ -1,106 +1,148 @@
 import axios from "axios";
 import Cookies from "js-cookie";
-import { BookOpen, Eye, EyeOff, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { BookOpen, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useAppContext } from "../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
 	COOKIE_EXPIRY,
-	PASSWORD_COOKIE,
-	REMEMBER_ME_COOKIE,
-	USERNAME_COOKIE,
-} from "../types/CookieVars";
-import type { AttendanceResponse, LoginResponse } from "../types/response";
+	PASSWORD_COOKIE_NAME,
+	REMEMBER_ME_COOKIE_NAME,
+	USERNAME_COOKIE_NAME,
+} from "../types/constants";
+import type { LoginResponse, StudentDetails } from "../types/response";
+import PasswordInput from "../ui/PasswordInput";
+import { fetchAttendanceData } from "../utils/LoginUtils";
 
-function LoginForm({
-	setAttendanceData,
-}: {
-	setAttendanceData: React.Dispatch<
-		React.SetStateAction<AttendanceResponse | null>
-	>;
-}) {
-	const [username, setUsername] = useState<string>("");
-	const [password, setPassword] = useState<string>("");
-	const [rememberMe, setRememberMe] = useState<boolean>(true);
-	const [error, setError] = useState<string>("");
-	const [loading, setLoading] = useState<boolean>(false);
-	const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
-
-	const fetchAttendanceData = useCallback(
-		async (token: string) => {
-			try {
-				const attendanceResponse = await axios.get<AttendanceResponse>(
-					"https://kiet.cybervidya.net/api/attendance/course/component/student",
-					{
-						headers: {
-							Authorization: `GlobalEducation ${token}`,
-						},
-					},
-				);
-				setAttendanceData(attendanceResponse.data);
-			} catch (_err: unknown) {
-				setError("Session expired. Please login again.");
-				Cookies.remove(AUTH_COOKIE_NAME);
-			}
-		},
-		[setAttendanceData],
+function LoginForm() {
+	const [username] = useState<string>(
+		() => Cookies.get(USERNAME_COOKIE_NAME) || "",
+	); // Used ONLY ONCE during the initial render
+	const [password] = useState<string>(
+		() => Cookies.get(PASSWORD_COOKIE_NAME) || "",
+	);
+	const [rememberMe] = useState<boolean>(
+		() => Cookies.get(REMEMBER_ME_COOKIE_NAME) === "true",
 	);
 
+	const usernameRef = useRef<HTMLInputElement>(null);
+	const passwordRef = useRef<HTMLInputElement>(null);
+	const rememberMeRef = useRef<HTMLInputElement>(null);
+
+	const [error, setError] = useState<string>("");
+	const [loading, setLoading] = useState<boolean>(false);
+
+	const { setAttendanceData } = useAppContext();
+
 	useEffect(() => {
-		const savedUsername = Cookies.get(USERNAME_COOKIE) || "";
-		const savedRememberMe = Cookies.get(REMEMBER_ME_COOKIE) === "true";
-		const savedPassword = savedRememberMe
-			? Cookies.get(PASSWORD_COOKIE) || ""
-			: "";
-
-		setUsername(savedUsername);
-		setPassword(savedPassword);
-		setRememberMe(savedRememberMe);
-
 		const token = Cookies.get(AUTH_COOKIE_NAME);
 
 		if (token) {
-			fetchAttendanceData(token);
-		}
-	}, [fetchAttendanceData]);
+			const loadData = async () => {
+				try {
+					const data = await fetchAttendanceData(token);
+					const updatedStudentDetails: StudentDetails = {
+						...data,
+						attendanceCourseComponentInfoList:
+							data.attendanceCourseComponentInfoList.map((course) => ({
+								...course,
+								attendanceCourseComponentNameInfoList:
+									course.attendanceCourseComponentNameInfoList.map(
+										(component) => ({
+											...component,
+											isProjected: false,
+										}),
+									),
+							})),
+					};
 
-	const tooglePasswordVisibility = () => {
-		setIsPasswordVisible(!isPasswordVisible);
-	};
+					setAttendanceData(updatedStudentDetails);
+				} catch (error) {
+					setError(error instanceof Error ? error.message : String(error));
+				}
+			};
+			loadData();
+		}
+	}, [setAttendanceData]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setLoading(true);
 		setError("");
+
+		let token = "";
+
 		try {
-			const loginResponse = await axios.post<LoginResponse>(
-				"https://kiet.cybervidya.net/api/auth/login",
+			try {
+				const loginResponse = await axios.post<LoginResponse>(
+					"https://kiet.cybervidya.net/api/auth/login",
+					{
+						userName: usernameRef.current?.value,
+						password: passwordRef.current?.value,
+					},
+				);
+				token = loginResponse.data.data.token;
+			} catch (loginError) {
+				if (
+					axios.isAxiosError(loginError) &&
+					loginError.response?.status === 400
+				) {
+					setError("Invalid Username or Password.");
+				} else {
+					setError("Login failed. Please check your internet connection.");
+				}
+				setLoading(false);
+				return;
+			}
+
+			Cookies.set(USERNAME_COOKIE_NAME, usernameRef.current?.value || "", {
+				expires: COOKIE_EXPIRY,
+			});
+			Cookies.set(AUTH_COOKIE_NAME, token, { expires: 1 / 24 });
+
+			const isRemembered = rememberMeRef.current?.checked;
+			Cookies.set(
+				REMEMBER_ME_COOKIE_NAME,
+				isRemembered?.toString() || "false",
 				{
-					userName: username,
-					password: password,
+					expires: COOKIE_EXPIRY,
 				},
 			);
 
-			const token = loginResponse.data.data.token;
-
-			Cookies.set(USERNAME_COOKIE, username, { expires: COOKIE_EXPIRY });
-			Cookies.set(REMEMBER_ME_COOKIE, rememberMe.toString(), {
-				expires: COOKIE_EXPIRY,
-			});
-
-			if (rememberMe) {
-				Cookies.set(PASSWORD_COOKIE, password, { expires: COOKIE_EXPIRY });
-				Cookies.set(AUTH_COOKIE_NAME, token, { expires: COOKIE_EXPIRY });
+			if (isRemembered) {
+				Cookies.set(PASSWORD_COOKIE_NAME, passwordRef.current?.value || "", {
+					expires: COOKIE_EXPIRY,
+				});
 			} else {
-				Cookies.remove(PASSWORD_COOKIE);
-				Cookies.set(AUTH_COOKIE_NAME, token);
+				Cookies.remove(PASSWORD_COOKIE_NAME);
 			}
+
 			if (token) {
-				fetchAttendanceData(token);
+				try {
+					const data = await fetchAttendanceData(token);
+
+					const updatedStudentDetails: StudentDetails = {
+						...data,
+						attendanceCourseComponentInfoList:
+							data.attendanceCourseComponentInfoList.map((course) => ({
+								...course,
+								attendanceCourseComponentNameInfoList:
+									course.attendanceCourseComponentNameInfoList.map(
+										(component) => ({
+											...component,
+											isProjected: false,
+										}),
+									),
+							})),
+					};
+					setAttendanceData(updatedStudentDetails);
+				} catch (fetchError) {
+					console.error(fetchError);
+					setError("Login successful, but failed to load attendance data.");
+				}
 			}
-		} catch (_err: unknown) {
-			setError(
-				"Failed to fetch attendance data. Please check your credentials.",
-			);
+		} catch (_err) {
+			setError("An unexpected error occurred.");
 		} finally {
 			setLoading(false);
 		}
@@ -127,8 +169,8 @@ function LoginForm({
 						<input
 							id="username"
 							type="text"
-							value={username}
-							onChange={(e) => setUsername(e.target.value)}
+							ref={usernameRef}
+							defaultValue={username}
 							placeholder="20240XXXXXXXXXX"
 							className="mt-1 block w-full style-border rounded-none px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-black"
 							required
@@ -141,34 +183,14 @@ function LoginForm({
 						>
 							CyberVidya Password
 						</label>
-						<div className="flex items-center relative">
-							<input
-								id="password"
-								type={isPasswordVisible ? "text" : "password"}
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
-								className="mt-1 block w-full style-border rounded-none px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-black"
-								required
-							/>
-							{isPasswordVisible ? (
-								<Eye
-									className="absolute right-3 cursor-pointer"
-									onClick={tooglePasswordVisibility}
-								/>
-							) : (
-								<EyeOff
-									className="absolute right-3 cursor-pointer"
-									onClick={tooglePasswordVisibility}
-								/>
-							)}
-						</div>
+						<PasswordInput ref={passwordRef} defaultValue={password} />
 					</div>
 					<div className="flex items-center">
 						<input
 							id="remember-me"
 							type="checkbox"
-							checked={rememberMe}
-							onChange={(e) => setRememberMe(e.target.checked)}
+							defaultChecked={rememberMe}
+							ref={rememberMeRef}
 							className="h-5 w-5 style-border rounded-none"
 						/>
 						<label
