@@ -36,8 +36,6 @@ export function getWeekRange() {
 	const endDate = new Date(startDate);
 	endDate.setDate(startDate.getDate() + 6);
 
-	console.log(startDate, endDate);
-
 	return {
 		startDate: formatDate(startDate),
 		endDate: formatDate(endDate),

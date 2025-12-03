@@ -1,5 +1,5 @@
 import { Eye, EyeOff } from "lucide-react";
-import { forwardRef, memo, useState } from "react";
+import { forwardRef, useState } from "react";
 
 interface InputProps {
 	defaultValue?: string;
@@ -36,4 +36,4 @@ const PasswordInput = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
 	);
 });
 
-export default memo(PasswordInput);
+export default PasswordInput;

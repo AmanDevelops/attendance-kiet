@@ -67,33 +67,47 @@ function LoginForm() {
 		e.preventDefault();
 		setLoading(true);
 		setError("");
-		try {
-			const loginResponse = await axios.post<LoginResponse>(
-				"https://kiet.cybervidya.net/api/auth/login",
-				{
-					userName: usernameRef.current?.value,
-					password: passwordRef.current?.value,
-				},
-			);
 
-			const token = loginResponse.data.data.token;
+		let token = "";
+
+		try {
+			try {
+				const loginResponse = await axios.post<LoginResponse>(
+					"https://kiet.cybervidya.net/api/auth/login",
+					{
+						userName: usernameRef.current?.value,
+						password: passwordRef.current?.value,
+					},
+				);
+				token = loginResponse.data.data.token;
+			} catch (loginError) {
+				if (
+					axios.isAxiosError(loginError) &&
+					loginError.response?.status === 400
+				) {
+					setError("Invalid Username or Password.");
+				} else {
+					setError("Login failed. Please check your internet connection.");
+				}
+				setLoading(false);
+				return;
+			}
 
 			Cookies.set(USERNAME_COOKIE_NAME, usernameRef.current?.value || "", {
 				expires: COOKIE_EXPIRY,
 			});
+			Cookies.set(AUTH_COOKIE_NAME, token, { expires: 1 / 24 });
+
+			const isRemembered = rememberMeRef.current?.checked;
 			Cookies.set(
 				REMEMBER_ME_COOKIE_NAME,
-				rememberMeRef.current?.checked?.toString() || "false",
+				isRemembered?.toString() || "false",
 				{
 					expires: COOKIE_EXPIRY,
 				},
 			);
 
-			Cookies.set(AUTH_COOKIE_NAME, token, {
-				expires: 1 / 24, // one hour
-			});
-
-			if (rememberMeRef.current?.checked) {
+			if (isRemembered) {
 				Cookies.set(PASSWORD_COOKIE, passwordRef.current?.value || "", {
 					expires: COOKIE_EXPIRY,
 				});
@@ -104,15 +118,29 @@ function LoginForm() {
 			if (token) {
 				try {
 					const data = await fetchAttendanceData(token);
-					setAttendanceData(data);
-				} catch (error) {
-					setError(error instanceof Error ? error.message : String(error));
+
+					const updatedStudentDetails: StudentDetails = {
+						...data,
+						attendanceCourseComponentInfoList:
+							data.attendanceCourseComponentInfoList.map((course) => ({
+								...course,
+								attendanceCourseComponentNameInfoList:
+									course.attendanceCourseComponentNameInfoList.map(
+										(component) => ({
+											...component,
+											isProjected: false,
+										}),
+									),
+							})),
+					};
+					setAttendanceData(updatedStudentDetails);
+				} catch (fetchError) {
+					console.error(fetchError);
+					setError("Login successful, but failed to load attendance data.");
 				}
 			}
-		} catch (_err: unknown) {
-			setError(
-				"Failed to fetch attendance data. Please check your credentials.",
-			);
+		} catch (_err) {
+			setError("An unexpected error occurred.");
 		} finally {
 			setLoading(false);
 		}
@@ -161,7 +189,7 @@ function LoginForm() {
 							type="checkbox"
 							defaultChecked={rememberMe}
 							ref={rememberMeRef}
-							className="h-5 w-5 style-border rounded"
+							className="h-5 w-5 style-border rounded-none"
 						/>
 						<label
 							htmlFor="remember-me"

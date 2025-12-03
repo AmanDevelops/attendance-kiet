@@ -23,6 +23,12 @@ export const fetchAttendanceData = async (
 				throw new Error("Session expired. Please login again.");
 			}
 		}
-		throw new Error("Failed to fetch attendance data");
+		const errorMessage =
+			err instanceof Error
+				? err.message
+				: typeof err === "string"
+					? err
+					: JSON.stringify(err);
+		throw new Error(`Failed to fetch attendance data: ${errorMessage}`);
 	}
 };

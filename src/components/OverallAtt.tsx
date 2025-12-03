@@ -11,7 +11,7 @@ const attendanceColour = {
 const OverallAtt = memo(function OverallAtt() {
 	const { attendanceData } = useAppContext();
 
-	if (!attendanceData) return;
+	if (!attendanceData) return null;
 
 	let totalClasses = 0;
 	let presentClasses = 0;
@@ -56,7 +56,7 @@ const OverallAtt = memo(function OverallAtt() {
 			<h1 className="text-2xl mb-1 ml-1 font-bold">Overall Attendance</h1>
 
 			<ProgressBar
-				completed={((presentClasses / totalClasses) * 100).toFixed(0)}
+				completed={((presentClasses / totalClasses) * 100).toFixed(1)}
 				bgColor={`#${handleAttendanceSliderColour()}`}
 				height={`${handleProgressBarSize()}px`}
 				labelAlignment="center"
