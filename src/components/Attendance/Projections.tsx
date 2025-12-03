@@ -143,21 +143,10 @@ export default function Projections() {
 		classData: { start: string; courseCode: string }[],
 		dayIsSelected: boolean,
 	) => {
-		const newSet = new Set(missedClasses);
-
-		console.log(classData);
-
-		if (dayIsSelected) {
-			for (const classItem of classData) {
-				newSet.delete(classItem.start);
-				updateProjectedAttendance(classItem.courseCode, "subtract");
-			}
-		} else {
-			for (const classItem of classData) {
-				newSet.add(classItem.start);
-				updateProjectedAttendance(classItem.courseCode, "add");
-			}
-		}
+		classData.forEach((classItem) => {
+			const operation = dayIsSelected ? "subtract" : "add";
+			updateProjectedAttendance(classItem.courseCode, operation);
+		});
 
 		setMissedClasses((prev) => {
 			const newSet = new Set(prev);

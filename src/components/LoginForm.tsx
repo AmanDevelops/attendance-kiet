@@ -6,7 +6,7 @@ import { useAppContext } from "../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
 	COOKIE_EXPIRY,
-	PASSWORD_COOKIE,
+	PASSWORD_COOKIE_NAME,
 	REMEMBER_ME_COOKIE_NAME,
 	USERNAME_COOKIE_NAME,
 } from "../types/constants";
@@ -18,7 +18,9 @@ function LoginForm() {
 	const [username] = useState<string>(
 		() => Cookies.get(USERNAME_COOKIE_NAME) || "",
 	); // Used ONLY ONCE during the initial render
-	const [password] = useState<string>(() => Cookies.get(PASSWORD_COOKIE) || "");
+	const [password] = useState<string>(
+		() => Cookies.get(PASSWORD_COOKIE_NAME) || "",
+	);
 	const [rememberMe] = useState<boolean>(
 		() => Cookies.get(REMEMBER_ME_COOKIE_NAME) === "true",
 	);
@@ -108,11 +110,11 @@ function LoginForm() {
 			);
 
 			if (isRemembered) {
-				Cookies.set(PASSWORD_COOKIE, passwordRef.current?.value || "", {
+				Cookies.set(PASSWORD_COOKIE_NAME, passwordRef.current?.value || "", {
 					expires: COOKIE_EXPIRY,
 				});
 			} else {
-				Cookies.remove(PASSWORD_COOKIE);
+				Cookies.remove(PASSWORD_COOKIE_NAME);
 			}
 
 			if (token) {

@@ -75,7 +75,7 @@ function Attendance() {
 		window.scrollTo({ top: 0, behavior: "instant" });
 	}, [studentId]);
 
-	if (!attendanceData) return;
+	if (!attendanceData) return null;
 
 	return (
 		<div className="container mx-auto px-4 py-8 grow">
