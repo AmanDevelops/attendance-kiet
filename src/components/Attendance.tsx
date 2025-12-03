@@ -25,6 +25,7 @@ import type {
 	ScheduleResponse,
 } from "../types/response";
 import { fetchStudentId, getWeekRange } from "../types/utils";
+import AttendanceCalendar from "./AttendanceCalendar";
 import DaywiseReport from "./Daywise";
 import OverallAtt from "./OverallAtt";
 
@@ -155,6 +156,7 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 	const [selectedComponent, setSelectedComponent] =
 		useState<SelectedComponentType | null>(null);
 	const [isDaywiseModalOpen, setIsDaywiseModalOpen] = useState(false);
+	const [showCalendar, setShowCalendar] = useState(false);
 
 	const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
 	const [missedClasses, setMissedClasses] = useState<Set<string>>(new Set());
@@ -351,6 +353,17 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 						<div className="flex flex-col md:flex-row gap-2 self-start md:self-auto">
 							<button
 								type="button"
+								onClick={() => setShowCalendar((prev) => !prev)}
+								className="style-border style-text py-2 px-2 text-xs font-bold flex items-center gap-responsive text-purple-600 bg-purple-50 hover:bg-purple-100 focus:outline-none transform hover:-translate-y-1 transition-transform w-auto"
+							>
+								<CalendarDays className="h-4 w-4 flex-shrink-0" />
+								<span className="hide-text-below-352 text-xs">
+									{showCalendar ? "Hide Calendar" : "Show Calendar"}
+								</span>
+							</button>
+
+							<button
+								type="button"
 								onClick={() => setShowProjection((prev) => !prev)}
 								className="style-border style-text py-2 px-2 text-xs font-bold flex items-center gap-responsive text-blue-600 bg-blue-50 hover:bg-blue-100 focus:outline-none transform hover:-translate-y-1 transition-transform w-auto"
 							>
@@ -489,7 +502,29 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 					</div>
 				</div>
 			)}
-			<div className={`${showProjection ? "hidden" : "block"}`}>
+			{showCalendar && studentId && (
+				<div className="mb-8">
+					<AttendanceCalendar
+						token={Cookies.get(AUTH_COOKIE_NAME) || ""}
+						studentId={studentId}
+						courses={attendanceData.data.attendanceCourseComponentInfoList.map(
+							(course) => ({
+								courseId: course.courseId,
+								courseName: course.courseName,
+								courseCode: course.courseCode,
+								components: course.attendanceCourseComponentNameInfoList.map(
+									(comp) => ({
+										courseComponentId: comp.courseComponentId,
+										componentName: comp.componentName,
+									}),
+								),
+							}),
+						)}
+					/>
+				</div>
+			)}
+
+			<div className={`${showProjection || showCalendar ? "hidden" : "block"}`}>
 				<OverallAtt />
 			</div>
 
