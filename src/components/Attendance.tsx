@@ -273,7 +273,8 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 			const token = Cookies.get(AUTH_COOKIE_NAME);
 			if (token) {
 				try {
-					const { startDate, endDate } = getWeekRange();
+					// TODO: Restore endDate after 09-12-2025
+					const { startDate } = getWeekRange();
 					const scheduleResponse = await axios.get<ScheduleResponse>(
 						`https://kiet.cybervidya.net/api/student/schedule/class?weekEndDate=2025-12-09&weekStartDate=${startDate}`,
 						{ headers: { Authorization: `GlobalEducation ${token}` } },
