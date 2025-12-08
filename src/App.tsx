@@ -2,11 +2,14 @@ import { useState } from "react";
 import Attendance from "./components/Attendance";
 import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
+import TnC from "./components/TnC";
 import type { AttendanceResponse } from "./types/response";
 
 function App() {
 	const [attendanceData, setAttendanceData] =
 		useState<AttendanceResponse | null>(null);
+
+	const [isTnCVisible, setIsTnCVisible] = useState<boolean>(false);
 
 	return (
 		<div className="min-h-screen bg-gray-100">
@@ -27,7 +30,14 @@ function App() {
 			</div>
 
 			{!attendanceData ? (
-				<LoginForm setAttendanceData={setAttendanceData} />
+				isTnCVisible ? (
+					<TnC setIsPasswordVisible={setIsTnCVisible} />
+				) : (
+					<LoginForm
+						setAttendanceData={setAttendanceData}
+						setIsTnCVisible={setIsTnCVisible}
+					/>
+				)
 			) : (
 				<Attendance
 					attendanceData={attendanceData}

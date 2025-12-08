@@ -11,13 +11,14 @@ import {
 } from "../types/CookieVars";
 import type { AttendanceResponse, LoginResponse } from "../types/response";
 
-function LoginForm({
-	setAttendanceData,
-}: {
+interface LoginFormProps {
 	setAttendanceData: React.Dispatch<
 		React.SetStateAction<AttendanceResponse | null>
 	>;
-}) {
+	setIsTnCVisible: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+function LoginForm({ setAttendanceData, setIsTnCVisible }: LoginFormProps) {
 	const [username, setUsername] = useState<string>("");
 	const [password, setPassword] = useState<string>("");
 	const [rememberMe, setRememberMe] = useState<boolean>(true);
@@ -179,13 +180,14 @@ function LoginForm({
 						</label>
 					</div>
 					<div>
-						By clicking <i>'View Attendance'</i>, you agree to Cybervidya’s{" "}
-						<a
-							href="https://cybervidya.net/privacy-policy"
-							className="text-gray-500"
+						By clicking <i>'View Attendance'</i>, you agree to our{" "}
+						<button
+							type="button"
+							onClick={() => setIsTnCVisible((prev) => !prev)}
+							className="text-gray-500 bg-none border-none p-0 cursor-pointer  hover:text-gray-700"
 						>
-							Privacy Policy.
-						</a>
+							Terms of Service and Privacy Policy
+						</button>
 					</div>
 
 					{error && (
