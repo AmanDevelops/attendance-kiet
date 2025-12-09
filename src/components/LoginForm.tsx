@@ -14,7 +14,11 @@ import type { LoginResponse, StudentDetails } from "../types/response";
 import PasswordInput from "../ui/PasswordInput";
 import { fetchAttendanceData } from "../utils/LoginUtils";
 
-function LoginForm() {
+function LoginForm({
+	setIsTnCVisible,
+}: {
+	setIsTnCVisible: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
 	const username: string = Cookies.get(USERNAME_COOKIE_NAME) || "";
 	const rememberMe: boolean = Cookies.get(REMEMBER_ME_COOKIE_NAME) === "true";
 

@@ -2,10 +2,9 @@ import { useState } from "react";
 import Attendance from "./components/Attendance";
 import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
+import TnC from "./components/TnC";
 import { AttendanceDataContext } from "./contexts/AppContext";
 import type { StudentDetails } from "./types/response";
-import TnC from "./components/TnC";
-import type { AttendanceResponse } from "./types/response";
 
 function App() {
 	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
@@ -34,24 +33,17 @@ function App() {
 			<AttendanceDataContext.Provider
 				value={{ attendanceData, setAttendanceData }}
 			>
-				{!attendanceData ? <LoginForm /> : <Attendance />}
+				{!attendanceData ? (
+					isTnCVisible ? (
+						<TnC setIsPasswordVisible={setIsTnCVisible} />
+					) : (
+						<LoginForm setIsTnCVisible={setIsTnCVisible} />
+					)
+				) : (
+					<Attendance />
+				)}
 			</AttendanceDataContext.Provider>
 
-			{!attendanceData ? (
-				isTnCVisible ? (
-					<TnC setIsPasswordVisible={setIsTnCVisible} />
-				) : (
-					<LoginForm
-						setAttendanceData={setAttendanceData}
-						setIsTnCVisible={setIsTnCVisible}
-					/>
-				)
-			) : (
-				<Attendance
-					attendanceData={attendanceData}
-					setAttendanceData={setAttendanceData}
-				/>
-			)}
 			<Footer />
 		</div>
 	);
