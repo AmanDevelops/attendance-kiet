@@ -3,7 +3,7 @@ import { LogOut, User, Wand2 } from "lucide-react";
 import { useAppContext } from "../../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
-	PASSWORD_COOKIE_NAME,
+	// PASSWORD_COOKIE_NAME,
 	REMEMBER_ME_COOKIE_NAME,
 	USERNAME_COOKIE_NAME,
 } from "../../types/constants";
@@ -23,7 +23,7 @@ export default function Profile({
 		Cookies.remove(AUTH_COOKIE_NAME);
 		if (!Cookies.get(REMEMBER_ME_COOKIE_NAME)) {
 			Cookies.remove(USERNAME_COOKIE_NAME);
-			Cookies.remove(PASSWORD_COOKIE_NAME);
+			// Cookies.remove(PASSWORD_COOKIE_NAME);
 		}
 		setAttendanceData(null);
 	}
