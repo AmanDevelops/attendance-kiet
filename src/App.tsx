@@ -4,11 +4,15 @@ import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
 import { AttendanceDataContext } from "./contexts/AppContext";
 import type { StudentDetails } from "./types/response";
+import TnC from "./components/TnC";
+import type { AttendanceResponse } from "./types/response";
 
 function App() {
 	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
 		null,
 	);
+
+	const [isTnCVisible, setIsTnCVisible] = useState<boolean>(false);
 
 	return (
 		<div className="min-h-screen bg-gray-100">
@@ -33,6 +37,21 @@ function App() {
 				{!attendanceData ? <LoginForm /> : <Attendance />}
 			</AttendanceDataContext.Provider>
 
+			{!attendanceData ? (
+				isTnCVisible ? (
+					<TnC setIsPasswordVisible={setIsTnCVisible} />
+				) : (
+					<LoginForm
+						setAttendanceData={setAttendanceData}
+						setIsTnCVisible={setIsTnCVisible}
+					/>
+				)
+			) : (
+				<Attendance
+					attendanceData={attendanceData}
+					setAttendanceData={setAttendanceData}
+				/>
+			)}
 			<Footer />
 		</div>
 	);
