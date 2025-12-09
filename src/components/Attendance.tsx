@@ -56,6 +56,11 @@ function Attendance() {
 	}, [isDaywiseModalOpen]);
 
 	useEffect(() => {
+		//  Scroll to the top after login
+		window.scrollTo({ top: 0, behavior: "instant" });
+	}, []);
+
+	useEffect(() => {
 		if (studentId === null) {
 			const token = Cookies.get(AUTH_COOKIE_NAME) || "";
 
@@ -70,9 +75,6 @@ function Attendance() {
 				});
 			}
 		}
-
-		//  Scroll to the top after login
-		window.scrollTo({ top: 0, behavior: "instant" });
 	}, [studentId]);
 
 	if (!attendanceData) return null;

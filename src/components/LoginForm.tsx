@@ -102,6 +102,7 @@ function LoginForm({
 			Cookies.remove(STUDENT_ID_COOKIE_NAME);
 		}
 
+		Cookies.set(AUTH_COOKIE_NAME, token, { expires: 1 / 24 });
 		Cookies.set(USERNAME_COOKIE_NAME, usernameRef.current?.value || "", {
 			expires: COOKIE_EXPIRY,
 		});
@@ -109,9 +110,6 @@ function LoginForm({
 			expires: COOKIE_EXPIRY,
 		});
 		// TODO: Implement Sophisticated Password Storage for user security
-		if (isRemembered) {
-			Cookies.set(AUTH_COOKIE_NAME, token, { expires: 1 / 24 });
-		}
 
 		try {
 			const data = await fetchAttendanceData(token);
