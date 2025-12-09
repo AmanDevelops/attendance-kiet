@@ -7,6 +7,7 @@ import {
 	AUTH_COOKIE_NAME,
 	COOKIE_EXPIRY,
 	REMEMBER_ME_COOKIE_NAME,
+	STUDENT_ID_COOKIE_NAME,
 	USERNAME_COOKIE_NAME,
 } from "../types/constants";
 import type { LoginResponse, StudentDetails } from "../types/response";
@@ -14,15 +15,8 @@ import PasswordInput from "../ui/PasswordInput";
 import { fetchAttendanceData } from "../utils/LoginUtils";
 
 function LoginForm() {
-	const [username] = useState<string>(
-		() => Cookies.get(USERNAME_COOKIE_NAME) || "",
-	); // Used ONLY ONCE during the initial render
-	// const [password] = useState<string>(
-	// 	() => Cookies.get(PASSWORD_COOKIE_NAME) || "",
-	// );
-	const [rememberMe] = useState<boolean>(
-		() => Cookies.get(REMEMBER_ME_COOKIE_NAME) === "true",
-	);
+	const username: string = Cookies.get(USERNAME_COOKIE_NAME) || "";
+	const rememberMe: boolean = Cookies.get(REMEMBER_ME_COOKIE_NAME) === "true";
 
 	const usernameRef = useRef<HTMLInputElement>(null);
 	const passwordRef = useRef<HTMLInputElement>(null);
@@ -71,78 +65,70 @@ function LoginForm() {
 
 		let token = "";
 
+		console.log(usernameRef.current?.value);
+
 		try {
-			try {
-				const loginResponse = await axios.post<LoginResponse>(
-					"https://kiet.cybervidya.net/api/auth/login",
-					{
-						userName: usernameRef.current?.value,
-						password: passwordRef.current?.value,
-					},
-				);
-				token = loginResponse.data.data.token;
-			} catch (loginError) {
-				if (
-					axios.isAxiosError(loginError) &&
-					loginError.response?.status === 400
-				) {
-					setError("Invalid Username or Password.");
-				} else {
-					setError("Login failed. Please check your internet connection.");
-				}
-				setLoading(false);
-				return;
-			}
-
-			Cookies.set(USERNAME_COOKIE_NAME, usernameRef.current?.value || "", {
-				expires: COOKIE_EXPIRY,
-			});
-			Cookies.set(AUTH_COOKIE_NAME, token, { expires: 1 / 24 });
-
-			const isRemembered = rememberMeRef.current?.checked;
-			Cookies.set(
-				REMEMBER_ME_COOKIE_NAME,
-				isRemembered?.toString() || "false",
+			const loginResponse = await axios.post<LoginResponse>(
+				"https://kiet.cybervidya.net/api/auth/login",
 				{
-					expires: COOKIE_EXPIRY,
+					userName: usernameRef.current?.value,
+					password: passwordRef.current?.value,
 				},
 			);
 
-			if (isRemembered) {
-				// TODO: Implement Sophisticated Password Storage for user security
-				// Cookies.set(PASSWORD_COOKIE_NAME, passwordRef.current?.value || "", {
-				// 	expires: COOKIE_EXPIRY,
-				// });
+			token = loginResponse.data.data.token;
+		} catch (loginError) {
+			if (
+				axios.isAxiosError(loginError) &&
+				loginError.response?.status === 400
+			) {
+				setError("Invalid Username or Password");
 			} else {
-				// Cookies.remove(PASSWORD_COOKIE_NAME);
+				setError(
+					"Login failed. The server isn’t responding or your internet connection may be unavailable.",
+				);
 			}
+			setLoading(false);
+			return;
+		}
 
-			if (token) {
-				try {
-					const data = await fetchAttendanceData(token);
+		const isRemembered = rememberMeRef.current?.checked;
 
-					const updatedStudentDetails: StudentDetails = {
-						...data,
-						attendanceCourseComponentInfoList:
-							data.attendanceCourseComponentInfoList.map((course) => ({
-								...course,
-								attendanceCourseComponentNameInfoList:
-									course.attendanceCourseComponentNameInfoList.map(
-										(component) => ({
-											...component,
-											isProjected: false,
-										}),
-									),
+		if (username !== usernameRef.current?.value) {
+			Cookies.remove(STUDENT_ID_COOKIE_NAME);
+		}
+
+		Cookies.set(USERNAME_COOKIE_NAME, usernameRef.current?.value || "", {
+			expires: COOKIE_EXPIRY,
+		});
+		Cookies.set(REMEMBER_ME_COOKIE_NAME, isRemembered?.toString() || "false", {
+			expires: COOKIE_EXPIRY,
+		});
+		// TODO: Implement Sophisticated Password Storage for user security
+		if (isRemembered) {
+			Cookies.set(AUTH_COOKIE_NAME, token, { expires: 1 / 24 });
+		}
+
+		try {
+			const data = await fetchAttendanceData(token);
+
+			const updatedStudentDetails: StudentDetails = {
+				...data,
+				attendanceCourseComponentInfoList:
+					data.attendanceCourseComponentInfoList.map((course) => ({
+						...course,
+						attendanceCourseComponentNameInfoList:
+							course.attendanceCourseComponentNameInfoList.map((component) => ({
+								...component,
+								isProjected: false,
 							})),
-					};
-					setAttendanceData(updatedStudentDetails);
-				} catch (fetchError) {
-					console.error(fetchError);
-					setError("Login successful, but failed to load attendance data.");
-				}
-			}
-		} catch (_err) {
-			setError("An unexpected error occurred.");
+					})),
+			};
+
+			setAttendanceData(updatedStudentDetails);
+		} catch (fetchError) {
+			console.error(fetchError);
+			setError("Login successful, but failed to load attendance data.");
 		} finally {
 			setLoading(false);
 		}

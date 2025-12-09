@@ -56,7 +56,7 @@ const OverallAtt = memo(function OverallAtt() {
 			<h1 className="text-2xl mb-1 ml-1 font-bold">Overall Attendance</h1>
 
 			<ProgressBar
-				completed={((presentClasses / totalClasses) * 100).toFixed(1)}
+				completed={Number(((presentClasses / totalClasses) * 100).toFixed(1))}
 				bgColor={`#${handleAttendanceSliderColour()}`}
 				height={`${handleProgressBarSize()}px`}
 				labelAlignment="center"
