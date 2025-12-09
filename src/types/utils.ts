@@ -18,6 +18,13 @@ export async function fetchStudentId(token: string): Promise<number | null> {
 	}
 }
 
+const formatDate = (date: Date) => {
+	const yyyy = date.getFullYear();
+	const mm = String(date.getMonth() + 1).padStart(2, "0");
+	const dd = String(date.getDate()).padStart(2, "0");
+	return `${yyyy}-${mm}-${dd}`;
+};
+
 export function getWeekRange() {
 	const now = new Date();
 	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -28,13 +35,6 @@ export function getWeekRange() {
 
 	const endDate = new Date(startDate);
 	endDate.setDate(startDate.getDate() + 6);
-
-	const formatDate = (date: Date) => {
-		const yyyy = date.getFullYear();
-		const mm = String(date.getMonth() + 1).padStart(2, "0");
-		const dd = String(date.getDate()).padStart(2, "0");
-		return `${yyyy}-${mm}-${dd}`;
-	};
 
 	return {
 		startDate: formatDate(startDate),

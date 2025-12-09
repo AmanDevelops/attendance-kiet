@@ -1,14 +1,42 @@
+// Login Response
 export interface LoginResponse {
 	data: {
 		token: string;
 	};
 }
 
-export interface AttendanceDataSummaryResponse {
-	data: {
-		presentPerc: number;
-		absentPerc: number;
-	};
+// Attendance Data Response
+
+export interface StudentAttendanceApiResponse {
+	data: StudentDetails;
+}
+
+export interface StudentDetails {
+	fullName: string;
+	registrationNumber: string;
+	sectionName: string;
+	branchShortName: string;
+	degreeName: string;
+	semesterName: string;
+	attendanceCourseComponentInfoList: CourseAttendanceInfo[];
+}
+
+export interface CourseAttendanceInfo {
+	courseName: string;
+	courseCode: string;
+	courseId: number;
+	attendanceCourseComponentNameInfoList: AttendanceComponentInfo[];
+}
+
+export interface AttendanceComponentInfo {
+	courseComponentId: number;
+	numberOfExtraAttendance: number;
+	componentName: string;
+	numberOfPeriods: number;
+	numberOfPresent: number;
+	presentPercentage: number | null;
+	presentPercentageWith: string;
+	isProjected: boolean;
 }
 
 // ---------------- DAYWISE-ATTENDANCE-API-RESPONSE ----------------
@@ -33,48 +61,6 @@ export interface LectureListProps {
 export interface AttendanceApiResponse {
 	data: {
 		lectureList: LectureListProps[];
-	}[];
-}
-
-export interface AttendanceResponse {
-	data: {
-		fullName: string;
-		registrationNumber: string;
-		rollNumber: string;
-		sectionName: string;
-		branchShortName: string;
-		degreeName: string;
-		semesterName: string;
-		admissionBatchName: string;
-		academicSessionName: string;
-		attendanceCourseComponentInfoList: {
-			courseName: string;
-			courseCode: string;
-			courseId: number; // Added for daywise attendance payload
-			attendanceCourseComponentNameInfoList: {
-				courseComponentId: number; // Added for daywise attendance payload
-				numberOfExtraAttendance: number;
-				componentName: string;
-				numberOfPeriods: number;
-				numberOfPresent: number;
-				presentPercentage: number | null;
-				presentPercentageWith: string;
-			}[];
-		}[];
-	};
-	message: string;
-}
-
-export interface Course {
-	courseName: string;
-	courseCode: string;
-	attendanceCourseComponentNameInfoList: {
-		numberOfExtraAttendance: number;
-		componentName: string;
-		numberOfPeriods: number;
-		numberOfPresent: number;
-		presentPercentage: number | null;
-		presentPercentageWith: string;
 	}[];
 }
 
