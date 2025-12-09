@@ -3,11 +3,13 @@ import Attendance from "./components/Attendance";
 import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
 import TnC from "./components/TnC";
-import type { AttendanceResponse } from "./types/response";
+import { AttendanceDataContext } from "./contexts/AppContext";
+import type { StudentDetails } from "./types/response";
 
 function App() {
-	const [attendanceData, setAttendanceData] =
-		useState<AttendanceResponse | null>(null);
+	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
+		null,
+	);
 
 	const [isTnCVisible, setIsTnCVisible] = useState<boolean>(false);
 
@@ -28,22 +30,20 @@ function App() {
 					</a>
 				</div>
 			</div>
-
-			{!attendanceData ? (
-				isTnCVisible ? (
-					<TnC setIsPasswordVisible={setIsTnCVisible} />
+			<AttendanceDataContext.Provider
+				value={{ attendanceData, setAttendanceData }}
+			>
+				{!attendanceData ? (
+					isTnCVisible ? (
+						<TnC setIsPasswordVisible={setIsTnCVisible} />
+					) : (
+						<LoginForm setIsTnCVisible={setIsTnCVisible} />
+					)
 				) : (
-					<LoginForm
-						setAttendanceData={setAttendanceData}
-						setIsTnCVisible={setIsTnCVisible}
-					/>
-				)
-			) : (
-				<Attendance
-					attendanceData={attendanceData}
-					setAttendanceData={setAttendanceData}
-				/>
-			)}
+					<Attendance />
+				)}
+			</AttendanceDataContext.Provider>
+
 			<Footer />
 		</div>
 	);
