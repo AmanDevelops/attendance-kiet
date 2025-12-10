@@ -1,21 +1,23 @@
 import Cookies from "js-cookie";
-import { X } from "lucide-react";
+import { CalendarDays, LogOut, User, Wand2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useAppContext } from "../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
 	COOKIE_EXPIRY,
+	REMEMBER_ME_COOKIE_NAME,
 	STUDENT_ID_COOKIE_NAME,
+	USERNAME_COOKIE_NAME,
 } from "../types/constants";
 import type {
 	AttendanceComponentInfo,
 	CourseAttendanceInfo,
 } from "../types/response";
-import { fetchStudentId, getWeekRange } from "../types/utils";
-import AttendanceCalendar from "./AttendanceCalendar";
+import { fetchStudentId } from "../types/utils";
 import CourseCard from "./Attendance/CourseCard";
 import Profile from "./Attendance/Profile";
 import Projections from "./Attendance/Projections";
+import AttendanceCalendar from "./AttendanceCalendar";
 
 import DaywiseReport from "./Daywise";
 import OverallAtt from "./OverallAtt";
@@ -26,7 +28,7 @@ export interface SelectedComponentType {
 }
 
 function Attendance() {
-	const { attendanceData } = useAppContext();
+	const { attendanceData, setAttendanceData } = useAppContext();
 	const [studentId, setStudentId] = useState<number | null>(() => {
 		const cookieStudentId = Cookies.get(STUDENT_ID_COOKIE_NAME);
 		return cookieStudentId ? Number(cookieStudentId) : null;
@@ -38,6 +40,14 @@ function Attendance() {
 	const [showCalendar, setShowCalendar] = useState(false);
 
 	const [showProjection, setShowProjection] = useState<number>(0);
+
+	function handleLogout(): void {
+		Cookies.remove(AUTH_COOKIE_NAME);
+		if (!Cookies.get(REMEMBER_ME_COOKIE_NAME)) {
+			Cookies.remove(USERNAME_COOKIE_NAME);
+		}
+		setAttendanceData(null);
+	}
 
 	const handleViewDaywiseAttendance = useCallback(
 		(
@@ -86,22 +96,21 @@ function Attendance() {
 		<div className="container mx-auto px-4 py-8 grow">
 			<div className="bg-white rounded-lg shadow-md p-4 mb-8 style-border style-fade-in">
 				<div className="flex flex-col  gap-4">
-
 					<div className="flex items-center sm:gap-4 justify-between">
 						<div className="flex items-center gap-responsive">
 							<User className="h-14 w-14" />{" "}
 							<div className="flex flex-col">
 								<h1 className="text-xl font-black text-black mb-1 style-text">
-									{attendanceData.data.fullName}
+									{attendanceData.fullName}
 								</h1>
 								<p className="text-xs text-black font-semibold style-text mb-0.5">
-									{attendanceData.data.registrationNumber} |{" "}
-									{attendanceData.data.branchShortName} - Section{" "}
-									{attendanceData.data.sectionName}
+									{attendanceData.registrationNumber} |{" "}
+									{attendanceData.branchShortName} - Section{" "}
+									{attendanceData.sectionName}
 								</p>
 								<p className="text-xs text-black font-semibold style-text">
-									{attendanceData.data.degreeName} | Semester{" "}
-									{attendanceData.data.semesterName}
+									{attendanceData.degreeName} | Semester{" "}
+									{attendanceData.semesterName}
 								</p>
 							</div>
 						</div>
@@ -120,7 +129,9 @@ function Attendance() {
 
 							<button
 								type="button"
-								onClick={() => setShowProjection((prev) => !prev)}
+								onClick={() =>
+									setShowProjection((prev) => (prev === 0 ? 1 : 0))
+								}
 								className="style-border style-text py-2 px-2 text-xs font-bold flex items-center gap-responsive text-blue-600 bg-blue-50 hover:bg-blue-100 focus:outline-none transform hover:-translate-y-1 transition-transform w-auto"
 							>
 								<Wand2 className="h-4 w-4 flex-shrink-0" />
@@ -144,21 +155,19 @@ function Attendance() {
 						setShowProjection={setShowProjection}
 						showProjection={showProjection}
 					/>
-
 				</div>
 			</div>
 			<div>
 				<div className={`${showProjection % 2 === 1 ? "block" : "hidden"}`}>
 					{showProjection > 0 && <Projections />}
 				</div>
-
-			)}
+			</div>
 			{showCalendar && studentId && (
 				<div className="mb-8">
 					<AttendanceCalendar
 						token={Cookies.get(AUTH_COOKIE_NAME) || ""}
 						studentId={studentId}
-						courses={attendanceData.data.attendanceCourseComponentInfoList.map(
+						courses={attendanceData.attendanceCourseComponentInfoList.map(
 							(course) => ({
 								courseId: course.courseId,
 								courseName: course.courseName,
@@ -176,7 +185,6 @@ function Attendance() {
 			)}
 
 			<div className={`${showProjection || showCalendar ? "hidden" : "block"}`}>
-
 				<OverallAtt />
 			</div>
 
