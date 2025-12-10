@@ -2,11 +2,16 @@ import { useState } from "react";
 import Attendance from "./components/Attendance";
 import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
-import type { AttendanceResponse } from "./types/response";
+import TnC from "./components/TnC";
+import { AttendanceDataContext } from "./contexts/AppContext";
+import type { StudentDetails } from "./types/response";
 
 function App() {
-	const [attendanceData, setAttendanceData] =
-		useState<AttendanceResponse | null>(null);
+	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
+		null,
+	);
+
+	const [isTnCVisible, setIsTnCVisible] = useState<boolean>(false);
 
 	return (
 		<div className="min-h-screen bg-gray-100">
@@ -25,15 +30,20 @@ function App() {
 					</a>
 				</div>
 			</div>
+			<AttendanceDataContext.Provider
+				value={{ attendanceData, setAttendanceData }}
+			>
+				{!attendanceData ? (
+					isTnCVisible ? (
+						<TnC setIsPasswordVisible={setIsTnCVisible} />
+					) : (
+						<LoginForm setIsTnCVisible={setIsTnCVisible} />
+					)
+				) : (
+					<Attendance />
+				)}
+			</AttendanceDataContext.Provider>
 
-			{!attendanceData ? (
-				<LoginForm setAttendanceData={setAttendanceData} />
-			) : (
-				<Attendance
-					attendanceData={attendanceData}
-					setAttendanceData={setAttendanceData}
-				/>
-			)}
 			<Footer />
 		</div>
 	);
