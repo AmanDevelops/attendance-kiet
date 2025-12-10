@@ -7,6 +7,10 @@ This project is a web-based attendance viewer designed for KIET (Krishna Institu
 - **Student Dashboard**: Students can view their attendance records.
 - **Authentication**: Secure login system for students.
 - **Responsive Design**: Accessible on various devices, including desktops, tablets, and smartphones.
+- **Custom Attendance Goals**: Set personalized attendance targets for each subject and track your progress toward achieving them.
+- **Weekly Projection**: Plan ahead by selecting classes you might miss and see how it affects your attendance.
+- **Calendar View**: Visualize your attendance history in an interactive calendar format.
+- **Daywise Reports**: View detailed day-by-day attendance for each subject component.
 
 
 ### ⚙️ Installation

@@ -7,6 +7,7 @@ import {
 	ChevronDown,
 	ChevronUp,
 	LogOut,
+	Target,
 	User,
 	Wand2,
 	X,
@@ -47,6 +48,7 @@ type AttendanceHook = {
 
 const TARGET_PERCENTAGE = 75;
 const COMBINED_COMPONENT_ID = -1;
+const GOALS_STORAGE_KEY = "attendance_goals";
 
 function calculateAttendanceProjection(
 	present: number,
@@ -163,6 +165,11 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 	const [showProjection, setShowProjection] = useState(false);
 	const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
+	// Goals state
+	const [goals, setGoals] = useState<Record<string, number>>({});
+	const [editingGoal, setEditingGoal] = useState<string | null>(null);
+	const [tempGoalValue, setTempGoalValue] = useState<string>("");
+
 	const overallAttendance = useMemo(() => {
 		if (!attendanceData) {
 			return { present: 0, total: 0, percentage: 0 };
@@ -266,6 +273,12 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 			if (id) setStudentId(id);
 		});
 
+		// Load saved goals from localStorage
+		const savedGoals = localStorage.getItem(GOALS_STORAGE_KEY);
+		if (savedGoals) {
+			setGoals(JSON.parse(savedGoals));
+		}
+
 		//  Scroll to the top after login
 		window.scrollTo({ top: 0, behavior: "instant" });
 	}, []);
@@ -315,6 +328,22 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 			}
 			return newSet;
 		});
+	};
+
+	// Goal management functions
+	const handleSetGoal = (courseCode: string, target: number) => {
+		const newGoals = { ...goals, [courseCode]: target };
+		setGoals(newGoals);
+		localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(newGoals));
+		setEditingGoal(null);
+		setTempGoalValue("");
+	};
+
+	const handleRemoveGoal = (courseCode: string) => {
+		const newGoals = { ...goals };
+		delete newGoals[courseCode];
+		setGoals(newGoals);
+		localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(newGoals));
 	};
 
 	const overallMissed = projectionAdjustments.overall;
@@ -562,119 +591,252 @@ function Attendance({ attendanceData, setAttendanceData }: AttendanceHook) {
 			<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 				{processCourseData(
 					attendanceData.data.attendanceCourseComponentInfoList,
-				).map((course) => (
-					<div
-						key={course.courseCode}
-						className="bg-white rounded-lg shadow-md p-6 style-border style-fade-in"
-					>
-						<h3 className="text-sm font-bold text-gray-800 mb-2 style-text">
-							{course.courseName}
-						</h3>
-						<p className="text-sm text-gray-600 mb-4 style-text">
-							Code: {course.courseCode}
-						</p>
-						<div className="space-y-4">
-							{course.attendanceCourseComponentNameInfoList.map(
-								(component, _index) => {
-									const subjectMissed =
-										projectionAdjustments.byCourseCode.get(course.courseCode) ||
-										0;
-									const projectedPresent =
-										component.numberOfPresent +
-										component.numberOfExtraAttendance;
-									const projectedTotal =
-										component.numberOfPeriods + subjectMissed;
-									const projectedSubjectPercent =
-										projectedTotal > 0
-											? (projectedPresent / projectedTotal) * 100
-											: 0;
+				).map((course) => {
+					const component = course.attendanceCourseComponentNameInfoList[0];
+					const present =
+						component.numberOfPresent + component.numberOfExtraAttendance;
+					const total = component.numberOfPeriods;
+					const currentPercentage = total > 0 ? (present / total) * 100 : 0;
+					const customGoal = goals[course.courseCode];
+					const targetToUse = customGoal ?? TARGET_PERCENTAGE;
+					const isEditingThisGoal = editingGoal === course.courseCode;
 
-									const currentSubjectProjection =
-										calculateAttendanceProjection(
-											component.numberOfPresent +
-												component.numberOfExtraAttendance,
-											component.numberOfPeriods + subjectMissed,
-											TARGET_PERCENTAGE,
-										);
+					return (
+						<div
+							key={course.courseCode}
+							className="bg-white rounded-lg shadow-md p-6 style-border style-fade-in"
+						>
+							<div className="flex justify-between items-start mb-2">
+								<div className="flex-1">
+									<h3 className="text-sm font-bold text-gray-800 mb-2 style-text">
+										{course.courseName}
+									</h3>
+									<p className="text-sm text-gray-600 mb-4 style-text">
+										Code: {course.courseCode}
+									</p>
+								</div>
+								<div className="flex items-center gap-1">
+									{isEditingThisGoal ? (
+										<>
+											<input
+												type="number"
+												min="0"
+												max="100"
+												value={tempGoalValue}
+												onChange={(e) => setTempGoalValue(e.target.value)}
+												placeholder="%"
+												className="w-14 px-1 py-1 border-2 border-purple-600 text-xs text-center"
+											/>
+											<button
+												type="button"
+												onClick={() => {
+													const target = Number.parseFloat(tempGoalValue);
+													if (target >= 0 && target <= 100) {
+														handleSetGoal(course.courseCode, target);
+													}
+												}}
+												className="px-2 py-1 bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700"
+												title="Save Goal"
+											>
+												✓
+											</button>
+											<button
+												type="button"
+												onClick={() => {
+													setEditingGoal(null);
+													setTempGoalValue("");
+												}}
+												className="px-2 py-1 bg-gray-600 text-white text-xs font-bold hover:bg-gray-700"
+												title="Cancel"
+											>
+												✕
+											</button>
+										</>
+									) : (
+										<>
+											<button
+												type="button"
+												onClick={() => {
+													setEditingGoal(course.courseCode);
+													setTempGoalValue(
+														customGoal?.toString() ||
+															TARGET_PERCENTAGE.toString(),
+													);
+												}}
+												className="px-2 py-1 bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 flex items-center gap-1"
+												title={
+													customGoal
+														? `Edit Goal (${customGoal}%)`
+														: "Set Goal"
+												}
+											>
+												<Target className="h-3 w-3" />
+												{customGoal ? `${customGoal}%` : "Set Goal"}
+											</button>
+											{customGoal !== undefined && (
+												<button
+													type="button"
+													onClick={() => handleRemoveGoal(course.courseCode)}
+													className="px-2 py-1 bg-red-600 text-white text-xs font-bold hover:bg-red-700"
+													title="Remove Goal"
+												>
+													✕
+												</button>
+											)}
+										</>
+									)}
+								</div>
+							</div>
 
-									return (
-										<div
-											key={component.componentName}
-											className="border-t-2 pt-4 border-black"
+							{customGoal !== undefined && (
+								<div className="mb-4 p-3 bg-purple-50 border-2 border-purple-600">
+									<div className="flex justify-between items-center mb-2">
+										<span className="text-xs font-bold text-purple-700 style-text">
+											Your Goal: {customGoal}%
+										</span>
+										<span
+											className={`text-sm font-bold ${
+												currentPercentage >= customGoal
+													? "text-emerald-600"
+													: "text-amber-600"
+											}`}
 										>
-											<div className="flex justify-between items-center mb-2">
-												<span className="text-sm font-medium text-gray-700 style-text">
-													{component.componentName}
-												</span>
+											{currentPercentage.toFixed(1)}%
+										</span>
+									</div>
+									<div className="w-full bg-gray-200 h-2 border border-black mb-2">
+										<div
+											className={`h-full transition-all duration-500 ${
+												currentPercentage >= customGoal
+													? "bg-emerald-500"
+													: "bg-amber-500"
+											}`}
+											style={{
+												width: `${Math.min((currentPercentage / customGoal) * 100, 100)}%`,
+											}}
+										/>
+									</div>
+									<div className="text-xs text-gray-700 style-text">
+										{currentPercentage >= customGoal ? (
+											<span className="text-emerald-600 font-semibold">
+												✓ Goal achieved!
+											</span>
+										) : (
+											<span className="text-amber-600 font-semibold">
+												{calculateAttendanceProjection(
+													present,
+													total,
+													customGoal,
+												).message}
+											</span>
+										)}
+									</div>
+								</div>
+							)}
 
-												{showProjection && subjectMissed > 0 ? (
-													<span
-														className={`text-sm font-semibold ${
-															projectedSubjectPercent >= TARGET_PERCENTAGE
-																? "text-emerald-600"
-																: "text-red-600"
-														}`}
-													>
-														{`${projectedSubjectPercent.toFixed(2)}% (Projected)`}
-													</span>
-												) : (
-													<span
-														className={`text-sm font-semibold ${
-															(component.presentPercentage ?? 0) >=
-															TARGET_PERCENTAGE
-																? "text-emerald-600"
-																: "text-red-600"
-														}`}
-													>
-														{component.presentPercentageWith}
-													</span>
-												)}
-											</div>
+							<div className="space-y-4">
+								{course.attendanceCourseComponentNameInfoList.map(
+									(component, _index) => {
+										const subjectMissed =
+											projectionAdjustments.byCourseCode.get(
+												course.courseCode,
+											) || 0;
+										const projectedPresent =
+											component.numberOfPresent +
+											component.numberOfExtraAttendance;
+										const projectedTotal =
+											component.numberOfPeriods + subjectMissed;
+										const projectedSubjectPercent =
+											projectedTotal > 0
+												? (projectedPresent / projectedTotal) * 100
+												: 0;
 
-											{
-												<>
-													<div className="text-sm text-gray-600 mb-2">
-														Present:{" "}
-														{component.numberOfPresent +
-															component.numberOfExtraAttendance}
-														/{component.numberOfPeriods + subjectMissed}
-													</div>
-													{currentSubjectProjection && (
-														<div
-															className={`flex items-center gap-2 text-sm ${
-																currentSubjectProjection.status === "safe"
+										const currentSubjectProjection =
+											calculateAttendanceProjection(
+												component.numberOfPresent +
+													component.numberOfExtraAttendance,
+												component.numberOfPeriods + subjectMissed,
+												targetToUse,
+											);
+
+										return (
+											<div
+												key={component.componentName}
+												className="border-t-2 pt-4 border-black"
+											>
+												<div className="flex justify-between items-center mb-2">
+													<span className="text-sm font-medium text-gray-700 style-text">
+														{component.componentName}
+													</span>
+
+													{showProjection && subjectMissed > 0 ? (
+														<span
+															className={`text-sm font-semibold ${
+																projectedSubjectPercent >= targetToUse
 																	? "text-emerald-600"
-																	: "text-amber-600"
+																	: "text-red-600"
 															}`}
 														>
-															{currentSubjectProjection.status === "safe" ? (
-																<CheckCircle className="h-4 w-4" />
-															) : (
-																<AlertTriangle className="h-4 w-4" />
-															)}
-															{currentSubjectProjection.message}
-														</div>
-													)}
-													<div className="pt-2 ">
-														<button
-															type="button"
-															onClick={() =>
-																handleViewDaywiseAttendance(course, component)
-															}
-															className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300"
+															{`${projectedSubjectPercent.toFixed(2)}% (Projected)`}
+														</span>
+													) : (
+														<span
+															className={`text-sm font-semibold ${
+																(component.presentPercentage ?? 0) >= targetToUse
+																	? "text-emerald-600"
+																	: "text-red-600"
+															}`}
 														>
-															See Daywise Attendance
-														</button>
-													</div>
-												</>
-											}
-										</div>
-									);
-								},
-							)}
+															{component.presentPercentageWith}
+														</span>
+													)}
+												</div>
+
+												{
+													<>
+														<div className="text-sm text-gray-600 mb-2">
+															Present:{" "}
+															{component.numberOfPresent +
+																component.numberOfExtraAttendance}
+															/{component.numberOfPeriods + subjectMissed}
+														</div>
+														{currentSubjectProjection && (
+															<div
+																className={`flex items-center gap-2 text-sm ${
+																	currentSubjectProjection.status === "safe"
+																		? "text-emerald-600"
+																		: "text-amber-600"
+																}`}
+															>
+																{currentSubjectProjection.status === "safe" ? (
+																	<CheckCircle className="h-4 w-4" />
+																) : (
+																	<AlertTriangle className="h-4 w-4" />
+																)}
+																{currentSubjectProjection.message}
+															</div>
+														)}
+														<div className="pt-2 ">
+															<button
+																type="button"
+																onClick={() =>
+																	handleViewDaywiseAttendance(course, component)
+																}
+																className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300"
+															>
+																See Daywise Attendance
+															</button>
+														</div>
+													</>
+												}
+											</div>
+										);
+									},
+								)}
+							</div>
 						</div>
-					</div>
-				))}
+					);
+				})}
 			</div>
 			{/*  Modal to Show Daywise Attendance */}
 			{isDaywiseModalOpen && selectedComponent && (
