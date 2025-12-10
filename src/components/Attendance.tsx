@@ -1,5 +1,5 @@
 import Cookies from "js-cookie";
-import { CalendarDays, LogOut, User, Wand2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useAppContext } from "../contexts/AppContext";
 import {
@@ -95,67 +95,12 @@ function Attendance() {
 	return (
 		<div className="container mx-auto px-4 py-8 grow">
 			<div className="bg-white rounded-lg shadow-md p-4 mb-8 style-border style-fade-in">
-				<div className="flex flex-col  gap-4">
-					<div className="flex items-center sm:gap-4 justify-between">
-						<div className="flex items-center gap-responsive">
-							<User className="h-14 w-14" />{" "}
-							<div className="flex flex-col">
-								<h1 className="text-xl font-black text-black mb-1 style-text">
-									{attendanceData.fullName}
-								</h1>
-								<p className="text-xs text-black font-semibold style-text mb-0.5">
-									{attendanceData.registrationNumber} |{" "}
-									{attendanceData.branchShortName} - Section{" "}
-									{attendanceData.sectionName}
-								</p>
-								<p className="text-xs text-black font-semibold style-text">
-									{attendanceData.degreeName} | Semester{" "}
-									{attendanceData.semesterName}
-								</p>
-							</div>
-						</div>
-
-						<div className="flex flex-col md:flex-row gap-2 self-start md:self-auto">
-							<button
-								type="button"
-								onClick={() => setShowCalendar((prev) => !prev)}
-								className="style-border style-text py-2 px-2 text-xs font-bold flex items-center gap-responsive text-purple-600 bg-purple-50 hover:bg-purple-100 focus:outline-none transform hover:-translate-y-1 transition-transform w-auto"
-							>
-								<CalendarDays className="h-4 w-4 flex-shrink-0" />
-								<span className="hide-text-below-352 text-xs">
-									{showCalendar ? "Hide Calendar" : "Show Calendar"}
-								</span>
-							</button>
-
-							<button
-								type="button"
-								onClick={() =>
-									setShowProjection((prev) => (prev === 0 ? 1 : 0))
-								}
-								className="style-border style-text py-2 px-2 text-xs font-bold flex items-center gap-responsive text-blue-600 bg-blue-50 hover:bg-blue-100 focus:outline-none transform hover:-translate-y-1 transition-transform w-auto"
-							>
-								<Wand2 className="h-4 w-4 flex-shrink-0" />
-								<span className="hide-text-below-352 text-xs">
-									{showProjection ? "Hide Projection" : "Show Projection"}
-								</span>
-							</button>
-
-							<button
-								type="button"
-								onClick={handleLogout}
-								className="style-border style-text py-2 px-1.5 sm:px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300 w-auto"
-							>
-								<LogOut className="h-4 w-4 flex-shrink-0" />
-								<span className="hide-text-below-352">Logout</span>
-							</button>
-						</div>
-					</div>
-
-					<Profile
-						setShowProjection={setShowProjection}
-						showProjection={showProjection}
-					/>
-				</div>
+				<Profile
+					setShowProjection={setShowProjection}
+					showProjection={showProjection}
+					showCalendar={showCalendar}
+					setShowCalendar={setShowCalendar}
+				/>
 			</div>
 			<div>
 				<div className={`${showProjection % 2 === 1 ? "block" : "hidden"}`}>

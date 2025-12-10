@@ -1,5 +1,5 @@
 import Cookies from "js-cookie";
-import { LogOut, User, Wand2 } from "lucide-react";
+import { CalendarDays, LogOut, User, Wand2 } from "lucide-react";
 import { useAppContext } from "../../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
@@ -11,11 +11,15 @@ import {
 interface ProfileProps {
 	setShowProjection: React.Dispatch<React.SetStateAction<number>>;
 	showProjection: number;
+	showCalendar: boolean;
+	setShowCalendar: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function Profile({
 	setShowProjection,
 	showProjection,
+	showCalendar,
+	setShowCalendar,
 }: ProfileProps) {
 	const { attendanceData, setAttendanceData } = useAppContext();
 
@@ -50,6 +54,17 @@ export default function Profile({
 			</div>
 
 			<div className="flex flex-col md:flex-row gap-2 self-start md:self-auto">
+				<button
+					type="button"
+					onClick={() => setShowCalendar((prev) => !prev)}
+					className="style-border style-text py-2 px-2 text-xs font-bold flex items-center gap-responsive text-purple-600 bg-purple-50 hover:bg-purple-100 focus:outline-none transform hover:-translate-y-1 transition-transform w-auto"
+				>
+					<CalendarDays className="h-4 w-4 flex-shrink-0" />
+					<span className="hide-text-below-352 text-xs">
+						{showCalendar ? "Hide Calendar" : "Show Calendar"}
+					</span>
+				</button>
+
 				<button
 					type="button"
 					onClick={() => setShowProjection((prev) => prev + 1)}
