@@ -1,3 +1,4 @@
+# for scraping data
 import requests
 from bs4 import BeautifulSoup
 import json
@@ -6,8 +7,8 @@ import time
 
  
 MOODLE_URL = "http://lms.kiet.edu/moodle"
-USERNAME = "ayushman.25161063@kiet.edu"
-PASSWORD = "Kiet@123"
+USERNAME = "test@test.com"
+PASSWORD = "test"
 
 LOGIN_URL = f"{MOODLE_URL}/login/index.php"
 SERVICE_URL = f"{MOODLE_URL}/lib/ajax/service.php"
