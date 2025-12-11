@@ -2,6 +2,7 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { BookOpen, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import ReCAPTCHA from "react-google-recaptcha";
 import { useAppContext } from "../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
@@ -12,7 +13,9 @@ import {
 } from "../types/constants";
 import type { LoginResponse, StudentDetails } from "../types/response";
 import PasswordInput from "../ui/PasswordInput";
-import { fetchAttendanceData } from "../utils/LoginUtils";
+import { encryptPassword, fetchAttendanceData } from "../utils/LoginUtils";
+
+const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 function LoginForm({
 	setIsTnCVisible,
@@ -26,10 +29,15 @@ function LoginForm({
 	const passwordRef = useRef<HTMLInputElement>(null);
 	const rememberMeRef = useRef<HTMLInputElement>(null);
 
+	const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 	const [error, setError] = useState<string>("");
 	const [loading, setLoading] = useState<boolean>(false);
 
 	const { setAttendanceData } = useAppContext();
+
+	const handleCaptchaChange = (value: string | null) => {
+		setCaptchaToken(value);
+	};
 
 	useEffect(() => {
 		const token = Cookies.get(AUTH_COOKIE_NAME);
@@ -73,10 +81,12 @@ function LoginForm({
 
 		try {
 			const loginResponse = await axios.post<LoginResponse>(
-				"https://kiet.cybervidya.net/api/auth/login",
+				"https://kiet.cybervidya.net/api/auth/encrypt/login",
 				{
-					userName: usernameRef.current?.value,
-					password: passwordRef.current?.value,
+					userName: encryptPassword(usernameRef.current?.value || ""),
+					password: encryptPassword(passwordRef.current?.value || ""),
+					reCaptchaToken: captchaToken,
+					device: "WEB",
 				},
 			);
 
@@ -187,6 +197,10 @@ function LoginForm({
 						>
 							Remember me
 						</label>
+					</div>
+
+					<div className="flex justify-center">
+						<ReCAPTCHA sitekey={SITE_KEY} onChange={handleCaptchaChange} />
 					</div>
 					<div>
 						By clicking <i>'View Attendance'</i>, you agree to our{" "}
