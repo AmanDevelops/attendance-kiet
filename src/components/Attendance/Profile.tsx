@@ -3,7 +3,6 @@ import { LogOut, User, Wand2 } from "lucide-react";
 import { useAppContext } from "../../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
-	// PASSWORD_COOKIE_NAME,
 	REMEMBER_ME_COOKIE_NAME,
 	USERNAME_COOKIE_NAME,
 } from "../../types/constants";

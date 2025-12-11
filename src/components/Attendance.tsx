@@ -13,6 +13,7 @@ import type {
 } from "../types/response";
 import { fetchStudentId } from "../types/utils";
 import CourseCard from "./Attendance/CourseCard";
+import MoodleAssignments from "./Attendance/MoodleAssignments";
 import Profile from "./Attendance/Profile";
 import Projections from "./Attendance/Projections";
 import DaywiseReport from "./Daywise";
@@ -93,6 +94,7 @@ function Attendance() {
 				<div className={`${showProjection % 2 === 1 ? "block" : "hidden"}`}>
 					{showProjection > 0 && <Projections />}
 				</div>
+				<MoodleAssignments />
 				<OverallAtt />
 			</div>
 

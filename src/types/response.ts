@@ -83,3 +83,12 @@ export interface ScheduleResponse {
 	data: ScheduleEntry[];
 	message: string;
 }
+
+// Moodle Types
+export interface MoodleAssignment {
+	id?: number;
+	course: string;
+	assignment: string;
+	dueDate: string;
+	status: "Upcoming" | "Overdue/Past" | "Submitted";
+}

@@ -2,6 +2,7 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { BookOpen, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import ReCAPTCHA from "react-google-recaptcha";
 import { useAppContext } from "../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
@@ -13,6 +14,10 @@ import {
 import type { LoginResponse, StudentDetails } from "../types/response";
 import PasswordInput from "../ui/PasswordInput";
 import { fetchAttendanceData } from "../utils/LoginUtils";
+import { fetchMoodleAssignments, loginToMoodle } from "../utils/moodleService";
+
+// Found from user input
+const RECAPTCHA_SITE_KEY = "6LdhPigsAAAAAJxhQ2nqig0Zjgm_dXg8z0X5mo25";
 
 function LoginForm({
 	setIsTnCVisible,
@@ -28,8 +33,13 @@ function LoginForm({
 
 	const [error, setError] = useState<string>("");
 	const [loading, setLoading] = useState<boolean>(false);
+	const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
 
-	const { setAttendanceData } = useAppContext();
+	// Moodle State
+	const [moodleEnabled, setMoodleEnabled] = useState(false);
+	const moodleUsernameRef = useRef<HTMLInputElement>(null);
+	const moodlePasswordRef = useRef<HTMLInputElement>(null);
+	const { setAttendanceData, setMoodleAssignments } = useAppContext();
 
 	useEffect(() => {
 		const token = Cookies.get(AUTH_COOKIE_NAME);
@@ -55,7 +65,9 @@ function LoginForm({
 
 					setAttendanceData(updatedStudentDetails);
 				} catch (error) {
-					setError(error instanceof Error ? error.message : String(error));
+					console.error("Auto-login error:", error);
+					// Don't show error on auto-login failure, just let user see login form
+					// setError(error instanceof Error ? error.message : String(error));
 				}
 			};
 			loadData();
@@ -67,73 +79,131 @@ function LoginForm({
 		setLoading(true);
 		setError("");
 
-		let token = "";
+		if (!recaptchaToken) {
+			setError("Please complete the ReCaptcha verification.");
+			setLoading(false);
+			return;
+		}
 
-		console.log(usernameRef.current?.value);
+		let cyberVidyaToken = "";
+		let isCyberVidyaSuccess = false;
 
+		// 1. Attempt CyberVidya Login
 		try {
 			const loginResponse = await axios.post<LoginResponse>(
 				"https://kiet.cybervidya.net/api/auth/login",
 				{
 					userName: usernameRef.current?.value,
 					password: passwordRef.current?.value,
+					reCaptchaToken: recaptchaToken, // Found via network inspection
 				},
 			);
-
-			token = loginResponse.data.data.token;
+			cyberVidyaToken = loginResponse.data.data.token;
+			isCyberVidyaSuccess = true;
 		} catch (loginError) {
-			if (
-				axios.isAxiosError(loginError) &&
-				loginError.response?.status === 400
-			) {
-				setError("Invalid Username or Password");
-			} else {
-				setError(
-					"Login failed. The server isn’t responding or your internet connection may be unavailable.",
-				);
+			const is400 =
+				axios.isAxiosError(loginError) && loginError.response?.status === 400;
+			const msg = is400
+				? "CyberVidya Login Failed: ReCaptcha Required or Invalid Credentials."
+				: "CyberVidya Login Failed: Server error.";
+			console.error(msg, loginError);
+
+			if (!moodleEnabled) {
+				setError(msg);
+				setLoading(false);
+				return;
 			}
+			// If Moodle enabled, we continue...
+		}
+
+		// 2. Attempt Moodle Login
+		let isMoodleSuccess = false;
+		if (
+			moodleEnabled &&
+			moodleUsernameRef.current?.value &&
+			moodlePasswordRef.current?.value
+		) {
+			try {
+				const sesskey = await loginToMoodle(
+					moodleUsernameRef.current.value,
+					moodlePasswordRef.current.value,
+				);
+				const assignments = await fetchMoodleAssignments(sesskey);
+				setMoodleAssignments(assignments);
+				console.log("Moodle assignments fetched:", assignments.length);
+				isMoodleSuccess = true;
+			} catch (moodleErr) {
+				console.error("Moodle login failed:", moodleErr);
+				if (!isCyberVidyaSuccess) {
+					setError("Both logins failed. Please check credentials.");
+					setLoading(false);
+					return;
+				}
+				alert("Moodle login failed, but CyberVidya login succeeded.");
+			}
+		} else if (!isCyberVidyaSuccess) {
+			// Moodle not enabled/filled and CV failed
 			setLoading(false);
 			return;
 		}
 
+		// 3. Finalize Login State
 		const isRemembered = rememberMeRef.current?.checked;
-
 		if (username !== usernameRef.current?.value) {
 			Cookies.remove(STUDENT_ID_COOKIE_NAME);
 		}
 
-		Cookies.set(AUTH_COOKIE_NAME, token, { expires: 1 / 24 });
-		Cookies.set(USERNAME_COOKIE_NAME, usernameRef.current?.value || "", {
-			expires: COOKIE_EXPIRY,
-		});
-		Cookies.set(REMEMBER_ME_COOKIE_NAME, isRemembered?.toString() || "false", {
-			expires: COOKIE_EXPIRY,
-		});
-		// TODO: Implement Sophisticated Password Storage for user security
+		if (isCyberVidyaSuccess && cyberVidyaToken) {
+			Cookies.set(AUTH_COOKIE_NAME, cyberVidyaToken, { expires: 1 / 24 });
+			Cookies.set(USERNAME_COOKIE_NAME, usernameRef.current?.value || "", {
+				expires: COOKIE_EXPIRY,
+			});
+			Cookies.set(
+				REMEMBER_ME_COOKIE_NAME,
+				isRemembered?.toString() || "false",
+				{ expires: COOKIE_EXPIRY },
+			);
 
-		try {
-			const data = await fetchAttendanceData(token);
-
-			const updatedStudentDetails: StudentDetails = {
-				...data,
-				attendanceCourseComponentInfoList:
-					data.attendanceCourseComponentInfoList.map((course) => ({
-						...course,
-						attendanceCourseComponentNameInfoList:
-							course.attendanceCourseComponentNameInfoList.map((component) => ({
-								...component,
-								isProjected: false,
-							})),
-					})),
+			try {
+				const data = await fetchAttendanceData(cyberVidyaToken);
+				const updatedStudentDetails: StudentDetails = {
+					...data,
+					attendanceCourseComponentInfoList:
+						data.attendanceCourseComponentInfoList.map((course) => ({
+							...course,
+							attendanceCourseComponentNameInfoList:
+								course.attendanceCourseComponentNameInfoList.map(
+									(component) => ({
+										...component,
+										isProjected: false,
+									}),
+								),
+						})),
+				};
+				setAttendanceData(updatedStudentDetails);
+			} catch (fetchError) {
+				console.error(fetchError);
+				setError("Login successful, but failed to load attendance data.");
+			}
+		} else if (isMoodleSuccess) {
+			// Fallback: Moodle Only Mode
+			// Mock Data so the App renders
+			const mockData: StudentDetails = {
+				fullName: "Moodle User",
+				registrationNumber: usernameRef.current?.value || "N/A",
+				sectionName: "N/A",
+				branchShortName: "N/A",
+				degreeName: "N/A",
+				semesterName: "N/A",
+				attendanceCourseComponentInfoList: [], // Empty attendance
 			};
-
-			setAttendanceData(updatedStudentDetails);
-		} catch (fetchError) {
-			console.error(fetchError);
-			setError("Login successful, but failed to load attendance data.");
-		} finally {
-			setLoading(false);
+			setAttendanceData(mockData);
+			alert(
+				"Logged in to Moodle only. CyberVidya attendance is unavailable due to ReCaptcha.",
+			);
 		}
+
+		setLoading(false);
 	};
 
 	return (
@@ -173,6 +243,68 @@ function LoginForm({
 						</label>
 						<PasswordInput ref={passwordRef} />
 					</div>
+
+					{/* ReCaptcha Widget */}
+					<div className="flex justify-center my-4">
+						<ReCAPTCHA
+							sitekey={RECAPTCHA_SITE_KEY}
+							onChange={(token) => setRecaptchaToken(token)}
+						/>
+					</div>
+
+					{/* Moodle Toggle */}
+					<div className="p-4 bg-gray-50 border border-gray-200">
+						<div className="flex items-center mb-2">
+							<input
+								type="checkbox"
+								id="moodle-toggle"
+								checked={moodleEnabled}
+								onChange={(e) => setMoodleEnabled(e.target.checked)}
+								className="h-4 w-4 text-black border-gray-300 rounded focus:ring-black"
+							/>
+							<label
+								htmlFor="moodle-toggle"
+								className="ml-2 block text-sm font-bold text-black"
+							>
+								Connect Moodle Account?
+							</label>
+						</div>
+
+						{moodleEnabled && (
+							<div className="space-y-4 mt-2 pl-2 border-l-2 border-gray-300">
+								<div>
+									<label
+										htmlFor="moodle-email"
+										className="block text-xs font-bold text-gray-700"
+									>
+										Moodle Email
+									</label>
+									<input
+										id="moodle-email"
+										type="text"
+										ref={moodleUsernameRef}
+										placeholder="user@kiet.edu"
+										className="mt-1 block w-full border border-gray-300 px-2 py-1 text-sm rounded-none"
+									/>
+								</div>
+								<div>
+									<label
+										htmlFor="moodle-pass"
+										className="block text-xs font-bold text-gray-700"
+									>
+										Moodle Password
+									</label>
+									<input
+										id="moodle-pass"
+										type="password"
+										ref={moodlePasswordRef}
+										className="mt-1 block w-full border border-gray-300 px-2 py-1 text-sm rounded-none"
+									/>
+								</div>
+							</div>
+						)}
+					</div>
+
 					<div className="flex items-center">
 						<input
 							id="remember-me"

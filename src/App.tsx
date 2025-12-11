@@ -10,6 +10,9 @@ function App() {
 	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
 		null,
 	);
+	const [moodleAssignments, setMoodleAssignments] = useState<
+		import("./types/response").MoodleAssignment[] | null
+	>(null);
 
 	const [isTnCVisible, setIsTnCVisible] = useState<boolean>(false);
 
@@ -31,7 +34,12 @@ function App() {
 				</div>
 			</div>
 			<AttendanceDataContext.Provider
-				value={{ attendanceData, setAttendanceData }}
+				value={{
+					attendanceData,
+					setAttendanceData,
+					moodleAssignments,
+					setMoodleAssignments,
+				}}
 			>
 				{!attendanceData ? (
 					isTnCVisible ? (
