@@ -1,6 +1,6 @@
 import axios from "axios";
 import Cookies from "js-cookie";
-import { BookOpen, Sparkles } from "lucide-react";
+import { BookOpen, Eye, EyeOff, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { useAppContext } from "../contexts/AppContext";
@@ -37,6 +37,7 @@ function LoginForm({
 
 	// Moodle State
 	const [moodleEnabled, setMoodleEnabled] = useState(false);
+	const [moodlePasswordVisible, setMoodlePasswordVisible] = useState(false);
 	const moodleUsernameRef = useRef<HTMLInputElement>(null);
 	const moodlePasswordRef = useRef<HTMLInputElement>(null);
 	const { setAttendanceData, setMoodleAssignments } = useAppContext();
@@ -294,12 +295,27 @@ function LoginForm({
 									>
 										Moodle Password
 									</label>
-									<input
-										id="moodle-pass"
-										type="password"
-										ref={moodlePasswordRef}
-										className="mt-1 block w-full border border-gray-300 px-2 py-1 text-sm rounded-none"
-									/>
+									<div className="relative">
+										<input
+											id="moodle-pass"
+											type={moodlePasswordVisible ? "text" : "password"}
+											ref={moodlePasswordRef}
+											className="mt-1 block w-full border border-gray-300 px-2 py-1 text-sm rounded-none pr-8"
+										/>
+										<button
+											type="button"
+											onClick={() =>
+												setMoodlePasswordVisible(!moodlePasswordVisible)
+											}
+											className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black focus:outline-none"
+										>
+											{moodlePasswordVisible ? (
+												<Eye className="h-4 w-4" />
+											) : (
+												<EyeOff className="h-4 w-4" />
+											)}
+										</button>
+									</div>
 								</div>
 							</div>
 						)}

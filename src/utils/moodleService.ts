@@ -25,7 +25,13 @@ export const loginToMoodle = async (
 			if (match) sesskey = match[1];
 		});
 
-		if (sesskey) {
+		// FIX: Check if we are actually on the login page even if sesskey is found
+		// The login page itself might expose a sesskey but we still need to log in.
+		const isLoginPage =
+			doc.querySelector('input[type="password"]') !== null ||
+			doc.querySelector('input[name="password"]') !== null;
+
+		if (sesskey && !isLoginPage) {
 			console.log("Already logged in! Sesskey found directly:", sesskey);
 			return sesskey;
 		}
