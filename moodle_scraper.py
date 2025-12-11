@@ -7,7 +7,7 @@ import time
 
  
 MOODLE_URL = "http://lms.kiet.edu/moodle"
-USERNAME = "test@test.com"
+USERNAME = "test@test2.com"
 PASSWORD = "test"
 
 LOGIN_URL = f"{MOODLE_URL}/login/index.php"
