@@ -9,15 +9,38 @@ export const loginToMoodle = async (
 	password: string,
 ): Promise<string> => {
 	try {
-		// 1. Get Login Token
+		console.log("Initiating Moodle Login...");
+
+		// 1. Get Login Token (or check if already logged in)
 		const loginPage = await axios.get(`${MOODLE_PROXY}/login/index.php`);
 		const parser = new DOMParser();
 		const doc = parser.parseFromString(loginPage.data, "text/html");
+
+		// Check if we are already logged in (redirected to dashboard or similar)
+		// search for sesskey directly in the initial response
+		let sesskey = "";
+		const scripts = doc.querySelectorAll("script");
+		scripts.forEach((script) => {
+			const match = script.textContent?.match(/"sesskey":"([^"]+)"/);
+			if (match) sesskey = match[1];
+		});
+
+		if (sesskey) {
+			console.log("Already logged in! Sesskey found directly:", sesskey);
+			return sesskey;
+		}
+
 		const loginToken = doc
 			.querySelector('input[name="logintoken"]')
 			?.getAttribute("value");
 
-		if (!loginToken) throw new Error("Could not find login token");
+		if (!loginToken) {
+			console.error(
+				"Debug: Login Page HTML snippet:",
+				loginPage.data.substring(0, 500),
+			);
+			throw new Error("Could not find login token (and not logged in)");
+		}
 
 		// 2. Post Credentials
 		const params = new URLSearchParams();
@@ -41,9 +64,9 @@ export const loginToMoodle = async (
 		const dashboardDoc = parser.parseFromString(dashboard.data, "text/html");
 
 		// Try to find sesskey in script
-		let sesskey = "";
-		const scripts = dashboardDoc.querySelectorAll("script");
-		scripts.forEach((script) => {
+		sesskey = "";
+		const dashboardScripts = dashboardDoc.querySelectorAll("script");
+		dashboardScripts.forEach((script) => {
 			const match = script.textContent?.match(/"sesskey":"([^"]+)"/);
 			if (match) sesskey = match[1];
 		});
@@ -58,7 +81,8 @@ export const loginToMoodle = async (
 			}
 		}
 
-		if (!sesskey) throw new Error("Could not retrieve Moodle session key");
+		if (!sesskey)
+			throw new Error("Could not retrieve Moodle session key after login");
 
 		console.log("Moodle Login Success. Sesskey:", sesskey);
 		return sesskey;
