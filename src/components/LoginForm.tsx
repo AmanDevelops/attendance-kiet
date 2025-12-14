@@ -208,7 +208,7 @@ function LoginForm({
 									<br />
 									{"This is a known issue. See updates here: "}
 									<a
-										href="https://github.com/AmanDevelops/attendance-kiet/issues/7"
+										href="https://github.com/AmanDevelops/attendance-kiet/issues/35"
 										className="text-blue-700 underline-offset-2 underline inline-flex items-center gap-0"
 									>
 										Issue #7
