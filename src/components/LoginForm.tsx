@@ -2,7 +2,7 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { BookOpen, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import ReCAPTCHA from "react-google-recaptcha";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import { useAppContext } from "../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
@@ -15,13 +15,13 @@ import type { LoginResponse, StudentDetails } from "../types/response";
 import PasswordInput from "../ui/PasswordInput";
 import { encryptPassword, fetchAttendanceData } from "../utils/LoginUtils";
 
-const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
-
 function LoginForm({
 	setIsTnCVisible,
 }: {
 	setIsTnCVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
+	const { executeRecaptcha } = useGoogleReCaptcha();
+
 	const username: string = Cookies.get(USERNAME_COOKIE_NAME) || "";
 	const rememberMe: boolean = Cookies.get(REMEMBER_ME_COOKIE_NAME) === "true";
 
@@ -29,15 +29,10 @@ function LoginForm({
 	const passwordRef = useRef<HTMLInputElement>(null);
 	const rememberMeRef = useRef<HTMLInputElement>(null);
 
-	const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 	const [error, setError] = useState<string>("");
 	const [loading, setLoading] = useState<boolean>(false);
 
 	const { setAttendanceData } = useAppContext();
-
-	const handleCaptchaChange = (value: string | null) => {
-		setCaptchaToken(value);
-	};
 
 	useEffect(() => {
 		const token = Cookies.get(AUTH_COOKIE_NAME);
@@ -77,7 +72,9 @@ function LoginForm({
 
 		let token = "";
 
-		console.log(usernameRef.current?.value);
+		if (!executeRecaptcha) return;
+
+		const captchaToken = await executeRecaptcha("signup");
 
 		try {
 			const loginResponse = await axios.post<LoginResponse>(
@@ -197,10 +194,6 @@ function LoginForm({
 						>
 							Remember me
 						</label>
-					</div>
-
-					<div className="flex justify-center">
-						<ReCAPTCHA sitekey={SITE_KEY} onChange={handleCaptchaChange} />
 					</div>
 					<div>
 						By clicking <i>'View Attendance'</i>, you agree to our{" "}
