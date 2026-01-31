@@ -132,46 +132,72 @@ const InstallExtensionPage = ({ onBack }: InstallExtensionPageProps) => {
 							use a browser that does.
 						</p>
 
-						<div className="grid md:grid-cols-2 gap-6">
-							<div>
-								<h4 className="font-bold text-lg mb-2 text-teal-700">
-									Option A: Kiwi Browser (Recommended)
-								</h4>
-								<p className="text-sm text-gray-600 mb-2">
-									Kiwi is a Chromium-based browser that supports desktop Chrome
-									extensions.
-								</p>
-								<ul className="list-disc list-inside text-sm space-y-1 text-gray-700">
-									<li>Install Kiwi Browser from Play Store.</li>
-									<li>Download the Chrome ZIP file above.</li>
-									<li>
-										Go to <code>extensions</code> in the menu.
-									</li>
-									<li>Enable Developer Mode and load the .zip file.</li>
-								</ul>
-							</div>
+						<div>
+							<h4 className="font-bold text-lg mb-2 text-orange-700">
+								Firefox Nightly (Recommended)
+							</h4>
+							<p className="text-sm text-gray-600 mb-3">
+								Firefox Nightly for Android now supports installing add-ons
+								directly from .xpi files!
+							</p>
 
-							<div>
-								<h4 className="font-bold text-lg mb-2 text-purple-700">
-									Option B: Firefox Nightly
-								</h4>
-								<p className="text-sm text-gray-600 mb-2">
-									Requires creating a custom add-on collection.
-								</p>
-								<ul className="list-disc list-inside text-sm space-y-1 text-gray-700">
-									<li>
-										See guide:{" "}
-										<a
-											href="https://blog.mozilla.org/addons/2020/09/29/expanded-extension-support-in-firefox-for-android-nightly/"
-											target="_blank"
-											rel="noreferrer"
-											className="text-blue-600 underline"
-										>
-											Expanded Extension Support
-										</a>
-									</li>
-									<li>Use debug mode via USB if necessary.</li>
-								</ul>
+							<a
+								href="https://github.com/AmanDevelops/attendance-kiet/releases/download/v2.0/firefox.xpi"
+								className="block w-full text-center py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded shadow transition-all hover:-translate-y-0.5 mb-4"
+							>
+								Download Extension (.xpi)
+							</a>
+
+							<div className="space-y-4">
+								<div>
+									<h5 className="font-semibold text-sm text-gray-800 mb-2">
+										Step 1: Access the Debug Menu
+									</h5>
+									<ul className="list-disc list-inside text-sm space-y-1 text-gray-700">
+										<li>
+											Open Firefox Nightly and navigate to{" "}
+											<strong>Settings</strong>.
+										</li>
+										<li>
+											Scroll to <strong>About Firefox Nightly</strong>.
+										</li>
+										<li>
+											Tap the Firefox logo swiftly <strong>five times</strong>.
+										</li>
+										<li>
+											This will unlock the <strong>Secret Settings</strong> in
+											your main Settings menu.
+										</li>
+									</ul>
+								</div>
+
+								<div>
+									<h5 className="font-semibold text-sm text-gray-800 mb-2">
+										Step 2: Install Your Add-ons
+									</h5>
+									<ul className="list-disc list-inside text-sm space-y-1 text-gray-700">
+										<li>
+											Go back to the main <strong>Settings</strong> menu.
+										</li>
+										<li>
+											You'll see a new option:{" "}
+											<strong>Install add-on from file</strong>.
+										</li>
+										<li>Select the .xpi file you've saved on your device.</li>
+										<li>Your add-on will be installed!</li>
+									</ul>
+								</div>
+
+								<div className="mt-3 pt-3 border-t border-gray-200">
+									<a
+										href="https://www.reddit.com/r/firefox/s/ATGHJktQN"
+										target="_blank"
+										rel="noreferrer"
+										className="text-blue-600 underline text-sm"
+									>
+										Learn more about this feature →
+									</a>
+								</div>
 							</div>
 						</div>
 					</div>
