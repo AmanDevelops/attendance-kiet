@@ -67,7 +67,7 @@ function LoginForm({
 	}
 
 	return (
-		<div className="flex flex-col mb-20 mt-20 items-center justify-center p-4">
+		<div className="flex flex-col mb-20 mt-20 items-center justify-center p-4 flex-1">
 			<div className="style-panel style-border w-full max-w-md bg-white p-8 style-fade-in">
 				<div className="flex items-center justify-center mb-8">
 					<BookOpen className="h-16 w-16 text-black transform -rotate-12" />
@@ -79,8 +79,8 @@ function LoginForm({
 
 				<div className="space-y-6">
 					<div className="text-center text-gray-600 mb-6">
-						Please sign in using the official Kiet ERP portal to securely access
-						your attendance.
+						Please sign in using the official ERP portal to securely access your
+						attendance.
 					</div>
 
 					<button
@@ -92,7 +92,7 @@ function LoginForm({
 								setShowInstallPage(true);
 							}
 						}}
-						className="w-full style-border style-text py-4 px-4 text-base font-black text-white bg-black hover:bg-gray-800 focus:outline-none transform hover:-translate-y-1 transition-transform cursor-pointer flex items-center justify-center gap-2 shadow-lg"
+						className="w-full style-border style-text py-4 px-4 sm:px-3 text-base items-center justify-center gap-2 font-bold flex cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300"
 					>
 						Sign in with ERP
 						{!isExtensionDetected && (

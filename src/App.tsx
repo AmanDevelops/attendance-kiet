@@ -53,8 +53,8 @@ function App() {
 	}, []);
 
 	return (
-		<div className="min-h-screen bg-gray-100">
-			<div className="overflow-hidden m-auto bg-green-100">
+		<div className="min-h-screen bg-gray-100 flex flex-col">
+			<div className="overflow-hidden m-auto bg-green-100 w-full">
 				<div className="py-2 text-center text-sm font-medium text-green-600">
 					YOUR CREDENTIALS ARE NEVER SHARED WITH US. THEY ARE SENT DIRECTLY TO
 					CYBERVIDYA AND STORED LOCALLY.
@@ -69,19 +69,21 @@ function App() {
 					</a>
 				</div>
 			</div>
-			<AttendanceDataContext.Provider
-				value={{ attendanceData, setAttendanceData }}
-			>
-				{!attendanceData ? (
-					isTnCVisible ? (
-						<TnC setIsPasswordVisible={setIsTnCVisible} />
+			<div className="grow flex flex-col justify-center">
+				<AttendanceDataContext.Provider
+					value={{ attendanceData, setAttendanceData }}
+				>
+					{!attendanceData ? (
+						isTnCVisible ? (
+							<TnC setIsPasswordVisible={setIsTnCVisible} />
+						) : (
+							<LoginForm setIsTnCVisible={setIsTnCVisible} />
+						)
 					) : (
-						<LoginForm setIsTnCVisible={setIsTnCVisible} />
-					)
-				) : (
-					<Attendance />
-				)}
-			</AttendanceDataContext.Provider>
+						<Attendance />
+					)}
+				</AttendanceDataContext.Provider>
+			</div>
 
 			<Footer />
 		</div>

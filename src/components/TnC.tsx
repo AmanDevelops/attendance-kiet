@@ -22,270 +22,164 @@ export default function TnC({
 			<br />
 			<header className="mb-8 border-b border-gray-200 pb-6">
 				<h1 className="text-3xl font-bold mb-2 text-gray-900">
-					Privacy Policy for CyberVidya Attendance
+					Terms of Service & Privacy Policy
 				</h1>
+				<p className="text-gray-500 text-sm">Last Updated: 31-01-2026</p>
 			</header>
 
-			<div className="space-y-4">
-				<p className="font-semibold text-gray-600">Last Updated: 20-08-2025</p>
-
-				<p className="mb-4">
-					This Privacy Policy describes how your personal information is handled
-					in{" "}
-					<a
-						href="http://cybervidya.pages.dev"
-						className="text-blue-600 hover:underline"
-					>
-						KIET Attendance - Cybervidya
-					</a>{" "}
-					(the "Application").
-				</p>
+			<div className="space-y-6">
+				{/* CRITICAL DISCLAIMER */}
+				<section className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+					<h3 className="text-xl font-black text-red-800 mb-2 uppercase tracking-wide">
+						Strictly Personal Project - Disclaimer
+					</h3>
+					<p className="mb-2 font-bold text-red-900">
+						PLEASE READ THIS CAREFULLY BEFORE PROCEEDING.
+					</p>
+					<p className="mb-3 text-red-800">
+						This Application is a <strong>personal project</strong> created
+						solely for the private use of its developer/creator. It is{" "}
+						<strong>NOT</strong> an official product of CyberVidya.
+					</p>
+					<p className="mb-3 text-red-800">
+						While the source code is hosted publicly (e.g., on GitHub) for
+						educational and portfolio purposes,{" "}
+						<strong>
+							the creator assumes NO RESPONSIBILITY for its use, distribution,
+							or modification by any third party.
+						</strong>
+					</p>
+					<p className="mb-0 text-red-800 italic">
+						If you are not the creator and you choose to use this Application,
+						you do so entirely at your own risk. The creator expressly disclaims
+						any liability for any consequences resulting from your use of this
+						software.
+					</p>
+				</section>
 
 				{/* Section 1 */}
 				<section>
-					<h3 className="text-xl font-bold mt-8 mb-4 text-gray-900">
-						1. The "Client-Side" Architecture
+					<h3 className="text-xl font-bold mb-4 text-gray-900">
+						1. Nature of the Application
 					</h3>
 					<p className="mb-4">
-						It is vital that you understand how this Application works:{" "}
-						<strong className="font-bold">
-							We do not store your academic data or your passwords on our
-							servers.
-						</strong>
+						This Application is a client-side interface designed to facilitate
+						access to attendance data.
 					</p>
-					<p className="mb-4">
-						This Application is built using{" "}
-						<strong className="font-bold">
-							Client-Side technology (React)
-						</strong>
-						. This means that when you use the Application:
-					</p>
-					<ol className="list-decimal pl-6 space-y-2 mb-4">
-						<li>We provide the code to your browser.</li>
+					<ul className="list-disc pl-6 space-y-2 mb-4">
 						<li>
-							<strong className="font-bold">Your browser</strong> executes the
-							code.
+							<strong>No Server-Side Storage:</strong> We do not store your
+							passwords or academic records on our servers.
 						</li>
 						<li>
-							<strong className="font-bold">Your browser</strong> sends your
-							credentials directly to the Official CyberVidya API.
+							<strong>Direct Connection:</strong> Your browser connects directly
+							to the official CyberVidya API.
 						</li>
 						<li>
-							<strong className="font-bold">Your browser</strong> receives the
-							data and formats it for you to see.
+							<strong>Open Source:</strong> The code is open-source, allowing
+							transparency. However, this transparency does not constitute a
+							license for unauthorized public deployment or commercial use.
 						</li>
-					</ol>
-					<p className="mb-4">
-						At no point does your password or your academic record pass through
-						a backend server owned or controlled by this Application. We act
-						solely as a provider of the interface.
-					</p>
+					</ul>
 				</section>
 
 				{/* Section 2 */}
 				<section>
-					<h3 className="text-xl font-bold mt-8 mb-4 text-gray-900">
-						2. Information Collection and Use
+					<h3 className="text-xl font-bold mb-4 text-gray-900">
+						2. Limitation of Liability & Indemnification
 					</h3>
-
-					<h4 className="text-lg font-semibold mt-4 mb-2 text-gray-800">
-						A. User Credentials (Login Data)
-					</h4>
-					<ul className="list-disc pl-6 space-y-2 mb-4">
-						<li>
-							<strong className="font-bold">What we do:</strong> The Application
-							accepts your Username and Password to authenticate with the
-							Official CyberVidya API.
-						</li>
-						<li>
-							<strong className="font-bold">Where it goes:</strong> These
-							credentials are sent directly from your device to the Official
-							CyberVidya servers.
-						</li>
-						<li>
-							<strong className="font-bold">Storage:</strong> We{" "}
-							<strong className="font-bold">do not</strong> store your password
-							on our servers. The Application offers an optional "Remember Me"
-							feature, if you enable it, your passwords are saved locally on{" "}
-							<strong className="font-bold">your device</strong> (using Cookies)
-							and are never transmitted to us.
-						</li>
-					</ul>
-
-					<h4 className="text-lg font-semibold mt-4 mb-2 text-gray-800">
-						B. Academic Data (Attendance, Marks, Profile)
-					</h4>
-					<ul className="list-disc pl-6 space-y-2 mb-4">
-						<li>
-							<strong className="font-bold">What we do:</strong> The Application
-							processes your raw data to help you{" "}
-							<strong className="font-bold">
-								effectively manage your attendance
-							</strong>
-							. Instead of just listing records, we generate actionable metrics
-							- specifically calculating the exact number of classes you must
-							attend, or are permitted to miss, to maintain the required{" "}
-							<strong className="font-bold">75% attendance threshold</strong>.
-						</li>
-						<li>
-							<strong className="font-bold">Storage:</strong> This data exists
-							only in your browser's memory (RAM) while the tab is open. We do
-							not database, archive, or mine your academic records.
-						</li>
-					</ul>
-
-					<h4 className="text-lg font-semibold mt-4 mb-2 text-gray-800">
-						C. Infrastructure & Performance Logs (Cloudflare)
-					</h4>
 					<p className="mb-4">
-						We host this Application on{" "}
-						<strong className="font-bold">Cloudflare</strong>, a global cloud
-						infrastructure provider. To maintain the security, stability, and
-						performance of the site, Cloudflare automatically collects
-						aggregate, non-personally identifiable anonymised traffic data at
-						the network edge.
+						<strong>To the fullest extent permitted by Indian Law:</strong>
 					</p>
 					<ul className="list-disc pl-6 space-y-2 mb-4">
 						<li>
-							<strong className="font-bold">No Tracking Scripts:</strong> We do{" "}
-							<strong className="font-bold">not</strong> inject tracking
-							cookies, pixels, or JavaScript "spyware" into your browser.
+							The creator shall not be liable for any direct, indirect,
+							incidental, special, consequential, or exemplary damages,
+							including but not limited to, damages for loss of profits,
+							goodwill, use, data, or other intangible losses.
 						</li>
 						<li>
-							<strong className="font-bold">What is Logged:</strong> Based on
-							standard web traffic protocols, Cloudflare reports to us:
-							<ul className="list-[circle] pl-6 mt-2 space-y-1">
-								<li>
-									<strong className="font-bold">Device Information:</strong>{" "}
-									Operating System and Browser type.
-								</li>
-								<li>
-									<strong className="font-bold">General Location:</strong> The
-									country from which the request originated.
-								</li>
-								<li>
-									<strong className="font-bold">Traffic Sources:</strong> How
-									you arrived at the site.
-								</li>
-							</ul>
+							The creator is not responsible for any legal disputes, academic
+							penalties, or administrative actions taken against you by your
+							Institution or CyberVidya arising from your use of this tool.
 						</li>
 						<li>
-							<strong className="font-bold">Purpose:</strong> This data is used
-							solely to monitor server load and optimize the Application. It
-							cannot be used to identify you personally.
+							<strong>Unauthorized Distribution:</strong> If this Application is
+							shared, hosted, or distributed by third parties without the
+							creator's explicit consent, the creator holds no responsibility
+							for such actions. Any person using such third-party distributions
+							does so at their own peril.
 						</li>
 					</ul>
 				</section>
 
 				{/* Section 3 */}
 				<section>
-					<h3 className="text-xl font-bold mt-8 mb-4 text-gray-900">
-						3. Data Security
+					<h3 className="text-xl font-bold mb-4 text-gray-900">
+						3. Compliance with Indian Laws
 					</h3>
 					<p className="mb-4">
-						Because we do not store your data, the security of your information
-						relies primarily on:
+						This project is created with the intent of purely personal utility
+						and educational experimentation, protected under the principles of
+						fair dealing/fair use.
 					</p>
-					<ol className="list-decimal pl-6 space-y-2 mb-4">
-						<li>
-							<strong className="font-bold">Your Device Security:</strong>{" "}
-							Keeping your phone/laptop secure.
-						</li>
-						<li>
-							<strong className="font-bold">
-								The Official Source Security:
-							</strong>{" "}
-							The security protocols of the official CyberVidya API (HTTPS).
-						</li>
-					</ol>
+					<p className="mb-4">
+						<strong>Notice to CyberVidya:</strong>
+					</p>
+					<p className="mb-4 bg-gray-50 p-3 rounded text-sm border border-gray-200">
+						"This software acts as a user-agent (browser extension/interface)
+						that automates the retrieval of data that the user is already
+						authorized to access via their official credentials. It does not
+						bypass authentication, does not hack into servers, and does not
+						access data of other users. It strictly operates within the scope of
+						the user's own authorized session. Any legal notice regarding this
+						personal project should be directed to the creator for amicable
+						resolution, acknowledging that this is a non-commercial,
+						student-made utility."
+					</p>
 				</section>
 
 				{/* Section 4 */}
 				<section>
-					<h3 className="text-xl font-bold mt-8 mb-4 text-gray-900">
-						4. Third-Party Services
+					<h3 className="text-xl font-bold mb-4 text-gray-900">
+						4. Data Privacy
 					</h3>
 					<p className="mb-4">
-						This Application relies on the API provided by{" "}
-						<strong className="font-bold">CyberVidya</strong>. Their use of your
-						data is governed by their own Privacy Policy. We have no control
-						over, and assume no responsibility for, the content, privacy
-						policies, or practices of the{" "}
-						<a
-							href="https://cybervidya.net/privacy-policy"
-							className="text-blue-600 hover:underline"
-						>
-							official CyberVidya service
-						</a>
-						.
+						Since the project is designed for personal use:
 					</p>
+					<ul className="list-disc pl-6 space-y-2 mb-4">
+						<li>
+							<strong>Credentials:</strong> Your credentials are sent only to
+							the official ERP. We do not see them.
+						</li>
+						<li>
+							<strong>Local Storage:</strong> Any data persisting across
+							sessions (like tokens) is stored locally on your device via
+							browser mechanisms (Cookies/LocalStorage).
+						</li>
+					</ul>
 				</section>
 
 				{/* Section 5 */}
 				<section>
-					<h3 className="text-xl font-bold mt-8 mb-4 text-gray-900">
-						5. Disclaimer of Liability
-					</h3>
-					<p className="mb-4">
-						By using this Application, you acknowledge that you are voluntarily
-						providing your credentials to a third-party interface to access your
-						data. You agree that this Application is not responsible for any
-						data breaches resulting from malware on your device or
-						vulnerabilities in the Official CyberVidya API.
-					</p>
-				</section>
-
-				<hr className="my-8 border-gray-300" />
-
-				{/* Addendum */}
-				<section>
 					<h3 className="text-xl font-bold mb-4 text-gray-900">
-						Addendum to Terms of Service (Update)
+						5. Third-Party Services
 					</h3>
-
-					<h4 className="text-lg font-semibold mt-4 mb-2 text-gray-800">
-						Updated Section 3: Nature of the Service (Client-Side Execution)
-					</h4>
 					<p className="mb-4">
-						You acknowledge that this Service operates as a{" "}
-						<strong className="font-bold">Client-Side Application</strong>.
+						This Application interacts with the API provided by{" "}
+						<strong className="font-bold">CyberVidya</strong>. We claim no
+						ownership over the data provided by their service. All rights to the
+						attendance data and institutional records belong to CyberVidya.
 					</p>
-					<ul className="list-disc pl-6 space-y-2 mb-4">
-						<li>
-							<strong className="font-bold">No Intermediary:</strong> When you
-							use this Service, your device connects directly to the Official
-							Source. Our servers do not proxy, intercept, or store this
-							traffic.
-						</li>
-						<li>
-							<strong className="font-bold">User-Initiated Traffic:</strong> All
-							API requests generated by this Service are initiated by{" "}
-							<strong className="font-bold">you</strong>.
-						</li>
-					</ul>
-
-					<h4 className="text-lg font-semibold mt-4 mb-2 text-gray-800">
-						Updated Section 5: API Load and Account Safety
-					</h4>
-					<p className="mb-4">
-						Because this Service runs on your device, excessive refreshing or
-						automated usage may trigger security flags on the Official Source's
-						servers.
-					</p>
-					<ul className="list-disc pl-6 space-y-2 mb-4">
-						<li>
-							<strong className="font-bold">Rate Limiting:</strong> You agree
-							not to use automated scripts or bots to refresh the Service.
-						</li>
-						<li>
-							<strong className="font-bold">Liability:</strong> We are not
-							liable if the Official Source blocks your IP address or suspends
-							your account due to high traffic volume generated by your usage.
-						</li>
-					</ul>
 				</section>
 
 				<hr className="my-8 border-gray-300" />
+
+				<footer className="text-sm text-gray-500 italic text-center">
+					By using this software, you confirm that you have read, understood,
+					and agreed to these terms. If you do not agree, you must stop using
+					this Application immediately.
+				</footer>
 			</div>
 		</article>
 	);
