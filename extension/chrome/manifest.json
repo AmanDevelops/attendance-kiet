@@ -4,12 +4,20 @@
 	"version": "1.0",
 	"description": "Bridges authentication from Kiet ERP to local Attendance app.",
 	"permissions": ["storage"],
-	"host_permissions": ["https://kiet.cybervidya.net/*"],
+	"host_permissions": [
+		"https://kiet.cybervidya.net/*",
+		"http://localhost/*",
+		"http://127.0.0.1/*"
+	],
 	"content_scripts": [
 		{
-			"matches": ["https://kiet.cybervidya.net/*"],
+			"matches": [
+				"https://kiet.cybervidya.net/*",
+				"http://localhost/*",
+				"http://127.0.0.1/*"
+			],
 			"js": ["content.js"],
-			"run_at": "document_idle"
+			"run_at": "document_end"
 		}
 	]
 }

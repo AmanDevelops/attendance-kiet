@@ -1,18 +1,34 @@
-console.log("Kiet Auth Bridge loaded");
+console.log(
+	"Kiet Extension: Content script starting on " + window.location.href,
+);
 
 function checkAndRedirect() {
-	if (window.location.href.includes("/home")) {
-		let token = localStorage.getItem("authenticationtoken");
+	const currentUrl = window.location.href;
 
-		if (token) {
-			token = token.replace(/^"|"$/g, "");
+	// Logic for Kiet ERP site
+	if (currentUrl.includes("kiet.cybervidya.net")) {
+		if (currentUrl.includes("/home")) {
+			let token = localStorage.getItem("authenticationtoken");
 
-			console.log("Token found, redirecting...");
-			window.location.href = `https://cybervidya.pages.dev/?token=${encodeURIComponent(token)}`;
-		} else {
-			console.log(
-				"On home page but no 'authenticationtoken' found in localStorage.",
-			);
+			if (token) {
+				// Remove surrounding double quotes if present
+				token = token.replace(/^"|"$/g, "");
+
+				console.log("Kiet Extension: Token found, redirecting...");
+				window.location.href = `https://kiet.cybervidya.net/?token=${encodeURIComponent(token)}`;
+			}
+		}
+	} else if (
+		currentUrl.includes("localhost") ||
+		currentUrl.includes("127.0.0.1")
+	) {
+		console.log("Kiet Extension: Running on local app, signaling presence...");
+		if (!document.getElementById("kiet-extension-installed")) {
+			const marker = document.createElement("div");
+			marker.id = "kiet-extension-installed";
+			marker.style.display = "none";
+			document.body.appendChild(marker);
+			console.log("Kiet Extension: Marker injected.");
 		}
 	}
 }

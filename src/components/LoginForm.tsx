@@ -1,35 +1,35 @@
-import axios from "axios";
 import Cookies from "js-cookie";
 import { BookOpen, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppContext } from "../contexts/AppContext";
-import {
-	AUTH_COOKIE_NAME,
-	COOKIE_EXPIRY,
-	REMEMBER_ME_COOKIE_NAME,
-	STUDENT_ID_COOKIE_NAME,
-	USERNAME_COOKIE_NAME,
-} from "../types/constants";
-import type { LoginResponse, StudentDetails } from "../types/response";
-import PasswordInput from "../ui/PasswordInput";
+import { AUTH_COOKIE_NAME } from "../types/constants";
+import type { StudentDetails } from "../types/response";
 import { fetchAttendanceData } from "../utils/LoginUtils";
+import InstallExtensionPage from "./InstallExtensionPage";
 
 function LoginForm({
 	setIsTnCVisible,
 }: {
 	setIsTnCVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
-	const username: string = Cookies.get(USERNAME_COOKIE_NAME) || "";
-	const rememberMe: boolean = Cookies.get(REMEMBER_ME_COOKIE_NAME) === "true";
-
-	const usernameRef = useRef<HTMLInputElement>(null);
-	const passwordRef = useRef<HTMLInputElement>(null);
-	const rememberMeRef = useRef<HTMLInputElement>(null);
-
 	const [error, setError] = useState<string>("");
-	const [loading, setLoading] = useState<boolean>(false);
+	const [showInstallPage, setShowInstallPage] = useState<boolean>(false);
+	const [isExtensionDetected, setIsExtensionDetected] =
+		useState<boolean>(false);
 
 	const { setAttendanceData } = useAppContext();
+
+	useEffect(() => {
+		const checkExtension = () => {
+			if (document.getElementById("kiet-extension-installed")) {
+				setIsExtensionDetected(true);
+			}
+		};
+
+		checkExtension();
+		const interval = setInterval(checkExtension, 1000); // Check periodically
+		return () => clearInterval(interval);
+	}, []);
 
 	useEffect(() => {
 		const token = Cookies.get(AUTH_COOKIE_NAME);
@@ -62,79 +62,9 @@ function LoginForm({
 		}
 	}, [setAttendanceData]);
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setLoading(true);
-		setError("");
-
-		let token = "";
-
-		console.log(usernameRef.current?.value);
-
-		try {
-			const loginResponse = await axios.post<LoginResponse>(
-				"https://kiet.cybervidya.net/api/auth/login",
-				{
-					userName: usernameRef.current?.value,
-					password: passwordRef.current?.value,
-				},
-			);
-
-			token = loginResponse.data.data.token;
-		} catch (loginError) {
-			if (
-				axios.isAxiosError(loginError) &&
-				loginError.response?.status === 400
-			) {
-				setError(`Error: ${loginError.response.data.error.reason}`);
-			} else {
-				setError(
-					"Login failed. The server isn’t responding or your internet connection may be unavailable.",
-				);
-			}
-			setLoading(false);
-			return;
-		}
-
-		const isRemembered = rememberMeRef.current?.checked;
-
-		if (username !== usernameRef.current?.value) {
-			Cookies.remove(STUDENT_ID_COOKIE_NAME);
-		}
-
-		Cookies.set(AUTH_COOKIE_NAME, token, { expires: 1 / 24 });
-		Cookies.set(USERNAME_COOKIE_NAME, usernameRef.current?.value || "", {
-			expires: COOKIE_EXPIRY,
-		});
-		Cookies.set(REMEMBER_ME_COOKIE_NAME, isRemembered?.toString() || "false", {
-			expires: COOKIE_EXPIRY,
-		});
-		// TODO: Implement Sophisticated Password Storage for user security
-
-		try {
-			const data = await fetchAttendanceData(token);
-
-			const updatedStudentDetails: StudentDetails = {
-				...data,
-				attendanceCourseComponentInfoList:
-					data.attendanceCourseComponentInfoList.map((course) => ({
-						...course,
-						attendanceCourseComponentNameInfoList:
-							course.attendanceCourseComponentNameInfoList.map((component) => ({
-								...component,
-								isProjected: false,
-							})),
-					})),
-			};
-
-			setAttendanceData(updatedStudentDetails);
-		} catch (fetchError) {
-			console.error(fetchError);
-			setError("Login successful, but failed to load attendance data.");
-		} finally {
-			setLoading(false);
-		}
-	};
+	if (showInstallPage) {
+		return <InstallExtensionPage onBack={() => setShowInstallPage(false)} />;
+	}
 
 	return (
 		<div className="flex flex-col mb-20 mt-20 items-center justify-center p-4">
@@ -146,120 +76,49 @@ function LoginForm({
 				<h2 className="anga-text text-3xl font-black text-center text-black mb-8 transform -rotate-2">
 					CyberVidya Attendance
 				</h2>
-				<form onSubmit={handleSubmit} className="space-y-6">
-					<div>
-						<label
-							htmlFor="username"
-							className="style-text block text-sm font-bold text-black"
-						>
-							University Roll Number
-						</label>
-						<input
-							id="username"
-							type="text"
-							ref={usernameRef}
-							defaultValue={username}
-							placeholder="20240XXXXXXXXXX"
-							className="mt-1 block w-full style-border rounded-none px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-black"
-							required
-						/>
-					</div>
-					<div>
-						<label
-							htmlFor="password"
-							className="style-text block text-sm font-bold text-black"
-						>
-							CyberVidya Password
-						</label>
-						<PasswordInput ref={passwordRef} />
-					</div>
-					<div className="flex items-center">
-						<input
-							id="remember-me"
-							type="checkbox"
-							defaultChecked={rememberMe}
-							ref={rememberMeRef}
-							className="h-5 w-5 style-border rounded-none"
-						/>
-						<label
-							htmlFor="remember-me"
-							className="ml-2 block style-text-sm font-bold text-black"
-						>
-							Remember me
-						</label>
-					</div>
-					<div>
-						By clicking <i>'View Attendance'</i>, you agree to our{" "}
-						<button
-							type="button"
-							onClick={() => setIsTnCVisible((prev) => !prev)}
-							className="text-gray-500 bg-none border-none p-0 cursor-pointer  hover:text-gray-700"
-						>
-							Terms of Service and Privacy Policy
-						</button>
-					</div>
 
-					{error && (
-						<p className="style-text text-red-600 text-sm bg-red-100 p-2 style-border">
-							{error}
-
-							{error.includes("Recaptcha") ? (
-								<>
-									<br />
-									{"This is a known issue. See updates here: "}
-									<a
-										href="https://github.com/AmanDevelops/attendance-kiet/issues/35"
-										className="text-blue-700 underline-offset-2 underline inline-flex items-center gap-0"
-									>
-										Issue #7
-										<svg
-											className="w-4 h-4 ms-2 rtl:rotate-270"
-											aria-hidden="true"
-											xmlns="http://www.w3.org/2000/svg"
-											width="24"
-											height="24"
-											fill="none"
-											viewBox="0 0 24 24"
-										>
-											<path
-												stroke="currentColor"
-												strokeLinecap="round"
-												strokeLinejoin="round"
-												strokeWidth="2"
-												d="M18 14v4.833A1.166 1.166 0 0 1 16.833 20H5.167A1.167 1.167 0 0 1 4 18.833V7.167A1.166 1.166 0 0 1 5.167 6h4.618m4.447-2H20v5.768m-7.889 2.121 7.778-7.778"
-											/>
-										</svg>
-									</a>
-								</>
-							) : (
-								""
-							)}
-						</p>
-					)}
-					<button
-						type="submit"
-						disabled={loading}
-						className="w-full style-border style-text py-3 px-4 text-sm font-black text-white bg-black hover:bg-gray-800 focus:outline-none disabled:opacity-50 transform hover:-translate-y-1 transition-transform cursor-pointer"
-					>
-						{loading ? "Loading..." : "View Attendance"}
-					</button>
-
-					<div className="relative flex py-2 items-center">
-						<div className="flex-grow border-t border-gray-400"></div>
-						<span className="flex-shrink-0 mx-4 text-gray-400">OR</span>
-						<div className="flex-grow border-t border-gray-400"></div>
+				<div className="space-y-6">
+					<div className="text-center text-gray-600 mb-6">
+						Please sign in using the official Kiet ERP portal to securely access
+						your attendance.
 					</div>
 
 					<button
 						type="button"
 						onClick={() => {
-							window.location.href = "https://kiet.cybervidya.net/";
+							if (isExtensionDetected) {
+								window.location.href = "https://kiet.cybervidya.net/";
+							} else {
+								setShowInstallPage(true);
+							}
 						}}
-						className="w-full style-border style-text py-3 px-4 text-sm font-black text-black bg-white hover:bg-gray-50 focus:outline-none transform hover:-translate-y-1 transition-transform cursor-pointer"
+						className="w-full style-border style-text py-4 px-4 text-base font-black text-white bg-black hover:bg-gray-800 focus:outline-none transform hover:-translate-y-1 transition-transform cursor-pointer flex items-center justify-center gap-2 shadow-lg"
 					>
 						Sign in with ERP
+						{!isExtensionDetected && (
+							<span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+								Not Detected
+							</span>
+						)}
 					</button>
-				</form>
+
+					{error && (
+						<p className="style-text text-red-600 text-sm bg-red-100 p-2 style-border">
+							{error}
+						</p>
+					)}
+
+					<div className="text-center text-sm">
+						By signing in, you agree to our{" "}
+						<button
+							type="button"
+							onClick={() => setIsTnCVisible((prev) => !prev)}
+							className="text-gray-500 bg-none border-none p-0 cursor-pointer hover:text-gray-700 underline"
+						>
+							Terms of Service and Privacy Policy
+						</button>
+					</div>
+				</div>
 			</div>
 		</div>
 	);
