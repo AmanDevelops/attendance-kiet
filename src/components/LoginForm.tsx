@@ -2,6 +2,7 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { BookOpen, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import { useAppContext } from "../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
@@ -12,13 +13,15 @@ import {
 } from "../types/constants";
 import type { LoginResponse, StudentDetails } from "../types/response";
 import PasswordInput from "../ui/PasswordInput";
-import { fetchAttendanceData } from "../utils/LoginUtils";
+import { encryptPassword, fetchAttendanceData } from "../utils/LoginUtils";
 
 function LoginForm({
 	setIsTnCVisible,
 }: {
 	setIsTnCVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
+	const { executeRecaptcha } = useGoogleReCaptcha();
+
 	const username: string = Cookies.get(USERNAME_COOKIE_NAME) || "";
 	const rememberMe: boolean = Cookies.get(REMEMBER_ME_COOKIE_NAME) === "true";
 
@@ -69,14 +72,18 @@ function LoginForm({
 
 		let token = "";
 
-		console.log(usernameRef.current?.value);
+		if (!executeRecaptcha) return;
+
+		const captchaToken = await executeRecaptcha("signup");
 
 		try {
 			const loginResponse = await axios.post<LoginResponse>(
-				"https://kiet.cybervidya.net/api/auth/login",
+				"https://kiet.cybervidya.net/api/auth/encrypt/login",
 				{
-					userName: usernameRef.current?.value,
-					password: passwordRef.current?.value,
+					userName: encryptPassword(usernameRef.current?.value || ""),
+					password: encryptPassword(passwordRef.current?.value || ""),
+					reCaptchaToken: captchaToken,
+					device: "WEB",
 				},
 			);
 
