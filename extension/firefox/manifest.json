@@ -7,14 +7,16 @@
 	"host_permissions": [
 		"https://kiet.cybervidya.net/*",
 		"http://localhost/*",
-		"http://127.0.0.1/*"
+		"http://127.0.0.1/*",
+		"https://cybervidya.pages.dev/*"
 	],
 	"content_scripts": [
 		{
 			"matches": [
 				"https://kiet.cybervidya.net/*",
 				"http://localhost/*",
-				"http://127.0.0.1/*"
+				"http://127.0.0.1/*",
+				"https://cybervidya.pages.dev/*"
 			],
 			"js": ["content.js"],
 			"run_at": "document_end"
