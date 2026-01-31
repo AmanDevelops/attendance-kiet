@@ -243,6 +243,22 @@ function LoginForm({
 					>
 						{loading ? "Loading..." : "View Attendance"}
 					</button>
+
+					<div className="relative flex py-2 items-center">
+						<div className="flex-grow border-t border-gray-400"></div>
+						<span className="flex-shrink-0 mx-4 text-gray-400">OR</span>
+						<div className="flex-grow border-t border-gray-400"></div>
+					</div>
+
+					<button
+						type="button"
+						onClick={() => {
+							window.location.href = "https://kiet.cybervidya.net/";
+						}}
+						className="w-full style-border style-text py-3 px-4 text-sm font-black text-black bg-white hover:bg-gray-50 focus:outline-none transform hover:-translate-y-1 transition-transform cursor-pointer"
+					>
+						Sign in with ERP
+					</button>
 				</form>
 			</div>
 		</div>

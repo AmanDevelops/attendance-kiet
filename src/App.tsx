@@ -1,10 +1,13 @@
-import { useState } from "react";
+import Cookies from "js-cookie";
+import { useEffect, useState } from "react";
 import Attendance from "./components/Attendance";
 import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
 import TnC from "./components/TnC";
 import { AttendanceDataContext } from "./contexts/AppContext";
+import { AUTH_COOKIE_NAME } from "./types/constants";
 import type { StudentDetails } from "./types/response";
+import { fetchAttendanceData } from "./utils/LoginUtils";
 
 function App() {
 	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
@@ -12,6 +15,42 @@ function App() {
 	);
 
 	const [isTnCVisible, setIsTnCVisible] = useState<boolean>(false);
+
+	useEffect(() => {
+		const searchParams = new URLSearchParams(window.location.search);
+		const urlToken = searchParams.get("token");
+
+		if (urlToken) {
+			window.history.replaceState({}, document.title, window.location.pathname);
+
+			const loginWithToken = async () => {
+				try {
+					Cookies.set(AUTH_COOKIE_NAME, urlToken, { expires: 1 / 24 });
+					const data = await fetchAttendanceData(urlToken);
+
+					const updatedStudentDetails: StudentDetails = {
+						...data,
+						attendanceCourseComponentInfoList:
+							data.attendanceCourseComponentInfoList.map((course) => ({
+								...course,
+								attendanceCourseComponentNameInfoList:
+									course.attendanceCourseComponentNameInfoList.map(
+										(component) => ({
+											...component,
+											isProjected: false,
+										}),
+									),
+							})),
+					};
+
+					setAttendanceData(updatedStudentDetails);
+				} catch (error) {
+					console.error("Failed to login with URL token", error);
+				}
+			};
+			loginWithToken();
+		}
+	}, []);
 
 	return (
 		<div className="min-h-screen bg-gray-100">
