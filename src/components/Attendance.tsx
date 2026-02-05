@@ -30,6 +30,12 @@ function Attendance() {
 		return cookieStudentId ? Number(cookieStudentId) : null;
 	});
 
+	useEffect(() => {
+		if (attendanceData === null) {
+			setStudentId(null);
+		}
+	}, [attendanceData]);
+
 	const [selectedComponent, setSelectedComponent] =
 		useState<SelectedComponentType | null>(null);
 	const [isDaywiseModalOpen, setIsDaywiseModalOpen] = useState(false);

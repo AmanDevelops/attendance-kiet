@@ -56,6 +56,8 @@ function LoginForm({
 					setAttendanceData(updatedStudentDetails);
 				} catch (error) {
 					setError(error instanceof Error ? error.message : String(error));
+					// Clear invalid token to allow fresh login
+					Cookies.remove(AUTH_COOKIE_NAME);
 				}
 			};
 			loadData();

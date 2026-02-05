@@ -1,7 +1,10 @@
 import Cookies from "js-cookie";
 import { LogOut, User, Wand2 } from "lucide-react";
 import { useAppContext } from "../../contexts/AppContext";
-import { AUTH_COOKIE_NAME } from "../../types/constants";
+import {
+	AUTH_COOKIE_NAME,
+	STUDENT_ID_COOKIE_NAME,
+} from "../../types/constants";
 
 interface ProfileProps {
 	setShowProjection: React.Dispatch<React.SetStateAction<number>>;
@@ -16,6 +19,7 @@ export default function Profile({
 
 	function handleLogout(): void {
 		Cookies.remove(AUTH_COOKIE_NAME);
+		Cookies.remove(STUDENT_ID_COOKIE_NAME);
 		setAttendanceData(null);
 	}
 
