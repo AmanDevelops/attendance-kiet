@@ -24,82 +24,48 @@ export async function exportSemesterICS() {
 	const token = Cookies.get(AUTH_COOKIE_NAME);
 	if (!token) throw new Error("Authentication token not found");
 
-	// Fetch wide range (1 year ahead)
 	const today = new Date();
-	const oneYearLater = new Date();
+	const oneYearLater = new Date(today);
 	oneYearLater.setFullYear(today.getFullYear() + 1);
 
-	const fullSchedule = await fetchFullSemesterSchedule(
-		token,
-		today,
-		oneYearLater,
-	);
+	// Single request for the entire semester range
+	const allSchedule = await fetchSchedule(token, today, oneYearLater);
 
-	if (!fullSchedule.length) {
+	if (!allSchedule.length) {
 		throw new Error("No schedule data found.");
 	}
 
-	const semesterStart = getMinDate(fullSchedule);
-	const semesterEnd = getMaxDate(fullSchedule);
+	const semesterStart = getMinDate(allSchedule);
+	const semesterEnd = getMaxDate(allSchedule);
 
-	const finalSchedule = await fetchFullSemesterSchedule(
-		token,
-		semesterStart,
-		semesterEnd,
-	);
+	// Fetch only once more if you want exact semester dates
+	const finalSchedule = await fetchSchedule(token, semesterStart, semesterEnd);
 
 	const ics = generateICS(finalSchedule);
 	downloadICS(ics);
 }
 
-async function fetchFullSemesterSchedule(
+async function fetchSchedule(
 	token: string,
-	semesterStart: Date,
-	semesterEnd: Date,
+	start: Date,
+	end: Date,
 ): Promise<ScheduleEntry[]> {
-	const weeks = getAllWeeks(semesterStart, semesterEnd);
-	const allClasses: ScheduleEntry[] = [];
-
-	for (const week of weeks) {
-		const response = await axios.get<ScheduleResponse>(
+	try {
+		const res = await axios.get<ScheduleResponse>(
 			"https://kiet.cybervidya.net/api/student/schedule/class",
 			{
 				params: {
-					weekStartDate: week.startDate,
-					weekEndDate: week.endDate,
+					weekStartDate: formatDate(start),
+					weekEndDate: formatDate(end),
 				},
-				headers: {
-					Authorization: `GlobalEducation ${token}`,
-				},
+				headers: { Authorization: `GlobalEducation ${token}` },
 			},
 		);
-
-		if (response.data?.data?.length) {
-			allClasses.push(...response.data.data);
-		}
+		return removeDuplicates(res.data.data ?? []);
+	} catch (err) {
+		console.error("Failed to fetch schedule:", err);
+		return [];
 	}
-
-	return removeDuplicates(allClasses);
-}
-
-function getAllWeeks(start: Date, end: Date) {
-	const weeks: { startDate: string; endDate: string }[] = [];
-	const current = new Date(start);
-
-	while (current <= end) {
-		const weekStart = new Date(current);
-		const weekEnd = new Date(current);
-		weekEnd.setDate(weekStart.getDate() + 6);
-
-		weeks.push({
-			startDate: formatDate(weekStart),
-			endDate: formatDate(weekEnd),
-		});
-
-		current.setDate(current.getDate() + 7);
-	}
-
-	return weeks;
 }
 
 function formatDate(date: Date) {
@@ -108,13 +74,10 @@ function formatDate(date: Date) {
 
 function parseLectureDate(dateString: string | null): Date | null {
 	if (!dateString) return null;
-
 	const parts = dateString.split("/");
 	if (parts.length !== 3) return null;
-
 	const [day, month, year] = parts.map(Number);
 	if (!day || !month || !year) return null;
-
 	return new Date(year, month - 1, day);
 }
 
@@ -123,11 +86,7 @@ function getMinDate(schedule: ScheduleEntry[]): Date {
 		.filter((e) => e.type === "CLASS")
 		.map((e) => parseLectureDate(e.lectureDate))
 		.filter((d): d is Date => d !== null);
-
-	if (!validDates.length) {
-		throw new Error("No valid lecture dates found");
-	}
-
+	if (!validDates.length) throw new Error("No valid lecture dates found");
 	return new Date(Math.min(...validDates.map((d) => d.getTime())));
 }
 
@@ -136,23 +95,16 @@ function getMaxDate(schedule: ScheduleEntry[]): Date {
 		.filter((e) => e.type === "CLASS")
 		.map((e) => parseLectureDate(e.lectureDate))
 		.filter((d): d is Date => d !== null);
-
-	if (!validDates.length) {
-		throw new Error("No valid lecture dates found");
-	}
-
+	if (!validDates.length) throw new Error("No valid lecture dates found");
 	return new Date(Math.max(...validDates.map((d) => d.getTime())));
 }
 
 function removeDuplicates(schedule: ScheduleEntry[]) {
 	const seen = new Set<string>();
-
 	return schedule.filter((entry) => {
 		if (!entry.lectureDate) return false;
-
 		const key = `${entry.courseCode}-${entry.lectureDate}-${entry.start}`;
 		if (seen.has(key)) return false;
-
 		seen.add(key);
 		return true;
 	});
@@ -160,23 +112,13 @@ function removeDuplicates(schedule: ScheduleEntry[]) {
 
 function toICSDateTime(dateString: string, time: string) {
 	const [day, month, year] = dateString.split("/").map(Number);
-	const [hours, minutes, seconds] = time.split(":");
-
-	const date = new Date(
-		year,
-		month - 1,
-		day,
-		Number(hours),
-		Number(minutes),
-		Number(seconds || 0),
-	);
-
+	const [hours, minutes, seconds] = time.split(":").map(Number);
+	const date = new Date(year, month - 1, day, hours, minutes, seconds || 0);
 	return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 
 function generateICS(events: ScheduleEntry[]) {
 	const now = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-
 	let ics = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Kiet Attendance//Semester Timetable//EN
@@ -185,11 +127,10 @@ METHOD:PUBLISH
 `;
 
 	for (const event of events) {
-		if (event.type !== "CLASS") continue;
-		if (!event.lectureDate) continue;
+		if (event.type !== "CLASS" || !event.lectureDate) continue;
 
-		const startTime = event.start?.split(" ")[1];
-		const endTime = event.end?.split(" ")[1];
+		const startTime = event.start?.split(" ")[1] ?? event.start;
+		const endTime = event.end?.split(" ")[1] ?? event.end;
 
 		if (!startTime || !endTime) continue;
 
@@ -221,19 +162,13 @@ function escapeICS(text: string) {
 }
 
 function downloadICS(content: string) {
-	const blob = new Blob([content], {
-		type: "text/calendar;charset=utf-8",
-	});
-
+	const blob = new Blob([content], { type: "text/calendar;charset=utf-8" });
 	const url = window.URL.createObjectURL(blob);
-
 	const a = document.createElement("a");
 	a.href = url;
 	a.download = "semester-timetable.ics";
-
 	document.body.appendChild(a);
 	a.click();
 	a.remove();
-
 	window.URL.revokeObjectURL(url);
 }
