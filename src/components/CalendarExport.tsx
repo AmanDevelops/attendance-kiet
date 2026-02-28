@@ -25,23 +25,16 @@ export async function exportSemesterICS() {
 	if (!token) throw new Error("Authentication token not found");
 
 	const today = new Date();
-	const oneYearLater = new Date(today);
+	const oneYearLater = new Date();
 	oneYearLater.setFullYear(today.getFullYear() + 1);
 
-	// Single request for the entire semester range
 	const allSchedule = await fetchSchedule(token, today, oneYearLater);
 
 	if (!allSchedule.length) {
 		throw new Error("No schedule data found.");
 	}
 
-	const semesterStart = getMinDate(allSchedule);
-	const semesterEnd = getMaxDate(allSchedule);
-
-	// Fetch only once more if you want exact semester dates
-	const finalSchedule = await fetchSchedule(token, semesterStart, semesterEnd);
-
-	const ics = generateICS(finalSchedule);
+	const ics = generateICS(allSchedule);
 	downloadICS(ics);
 }
 
