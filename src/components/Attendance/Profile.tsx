@@ -1,10 +1,12 @@
 import Cookies from "js-cookie";
-import { LogOut, User, Wand2 } from "lucide-react";
+import { Calendar, LogOut, User, Wand2 } from "lucide-react";
+import { useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
 	STUDENT_ID_COOKIE_NAME,
 } from "../../types/constants";
+import { exportSemesterICS } from "../CalendarExport";
 
 interface ProfileProps {
 	setShowProjection: React.Dispatch<React.SetStateAction<number>>;
@@ -17,6 +19,9 @@ export default function Profile({
 }: ProfileProps) {
 	const { attendanceData, setAttendanceData } = useAppContext();
 
+	const [calendarLoading, setCalendarLoading] = useState(false);
+	const [calendarError, setCalendarError] = useState("");
+
 	function handleLogout(): void {
 		Cookies.remove(AUTH_COOKIE_NAME);
 		Cookies.remove(STUDENT_ID_COOKIE_NAME);
@@ -24,6 +29,29 @@ export default function Profile({
 	}
 
 	if (!attendanceData) return null;
+
+	async function handleCalendarExport() {
+		const token = Cookies.get(AUTH_COOKIE_NAME);
+		const studentId = Cookies.get(STUDENT_ID_COOKIE_NAME);
+
+		if (!token || !studentId) {
+			console.error("Missing token or studentId");
+			setCalendarError("Authentication failed. Please login again.");
+			return;
+		}
+
+		setCalendarLoading(true);
+		setCalendarError("");
+
+		try {
+			await exportSemesterICS();
+		} catch (err: unknown) {
+			console.error(err);
+			setCalendarError("Failed to export calendar. Please try again later.");
+		} finally {
+			setCalendarLoading(false);
+		}
+	}
 
 	return (
 		<div className="flex items-center sm:gap-4 justify-between">
@@ -43,7 +71,9 @@ export default function Profile({
 					</p>
 				</div>
 			</div>
-
+			{calendarError && (
+				<p className="text-red-600 text-l mt-2">{calendarError}</p>
+			)}
 			<div className="flex flex-col md:flex-row gap-2 self-start md:self-auto">
 				<button
 					type="button"
@@ -53,6 +83,18 @@ export default function Profile({
 					<Wand2 className="h-4 w-4 shrink-0" />
 					<span className="hide-text-below-352 text-xs">
 						{showProjection ? "Hide Projection" : "Show Projection"}
+					</span>
+				</button>
+
+				<button
+					type="button"
+					onClick={handleCalendarExport}
+					disabled={calendarLoading}
+					className="style-border style-text py-2 px-2 text-xs font-bold flex items-center gap-responsive text-blue-600 bg-blue-50 hover:bg-blue-100 transition-transform hover:-translate-y-1 disabled:opacity-50"
+				>
+					<Calendar className="h-4 w-4 shrink-0" />
+					<span className="hide-text-below-352 text-xs">
+						{calendarLoading ? "Exporting..." : "Add to Calendar"}
 					</span>
 				</button>
 
