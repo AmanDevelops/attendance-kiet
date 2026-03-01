@@ -13,6 +13,7 @@ export interface ScheduleEntry {
 	facultyName: string;
 	lectureDate: string | null;
 	type: "CLASS" | "HOLIDAY";
+	classRoom: string;
 }
 
 export interface ScheduleResponse {
@@ -65,33 +66,6 @@ function formatDate(date: Date) {
 	return date.toISOString().split("T")[0];
 }
 
-function parseLectureDate(dateString: string | null): Date | null {
-	if (!dateString) return null;
-	const parts = dateString.split("/");
-	if (parts.length !== 3) return null;
-	const [day, month, year] = parts.map(Number);
-	if (!day || !month || !year) return null;
-	return new Date(year, month - 1, day);
-}
-
-function getMinDate(schedule: ScheduleEntry[]): Date {
-	const validDates = schedule
-		.filter((e) => e.type === "CLASS")
-		.map((e) => parseLectureDate(e.lectureDate))
-		.filter((d): d is Date => d !== null);
-	if (!validDates.length) throw new Error("No valid lecture dates found");
-	return new Date(Math.min(...validDates.map((d) => d.getTime())));
-}
-
-function getMaxDate(schedule: ScheduleEntry[]): Date {
-	const validDates = schedule
-		.filter((e) => e.type === "CLASS")
-		.map((e) => parseLectureDate(e.lectureDate))
-		.filter((d): d is Date => d !== null);
-	if (!validDates.length) throw new Error("No valid lecture dates found");
-	return new Date(Math.max(...validDates.map((d) => d.getTime())));
-}
-
 function removeDuplicates(schedule: ScheduleEntry[]) {
 	const seen = new Set<string>();
 	return schedule.filter((entry) => {
@@ -107,41 +81,54 @@ function toICSDateTime(dateString: string, time: string) {
 	const [day, month, year] = dateString.split("/").map(Number);
 	const [hours, minutes, seconds] = time.split(":").map(Number);
 	const date = new Date(year, month - 1, day, hours, minutes, seconds || 0);
-	return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+	return `${date.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
 }
 
 function generateICS(events: ScheduleEntry[]) {
-	const now = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-	let ics = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Kiet Attendance//Semester Timetable//EN
-CALSCALE:GREGORIAN
-METHOD:PUBLISH
-`;
+	const eol = "\r\n";
+
+	const now = `${new Date().toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
+
+	let ics = [
+		"BEGIN:VCALENDAR",
+		"VERSION:2.0",
+		"PRODID:-//Kiet Attendance//Semester Timetable//EN",
+		"CALSCALE:GREGORIAN",
+		"METHOD:PUBLISH",
+		"",
+	].join(eol);
 
 	for (const event of events) {
 		if (event.type !== "CLASS" || !event.lectureDate) continue;
 
-		const startTime = event.start?.split(" ")[1] ?? event.start;
-		const endTime = event.end?.split(" ")[1] ?? event.end;
+		const startTime = event.start.split(" ").pop();
+		const endTime = event.end.split(" ").pop();
 
 		if (!startTime || !endTime) continue;
 
 		const dtStart = toICSDateTime(event.lectureDate, startTime);
 		const dtEnd = toICSDateTime(event.lectureDate, endTime);
 
-		ics += `BEGIN:VEVENT
-UID:${event.courseCode}-${dtStart}@kietattendance
-DTSTAMP:${now}
-DTSTART:${dtStart}
-DTEND:${dtEnd}
-SUMMARY:${escapeICS(event.courseName)}
-DESCRIPTION:Course Code: ${escapeICS(event.courseCode)}\\nFaculty: ${escapeICS(event.facultyName)}\\nComponent: ${escapeICS(event.courseCompName)}
-END:VEVENT
-`;
+		ics += [
+			"BEGIN:VEVENT",
+			`UID:${event.courseCode}-${event.courseCompName}-${dtStart}@kietattendance`,
+			`DTSTAMP:${now}`,
+			`DTSTART:${dtStart}`,
+			`DTEND:${dtEnd}`,
+			`LOCATION:${escapeICS(event.classRoom)}`,
+			`SUMMARY:${escapeICS(event.courseName)}`,
+			`DESCRIPTION:Course Code: ${escapeICS(event.courseCode)}\\nFaculty: ${escapeICS(event.facultyName)}\\nComponent: ${escapeICS(event.courseCompName)}`,
+			"BEGIN:VALARM",
+			"ACTION:DISPLAY",
+			"DESCRIPTION:Reminder",
+			"TRIGGER:-PT15M",
+			"END:VALARM",
+			"END:VEVENT",
+			"",
+		].join(eol);
 	}
 
-	ics += `END:VCALENDAR`;
+	ics += `END:VCALENDAR${eol}`;
 	return ics;
 }
 
