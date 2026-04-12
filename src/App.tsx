@@ -8,6 +8,10 @@ import { AttendanceDataContext } from "./contexts/AppContext";
 import { AUTH_COOKIE_NAME, COOKIE_EXPIRY } from "./types/constants";
 import type { StudentDetails } from "./types/response";
 import { fetchAttendanceData } from "./utils/LoginUtils";
+import {
+	notifyLowAttendanceIfNeeded,
+	requestNotificationPermission,
+} from "./utils/notifications";
 
 function App() {
 	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
@@ -15,6 +19,10 @@ function App() {
 	);
 
 	const [isTnCVisible, setIsTnCVisible] = useState<boolean>(false);
+
+	useEffect(() => {
+		requestNotificationPermission();
+	}, []);
 
 	useEffect(() => {
 		const searchParams = new URLSearchParams(window.location.search);
@@ -51,6 +59,12 @@ function App() {
 			loginWithToken();
 		}
 	}, []);
+
+	useEffect(() => {
+		if (attendanceData) {
+			notifyLowAttendanceIfNeeded(attendanceData);
+		}
+	}, [attendanceData]);
 
 	return (
 		<div className="min-h-screen bg-gray-100 flex flex-col">
