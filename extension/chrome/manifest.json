@@ -3,6 +3,10 @@
 	"name": "Kiet Auth Bridge",
 	"version": "1.0",
 	"description": "Bridges authentication from Kiet ERP to local Attendance app.",
+	"icons": {
+		"48": "icons/icon-48.png",
+		"128": "icons/icon-128.png"
+	},
 	"permissions": ["storage"],
 	"host_permissions": [
 		"https://kiet.cybervidya.net/*",

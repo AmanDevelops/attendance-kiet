@@ -1,56 +1,81 @@
-console.log(
-	"Kiet Extension: Content script starting on " + window.location.href,
-);
+/**
+ * Kiet Auth Bridge - Content Script
+ * Safely bridges authentication tokens between the ERP and the Attendance App.
+ */
 
-function checkAndRedirect() {
-	const currentUrl = window.location.href;
+(function () {
+  "use strict";
 
-	if (currentUrl.includes("kiet.cybervidya.net")) {
-		if (currentUrl.includes("/home")) {
-			let token = localStorage.getItem("authenticationtoken");
+  const API_NAMESPACE = browser;
+  const TARGET_DOMAINS = ["cybervidya.pages.dev"];
+  const ERP_DOMAIN = "kiet.cybervidya.net";
+  const TOKEN_KEY = "authenticationtoken";
+  const MARKER_ID = "kiet-extension-installed";
 
-			if (token) {
-				token = token.replace(/^"|"$/g, "");
-				console.log("Kiet Extension: Token found.");
+  /**
+   * Main logic to handle redirection or marker injection based on current URL.
+   */
+  async function handleNavigation() {
+    try {
+      const url = new URL(window.location.href);
 
-				chrome.storage.local.get(["targetOrigin"], (result) => {
-					const targetOrigin =
-						result.targetOrigin || "https://cybervidya.pages.dev";
-					console.log("Kiet Extension: Redirecting to " + targetOrigin);
-					window.location.href = `${targetOrigin}/?token=${encodeURIComponent(token)}`;
-				});
-			}
-		}
-	} else if (
-		currentUrl.includes("localhost") ||
-		currentUrl.includes("127.0.0.1") ||
-		currentUrl.includes("cybervidya.pages.dev")
-	) {
-		console.log(
-			"Kiet Extension: Running on App (" + window.location.origin + ")",
-		);
+      // Case 1: On the ERP site, handle token extraction and redirection
+      if (url.hostname === ERP_DOMAIN && url.pathname.includes("/home")) {
+        const rawToken = localStorage.getItem(TOKEN_KEY);
+        if (rawToken) {
+          const token = rawToken.replace(/^"|"$/g, "");
 
-		if (!document.getElementById("kiet-extension-installed")) {
-			const marker = document.createElement("div");
-			marker.id = "kiet-extension-installed";
-			marker.style.display = "none";
-			document.body.appendChild(marker);
-			console.log("Kiet Extension: Marker injected.");
-		}
+          const settings =
+            await API_NAMESPACE.storage.local.get("targetOrigin");
+          if (!settings.targetOrigin) return;
+          const targetOrigin = settings.targetOrigin;
 
-		chrome.storage.local.set({ targetOrigin: window.location.origin }, () => {
-			console.log("Kiet Extension: Origin saved as " + window.location.origin);
-		});
-	}
-}
+          await API_NAMESPACE.storage.local.remove("targetOrigin");
 
-checkAndRedirect();
+          const redirectUrl = new URL(targetOrigin);
+          redirectUrl.searchParams.set("token", token);
 
-let lastUrl = location.href;
-new MutationObserver(() => {
-	const url = location.href;
-	if (url !== lastUrl) {
-		lastUrl = url;
-		checkAndRedirect();
-	}
-}).observe(document, { subtree: true, childList: true });
+          window.location.replace(redirectUrl.toString());
+        } else {
+          await API_NAMESPACE.storage.local.remove("targetOrigin");
+        }
+      }
+      // Case 2: On the app site, inject marker and save origin
+      else if (TARGET_DOMAINS.includes(url.hostname)) {
+        if (!document.getElementById(MARKER_ID)) {
+          const marker = document.createElement("div");
+          marker.id = MARKER_ID;
+          marker.style.display = "none";
+          marker.setAttribute("aria-hidden", "true");
+          document.body.appendChild(marker);
+        }
+
+        await API_NAMESPACE.storage.local.set({
+          targetOrigin: window.location.origin,
+        });
+      }
+    } catch (error) {}
+  }
+
+  window.addEventListener("storage", (event) => {
+    if (event.key === TOKEN_KEY && event.newValue === null) {
+      API_NAMESPACE.storage.local.remove("targetOrigin");
+    }
+  });
+
+  // Initial execution
+  handleNavigation();
+
+  // Observe URL changes for Single Page Applications (SPAs)
+  let lastPath = location.pathname + location.search;
+  const observer = new MutationObserver(() => {
+    const currentPath = location.pathname + location.search;
+    if (currentPath !== lastPath) {
+      lastPath = currentPath;
+      handleNavigation();
+    }
+  });
+
+  // Start observing with minimal impact
+  observer.observe(document, { subtree: true, childList: true });
+})();
