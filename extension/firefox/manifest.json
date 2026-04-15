@@ -1,31 +1,31 @@
 {
-  "manifest_version": 3,
-  "name": "Kiet Auth Bridge",
-  "version": "2.2",
-  "description": "Bridges authentication from Kiet ERP to local Attendance app.",
-  "icons": {
-    "48": "icons/icon-48.png",
-    "128": "icons/icon-128.png"
-  },
-  "permissions": ["storage"],
-  "host_permissions": [
-    "https://kiet.cybervidya.net/*",
-    "https://cybervidya.pages.dev/*"
-  ],
-  "content_scripts": [
-    {
-      "matches": [
-        "https://kiet.cybervidya.net/*",
-        "https://cybervidya.pages.dev/*"
-      ],
-      "js": ["content.js"],
-      "run_at": "document_end"
-    }
-  ],
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "kiet-auth-bridge@amandevelops.me",
-      "strict_min_version": "120.0"
-    }
-  }
+	"manifest_version": 3,
+	"name": "Kiet Auth Bridge",
+	"version": "2.2",
+	"description": "Bridges authentication from Kiet ERP to local Attendance app.",
+	"icons": {
+		"48": "icons/icon-48.png",
+		"128": "icons/icon-128.png"
+	},
+	"permissions": ["storage"],
+	"host_permissions": [
+		"https://kiet.cybervidya.net/*",
+		"https://cybervidya.pages.dev/*"
+	],
+	"content_scripts": [
+		{
+			"matches": [
+				"https://kiet.cybervidya.net/*",
+				"https://cybervidya.pages.dev/*"
+			],
+			"js": ["content.js"],
+			"run_at": "document_end"
+		}
+	],
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "kiet-auth-bridge@amandevelops.me",
+			"strict_min_version": "120.0"
+		}
+	}
 }

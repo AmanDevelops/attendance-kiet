@@ -82,10 +82,10 @@ const InstallExtensionPage = ({ onBack }: InstallExtensionPageProps) => {
 							Firefox
 						</h3>
 						<a
-							href="https://github.com/AmanDevelops/attendance-kiet/releases/download/v2.0/firefox.zip"
+							href="https://github.com/AmanDevelops/attendance-kiet/releases/download/v2.0/firefox.xpi"
 							className="block w-full text-center py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded shadow transition-all hover:-translate-y-0.5"
 						>
-							Download Extension (ZIP)
+							Download Extension (.xpi)
 						</a>
 						<div className="bg-orange-50 p-4 rounded border border-orange-200 text-sm text-orange-900">
 							<strong>⚠️ IMPORTANT:</strong> After installing or changing
@@ -97,22 +97,21 @@ const InstallExtensionPage = ({ onBack }: InstallExtensionPageProps) => {
 							<ol className="list-decimal list-inside text-sm space-y-2 text-gray-700">
 								<li>Download and extract the ZIP file.</li>
 								<li>
-									Open <code>about:debugging</code> in Firefox.
+									Open <code>about:addons</code> in Firefox.
 								</li>
 								<li>
-									Click <strong>This Firefox</strong> on the left sidebar.
+									Click <strong>Settings</strong> icon on top.
 								</li>
 								<li>
-									Click <strong>Load Temporary Add-on...</strong>
+									Click <strong>Install Add-on From File…</strong>
 								</li>
 								<li>
-									Select the <code>manifest.json</code> file inside the
-									extracted folder.
+									Select the <code>firefox.xpi</code> file you just downloaded
 								</li>
 								<li>
-									Ensure permissions are enabled for <code>localhost</code> (or{" "}
-									<code>127.0.0.1</code>).
+									Click on <code>Add</code>
 								</li>
+								<li>Enable Extension that you just added</li>
 							</ol>
 						</div>
 					</section>
