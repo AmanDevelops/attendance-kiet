@@ -1,11 +1,15 @@
 import Cookies from "js-cookie";
 import { Calendar, LogOut, User, Wand2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
 	STUDENT_ID_COOKIE_NAME,
 } from "../../types/constants";
+import {
+	getSavedWhatsappNumber,
+	saveWhatsappNumber,
+} from "../../utils/notifications";
 import { exportSemesterICS } from "../CalendarExport";
 
 interface ProfileProps {
@@ -21,12 +25,24 @@ export default function Profile({
 
 	const [calendarLoading, setCalendarLoading] = useState(false);
 	const [calendarError, setCalendarError] = useState("");
+	const [whatsappNumber, setWhatsappNumber] = useState("");
+	const [whatsappSavedMsg, setWhatsappSavedMsg] = useState("");
 
 	function handleLogout(): void {
 		Cookies.remove(AUTH_COOKIE_NAME);
 		Cookies.remove(STUDENT_ID_COOKIE_NAME);
 		setAttendanceData(null);
 	}
+
+	useEffect(() => {
+		if (!attendanceData) return;
+		const savedNumber = getSavedWhatsappNumber(
+			attendanceData.registrationNumber,
+		);
+		if (savedNumber) {
+			setWhatsappNumber(savedNumber);
+		}
+	}, [attendanceData]);
 
 	if (!attendanceData) return null;
 
@@ -53,6 +69,19 @@ export default function Profile({
 		}
 	}
 
+	function handleSaveWhatsappNumber() {
+		if (!attendanceData) return;
+		const digitsOnly = whatsappNumber.replace(/\D/g, "");
+		if (digitsOnly.length !== 10) {
+			setWhatsappSavedMsg("Enter a valid 10-digit WhatsApp number.");
+			return;
+		}
+
+		saveWhatsappNumber(attendanceData.registrationNumber, digitsOnly);
+		setWhatsappNumber(digitsOnly);
+		setWhatsappSavedMsg("WhatsApp number saved for absence alerts.");
+	}
+
 	return (
 		<div className="flex items-center sm:gap-4 justify-between">
 			<div className="flex items-center gap-responsive">
@@ -69,6 +98,31 @@ export default function Profile({
 					<p className="text-xs text-black font-semibold style-text">
 						{attendanceData.degreeName} | Semester {attendanceData.semesterName}
 					</p>
+					<div className="mt-2 flex flex-col gap-1">
+						<div className="flex gap-2">
+							<input
+								type="tel"
+								value={whatsappNumber}
+								onChange={(event) => {
+									setWhatsappSavedMsg("");
+									setWhatsappNumber(event.target.value);
+								}}
+								placeholder="WhatsApp number (10 digits)"
+								maxLength={10}
+								className="style-border px-2 py-1 text-xs"
+							/>
+							<button
+								type="button"
+								onClick={handleSaveWhatsappNumber}
+								className="style-border px-2 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100"
+							>
+								Save
+							</button>
+						</div>
+						{whatsappSavedMsg && (
+							<p className="text-[11px] text-gray-700">{whatsappSavedMsg}</p>
+						)}
+					</div>
 				</div>
 			</div>
 			{calendarError && (
