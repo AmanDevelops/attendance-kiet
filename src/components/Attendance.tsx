@@ -136,6 +136,8 @@ function Attendance() {
 
 						<DaywiseReport
 							token={Cookies.get(AUTH_COOKIE_NAME) || ""}
+							subjectName={selectedComponent.course.courseName}
+							componentName={selectedComponent.component.componentName}
 							payload={{
 								courseCompId: selectedComponent.component.courseComponentId,
 								courseId: selectedComponent.course.courseId,

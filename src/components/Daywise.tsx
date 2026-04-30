@@ -5,6 +5,7 @@ import type {
 	DaywiseReportProps,
 	LectureListProps,
 } from "../types/response";
+import { notifyIfAbsentFromDaywise } from "../utils/notifications";
 
 function formatDate(dateString: string) {
 	const date = new Date(dateString);
@@ -14,7 +15,12 @@ function formatDate(dateString: string) {
 	return `${day}-${month}-${year}`;
 }
 
-function DaywiseReport({ token, payload }: DaywiseReportProps) {
+function DaywiseReport({
+	token,
+	subjectName,
+	componentName,
+	payload,
+}: DaywiseReportProps) {
 	const [daywiseData, setDaywiseData] = useState<LectureListProps[]>([]);
 	const [loading, setLoading] = useState<boolean>(true);
 	const [error, setError] = useState<string>("");
@@ -43,6 +49,16 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
 							new Date(a.planLecDate).getTime(),
 					);
 
+					notifyIfAbsentFromDaywise(
+						subjectName,
+						componentName,
+						lectures.map((lecture) => ({
+							date: lecture.planLecDate,
+							attendance:
+								lecture.attendance === "ABSENT" ? "ABSENT" : "PRESENT",
+						})),
+					);
+
 					setDaywiseData(lectures);
 				} else {
 					setDaywiseData([]);
@@ -58,7 +74,7 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
 		};
 
 		fetchDaywiseAttendance();
-	}, [token, payload]);
+	}, [token, payload, subjectName, componentName]);
 
 	if (loading) return <p>Loading daywise attendance data...</p>;
 	if (error) return <p className="text-red-600">{error}</p>;

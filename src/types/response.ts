@@ -43,6 +43,8 @@ export interface AttendanceComponentInfo {
 
 export interface DaywiseReportProps {
 	token: string;
+	subjectName: string;
+	componentName: string;
 	payload: {
 		courseCompId: number;
 		courseId: number;
