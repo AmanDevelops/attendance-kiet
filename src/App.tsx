@@ -11,6 +11,7 @@ import { fetchAttendanceData } from "./utils/LoginUtils";
 import {
 	notifyLowAttendanceIfNeeded,
 	requestNotificationPermission,
+	syncAbsenceNotifier,
 } from "./utils/notifications";
 
 function App() {
@@ -63,6 +64,7 @@ function App() {
 	useEffect(() => {
 		if (attendanceData) {
 			notifyLowAttendanceIfNeeded(attendanceData);
+			void syncAbsenceNotifier(attendanceData);
 		}
 	}, [attendanceData]);
 
