@@ -1,57 +1,26 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 import { CalendarDays, ChevronDown, ChevronUp } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
 import { AUTH_COOKIE_NAME } from "../../types/constants";
-import type { ScheduleEntry, ScheduleResponse } from "../../types/response";
+import type {
+	ScheduleEntry,
+	ScheduleResponse,
+	StudentDetails,
+} from "../../types/response";
 import { getWeekRange } from "../../types/utils";
+
+function getClassKey(classEntry: ScheduleEntry) {
+	return `${classEntry.courseCode}-${classEntry.courseCompName}-${classEntry.lectureDate}-${classEntry.start}`;
+}
 
 export default function Projections() {
 	const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
 	const [missedClasses, setMissedClasses] = useState<Set<string>>(new Set());
 	const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
-	const { setAttendanceData } = useAppContext();
-
-	const updateProjectedAttendance = useCallback(
-		(courseCode: string, action: "add" | "subtract") => {
-			const adjustment = action === "add" ? 1 : -1;
-
-			setAttendanceData((prevData) => {
-				if (!prevData) return prevData;
-
-				const courseList = prevData.attendanceCourseComponentInfoList;
-				if (!courseList) return prevData;
-
-				const newCourseList = courseList.map((course) => {
-					if (course.courseCode === courseCode) {
-						const updatedNameInfoList = [
-							...course.attendanceCourseComponentNameInfoList,
-						];
-
-						updatedNameInfoList[0] = {
-							...updatedNameInfoList[0],
-							numberOfPeriods:
-								updatedNameInfoList[0].numberOfPeriods + adjustment,
-							isProjected: action === "add",
-						};
-
-						return {
-							...course,
-							attendanceCourseComponentNameInfoList: updatedNameInfoList,
-						};
-					}
-					return course;
-				});
-
-				return {
-					...prevData,
-					attendanceCourseComponentInfoList: newCourseList,
-				};
-			});
-		},
-		[setAttendanceData],
-	);
+	const { attendanceData, setAttendanceData } = useAppContext();
+	const originalAttendanceRef = useRef<StudentDetails | null>(attendanceData);
 
 	useEffect(() => {
 		const fetchSchedule = async () => {
@@ -73,8 +42,7 @@ export default function Projections() {
 		fetchSchedule();
 	}, []);
 
-	const groupedSchedule = useMemo(() => {
-		const grouped = new Map<string, ScheduleEntry[]>();
+	const upcomingClasses = useMemo(() => {
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 
@@ -91,7 +59,7 @@ export default function Projections() {
 			);
 		};
 
-		schedule
+		return schedule
 			.filter((c) => {
 				if (c.type !== "CLASS") return false;
 				const [day, month, year] = c.lectureDate.split("/").map(Number);
@@ -102,61 +70,109 @@ export default function Projections() {
 				...c,
 				timestamp: parseDate(c.lectureDate, c.start.split(" ")[1]).getTime(),
 			}))
-			.sort((a, b) => a.timestamp - b.timestamp)
-			.forEach((c) => {
-				const [day, month, year] = c.lectureDate.split("/").map(Number);
-				const classDate = new Date(year, month - 1, day);
-
-				const dayName = classDate.toLocaleDateString("en-US", {
-					weekday: "long",
-					month: "short",
-					day: "numeric",
-				});
-
-				if (!grouped.has(dayName)) {
-					grouped.set(dayName, []);
-				}
-				grouped.get(dayName)?.push(c);
-			});
-
-		return grouped;
+			.sort((a, b) => a.timestamp - b.timestamp);
 	}, [schedule]);
 
-	const handleMissClassToggle = (
-		classStartString: string,
-		courseCode: string,
-	) => {
-		const newSet = new Set(missedClasses);
-		if (newSet.has(classStartString)) {
-			newSet.delete(classStartString);
-			setMissedClasses(newSet);
-			updateProjectedAttendance(courseCode, "subtract");
-		} else {
-			newSet.add(classStartString);
-			updateProjectedAttendance(courseCode, "add");
+	useEffect(() => {
+		const originalAttendance = originalAttendanceRef.current;
+		if (!originalAttendance) return;
 
+		const projectedCourseList =
+			originalAttendance.attendanceCourseComponentInfoList.map((course) => {
+				const courseClasses = upcomingClasses.filter(
+					(classEntry) => classEntry.courseCode === course.courseCode,
+				);
+				const componentNames = new Set(
+					course.attendanceCourseComponentNameInfoList.map(
+						(component) => component.componentName,
+					),
+				);
+
+				return {
+					...course,
+					attendanceCourseComponentNameInfoList:
+						course.attendanceCourseComponentNameInfoList.map(
+							(component, componentIndex) => {
+								const componentClasses = courseClasses.filter(
+									(classEntry) =>
+										classEntry.courseCompName === component.componentName ||
+										(componentIndex === 0 &&
+											!componentNames.has(classEntry.courseCompName)),
+								);
+
+								const projectedPresent = componentClasses.filter(
+									(classEntry) => !missedClasses.has(getClassKey(classEntry)),
+								).length;
+
+								return {
+									...component,
+									numberOfPeriods:
+										component.numberOfPeriods + componentClasses.length,
+									numberOfPresent: component.numberOfPresent + projectedPresent,
+									isProjected: componentClasses.length > 0,
+								};
+							},
+						),
+				};
+			});
+
+		setAttendanceData({
+			...originalAttendance,
+			attendanceCourseComponentInfoList: projectedCourseList,
+		});
+	}, [missedClasses, setAttendanceData, upcomingClasses]);
+
+	useEffect(() => {
+		return () => {
+			if (originalAttendanceRef.current) {
+				setAttendanceData(originalAttendanceRef.current);
+			}
+		};
+	}, [setAttendanceData]);
+
+	const groupedSchedule = useMemo(() => {
+		const grouped = new Map<string, ScheduleEntry[]>();
+
+		upcomingClasses.forEach((c) => {
+			const [day, month, year] = c.lectureDate.split("/").map(Number);
+			const classDate = new Date(year, month - 1, day);
+
+			const dayName = classDate.toLocaleDateString("en-US", {
+				weekday: "long",
+				month: "short",
+				day: "numeric",
+			});
+
+			if (!grouped.has(dayName)) {
+				grouped.set(dayName, []);
+			}
+			grouped.get(dayName)?.push(c);
+		});
+
+		return grouped;
+	}, [upcomingClasses]);
+
+	const handleMissClassToggle = (classKey: string) => {
+		const newSet = new Set(missedClasses);
+		if (newSet.has(classKey)) {
+			newSet.delete(classKey);
+			setMissedClasses(newSet);
+		} else {
+			newSet.add(classKey);
 			setMissedClasses(newSet);
 		}
 	};
 
-	const handleDayToggle = (
-		classData: { start: string; courseCode: string }[],
-		dayIsSelected: boolean,
-	) => {
-		classData.forEach((classItem) => {
-			const operation = dayIsSelected ? "subtract" : "add";
-			updateProjectedAttendance(classItem.courseCode, operation);
-		});
-
+	const handleDayToggle = (classKeys: string[], dayIsSelected: boolean) => {
 		setMissedClasses((prev) => {
 			const newSet = new Set(prev);
 			if (dayIsSelected) {
-				for (const classItem of classData) {
-					newSet.delete(classItem.start);
+				for (const classKey of classKeys) {
+					newSet.delete(classKey);
 				}
 			} else {
-				for (const classItem of classData) {
-					newSet.add(classItem.start);
+				for (const classKey of classKeys) {
+					newSet.add(classKey);
 				}
 			}
 			return newSet;
@@ -182,12 +198,9 @@ export default function Projections() {
 				)}
 				{Array.from(groupedSchedule.entries()).map(([day, classes]) => {
 					const isExpanded = expandedDays.has(day);
-					const allDayClasses = classes.map((c) => ({
-						start: c.start,
-						courseCode: c.courseCode,
-					}));
-					const allDaySelected = allDayClasses.every((c) =>
-						missedClasses.has(c.start),
+					const allDayClassKeys = classes.map(getClassKey);
+					const allDaySelected = allDayClassKeys.every((classKey) =>
+						missedClasses.has(classKey),
 					);
 
 					return (
@@ -237,7 +250,7 @@ export default function Projections() {
 											className="h-4 w-4 border-gray-400"
 											checked={allDaySelected}
 											onChange={() =>
-												handleDayToggle(allDayClasses, allDaySelected)
+												handleDayToggle(allDayClassKeys, allDaySelected)
 											}
 										/>
 										<label
@@ -250,30 +263,32 @@ export default function Projections() {
 
 									{/* Class list */}
 									<ul className="space-y-2">
-										{classes.map((c) => (
-											<li key={c.start} className="flex items-center gap-2">
-												<input
-													type="checkbox"
-													id={c.start}
-													className="h-4 w-4 border-gray-400"
-													checked={missedClasses.has(c.start)}
-													onChange={() =>
-														handleMissClassToggle(c.start, c.courseCode)
-													}
-												/>
-												<label
-													htmlFor={c.start}
-													className="text-xs font-medium text-gray-800"
-												>
-													<span className="block text-[0.85rem] font-semibold">
-														{c.courseName}
-													</span>
-													<span className="text-[0.75rem] text-gray-500">
-														{c.start.split(" ")[1]} – {c.end.split(" ")[1]}
-													</span>
-												</label>
-											</li>
-										))}
+										{classes.map((c) => {
+											const classKey = getClassKey(c);
+
+											return (
+												<li key={classKey} className="flex items-center gap-2">
+													<input
+														type="checkbox"
+														id={classKey}
+														className="h-4 w-4 border-gray-400"
+														checked={missedClasses.has(classKey)}
+														onChange={() => handleMissClassToggle(classKey)}
+													/>
+													<label
+														htmlFor={classKey}
+														className="text-xs font-medium text-gray-800"
+													>
+														<span className="block text-[0.85rem] font-semibold">
+															{c.courseName}
+														</span>
+														<span className="text-[0.75rem] text-gray-500">
+															{c.start.split(" ")[1]} – {c.end.split(" ")[1]}
+														</span>
+													</label>
+												</li>
+											);
+										})}
 									</ul>
 								</div>
 							)}
