@@ -15,10 +15,15 @@ function getClassKey(classEntry: ScheduleEntry) {
 	return `${classEntry.courseCode}-${classEntry.courseCompName}-${classEntry.lectureDate}-${classEntry.start}`;
 }
 
+type ProjectionMode = "reset" | "present" | "absent";
+
 export default function Projections() {
 	const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
-	const [missedClasses, setMissedClasses] = useState<Set<string>>(new Set());
 	const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+	const [selectedClassKeys, setSelectedClassKeys] = useState<Set<string>>(
+		new Set(),
+	);
+	const [projectionMode, setProjectionMode] = useState<ProjectionMode>("reset");
 	const { attendanceData, setAttendanceData } = useAppContext();
 	const originalAttendanceRef = useRef<StudentDetails | null>(attendanceData);
 
@@ -79,9 +84,12 @@ export default function Projections() {
 
 		const projectedCourseList =
 			originalAttendance.attendanceCourseComponentInfoList.map((course) => {
-				const courseClasses = upcomingClasses.filter(
-					(classEntry) => classEntry.courseCode === course.courseCode,
-				);
+				const courseClasses =
+					projectionMode === "reset"
+						? []
+						: upcomingClasses.filter(
+								(classEntry) => classEntry.courseCode === course.courseCode,
+							);
 				const componentNames = new Set(
 					course.attendanceCourseComponentNameInfoList.map(
 						(component) => component.componentName,
@@ -101,7 +109,21 @@ export default function Projections() {
 								);
 
 								const projectedPresent = componentClasses.filter(
-									(classEntry) => !missedClasses.has(getClassKey(classEntry)),
+									(classEntry) => {
+										const isSelected = selectedClassKeys.has(
+											getClassKey(classEntry),
+										);
+
+										if (projectionMode === "present") {
+											return isSelected;
+										}
+
+										if (projectionMode === "absent") {
+											return !isSelected;
+										}
+
+										return false;
+									},
 								).length;
 
 								return {
@@ -120,7 +142,7 @@ export default function Projections() {
 			...originalAttendance,
 			attendanceCourseComponentInfoList: projectedCourseList,
 		});
-	}, [missedClasses, setAttendanceData, upcomingClasses]);
+	}, [projectionMode, selectedClassKeys, setAttendanceData, upcomingClasses]);
 
 	useEffect(() => {
 		return () => {
@@ -152,19 +174,20 @@ export default function Projections() {
 		return grouped;
 	}, [upcomingClasses]);
 
-	const handleMissClassToggle = (classKey: string) => {
-		const newSet = new Set(missedClasses);
-		if (newSet.has(classKey)) {
-			newSet.delete(classKey);
-			setMissedClasses(newSet);
-		} else {
-			newSet.add(classKey);
-			setMissedClasses(newSet);
-		}
+	const handleClassToggle = (classKey: string) => {
+		setSelectedClassKeys((prev) => {
+			const newSet = new Set(prev);
+			if (newSet.has(classKey)) {
+				newSet.delete(classKey);
+			} else {
+				newSet.add(classKey);
+			}
+			return newSet;
+		});
 	};
 
 	const handleDayToggle = (classKeys: string[], dayIsSelected: boolean) => {
-		setMissedClasses((prev) => {
+		setSelectedClassKeys((prev) => {
 			const newSet = new Set(prev);
 			if (dayIsSelected) {
 				for (const classKey of classKeys) {
@@ -179,16 +202,70 @@ export default function Projections() {
 		});
 	};
 
+	const handleMarkWeekAbsent = () => {
+		setProjectionMode("absent");
+	};
+
+	const handleMarkWeekPresent = () => {
+		setProjectionMode("present");
+	};
+
+	const handleResetProjection = () => {
+		setProjectionMode("reset");
+		setSelectedClassKeys(new Set());
+		setExpandedDays(new Set());
+	};
+
+	const noClassesSelected = selectedClassKeys.size === 0;
+
 	return (
 		<div className="bg-white rounded-lg shadow-md p-6 mb-4 style-border style-fade-in">
-			<div className="flex items-center gap-2 mb-4">
-				<CalendarDays className="h-6 w-6 text-blue-600" />
-				<h3 className="style-text text-md font-semibold text-black">
-					Weekly Projection (Today Onwards)
-				</h3>
+			<div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center md:justify-between">
+				<div className="flex items-center gap-2">
+					<CalendarDays className="h-6 w-6 text-blue-600" />
+					<h3 className="style-text text-md font-semibold text-black">
+						Weekly Projection (Today Onwards)
+					</h3>
+				</div>
+				<div className="flex flex-wrap gap-2">
+					<button
+						type="button"
+						onClick={handleMarkWeekPresent}
+						disabled={upcomingClasses.length === 0 || noClassesSelected}
+						className={`style-border style-text px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 disabled:hover:-translate-y-0 transform transition-transform duration-300 hover:-translate-y-1 ${
+							projectionMode === "present" ? "bg-emerald-100" : "bg-emerald-50"
+						}`}
+					>
+						Present
+					</button>
+					<button
+						type="button"
+						onClick={handleMarkWeekAbsent}
+						disabled={upcomingClasses.length === 0 || noClassesSelected}
+						className={`style-border style-text px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:hover:-translate-y-0 transform transition-transform duration-300 hover:-translate-y-1 ${
+							projectionMode === "absent" ? "bg-red-100" : "bg-red-50"
+						}`}
+					>
+						Absent
+					</button>
+					<button
+						type="button"
+						onClick={handleResetProjection}
+						disabled={upcomingClasses.length === 0}
+						className={`style-border style-text px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:hover:-translate-y-0 transform transition-transform duration-300 hover:-translate-y-1 ${
+							projectionMode === "reset" ? "bg-gray-100" : "bg-gray-50"
+						}`}
+					>
+						Reset
+					</button>
+				</div>
 			</div>
 			<p className="style-text text-xs text-gray-600 mb-4">
-				Select classes you plan to miss:
+				Present marks selected classes as attended and the rest as missed.
+				Absent marks selected classes as missed and the rest as attended.
+			</p>
+			<p className="style-text text-xs text-gray-500 mb-4">
+				Selected classes: {selectedClassKeys.size}
 			</p>
 			<div className="max-h-64 overflow-y-auto space-y-4 pr-2">
 				{groupedSchedule.size === 0 && (
@@ -200,7 +277,7 @@ export default function Projections() {
 					const isExpanded = expandedDays.has(day);
 					const allDayClassKeys = classes.map(getClassKey);
 					const allDaySelected = allDayClassKeys.every((classKey) =>
-						missedClasses.has(classKey),
+						selectedClassKeys.has(classKey),
 					);
 
 					return (
@@ -242,7 +319,6 @@ export default function Projections() {
 							{/* Expandable class list */}
 							{isExpanded && (
 								<div className="bg-white px-4 py-3 space-y-3  border-2">
-									{/* Select all for day */}
 									<div className="flex items-center gap-2 pb-2 border-b border-gray-200">
 										<input
 											type="checkbox"
@@ -260,25 +336,23 @@ export default function Projections() {
 											Select all for {day}
 										</label>
 									</div>
-
-									{/* Class list */}
 									<ul className="space-y-2">
 										{classes.map((c) => {
 											const classKey = getClassKey(c);
 
 											return (
-												<li key={classKey} className="flex items-center gap-2">
+												<li
+													key={classKey}
+													className="flex items-center gap-2 text-xs font-medium text-gray-800"
+												>
 													<input
 														type="checkbox"
 														id={classKey}
-														className="h-4 w-4 border-gray-400"
-														checked={missedClasses.has(classKey)}
-														onChange={() => handleMissClassToggle(classKey)}
+														className="h-4 w-4 shrink-0 border-gray-400"
+														checked={selectedClassKeys.has(classKey)}
+														onChange={() => handleClassToggle(classKey)}
 													/>
-													<label
-														htmlFor={classKey}
-														className="text-xs font-medium text-gray-800"
-													>
+													<label htmlFor={classKey}>
 														<span className="block text-[0.85rem] font-semibold">
 															{c.courseName}
 														</span>
