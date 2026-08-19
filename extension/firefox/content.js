@@ -51,6 +51,15 @@
 				await API_NAMESPACE.storage.local.set({
 					targetOrigin: window.location.origin,
 				});
+
+				const hasTokenCookie = document.cookie.includes("auth_token=");
+				const hasUrlData =
+					window.location.search.includes("token=") ||
+					window.location.search.includes("data=");
+
+				if (!hasTokenCookie && !hasUrlData) {
+					window.location.replace(`https://${ERP_DOMAIN}/`);
+				}
 			}
 		} catch (error) {}
 	}

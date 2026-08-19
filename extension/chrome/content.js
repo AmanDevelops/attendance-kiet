@@ -225,6 +225,31 @@ let lastUrl = location.href;
 let injected = false;
 
 function checkRoute() {
+	const hostname = window.location.hostname;
+	if (
+		hostname === "cybervidya.pages.dev" ||
+		hostname === "localhost" ||
+		hostname === "127.0.0.1"
+	) {
+		if (!document.getElementById("kiet-extension-installed")) {
+			const marker = document.createElement("div");
+			marker.id = "kiet-extension-installed";
+			marker.style.display = "none";
+			marker.setAttribute("aria-hidden", "true");
+			document.body.appendChild(marker);
+		}
+
+		const hasTokenCookie = document.cookie.includes("auth_token=");
+		const hasUrlData =
+			window.location.search.includes("token=") ||
+			window.location.search.includes("data=");
+
+		if (!hasTokenCookie && !hasUrlData) {
+			window.location.replace("https://kiet.cybervidya.net/");
+		}
+		return;
+	}
+
 	const onDashboard = window.location.pathname.includes("/main/dashboard");
 
 	if (onDashboard && !injected) {

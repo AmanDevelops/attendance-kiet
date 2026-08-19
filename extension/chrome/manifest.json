@@ -16,7 +16,10 @@
 	],
 	"content_scripts": [
 		{
-			"matches": ["https://kiet.cybervidya.net/*"],
+			"matches": [
+				"https://kiet.cybervidya.net/*",
+				"https://cybervidya.pages.dev/*"
+			],
 			"js": ["content.js"],
 			"css": ["style.css"],
 			"run_at": "document_end"
