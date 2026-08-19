@@ -4,11 +4,13 @@ import {
 	type SetStateAction,
 	useContext,
 } from "react";
-import type { StudentDetails } from "../types/response";
+import type { ScheduleEntry, StudentDetails } from "../types/response";
 
 export type AttendanceDataContextType = {
 	attendanceData: StudentDetails | null;
 	setAttendanceData: Dispatch<SetStateAction<StudentDetails | null>>;
+	scheduleData: ScheduleEntry[] | null;
+	setScheduleData: Dispatch<SetStateAction<ScheduleEntry[] | null>>;
 };
 
 export const AttendanceDataContext = createContext<
