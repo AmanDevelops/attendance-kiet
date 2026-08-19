@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Browser-generated when loading unpacked extensions
+extension/*/_metadata/

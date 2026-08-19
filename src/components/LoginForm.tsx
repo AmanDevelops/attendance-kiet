@@ -89,7 +89,10 @@ function LoginForm({
 						type="button"
 						onClick={() => {
 							if (isExtensionDetected) {
-								window.location.href = "https://kiet.cybervidya.net/";
+								// The marker tells the extension to send the user back here
+								// with the auth token once ERP login succeeds.
+								window.location.href =
+									"https://kiet.cybervidya.net/#analyse-attendance";
 							} else {
 								setShowInstallPage(true);
 							}

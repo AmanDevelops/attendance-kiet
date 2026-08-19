@@ -5,20 +5,12 @@ import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
 import TnC from "./components/TnC";
 import { AttendanceDataContext } from "./contexts/AppContext";
-import {
-	AUTH_COOKIE_NAME,
-	COOKIE_EXPIRY,
-	STUDENT_ID_COOKIE_NAME,
-} from "./types/constants";
-import type { ScheduleEntry, StudentDetails } from "./types/response";
-import { decompressAndDecode } from "./utils/compression";
+import { AUTH_COOKIE_NAME, COOKIE_EXPIRY } from "./types/constants";
+import type { StudentDetails } from "./types/response";
 import { fetchAttendanceData } from "./utils/LoginUtils";
 
 function App() {
 	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
-		null,
-	);
-	const [scheduleData, setScheduleData] = useState<ScheduleEntry[] | null>(
 		null,
 	);
 
@@ -27,56 +19,11 @@ function App() {
 	useEffect(() => {
 		const searchParams = new URLSearchParams(window.location.search);
 		const urlToken = searchParams.get("token");
-		const urlData = searchParams.get("data");
 
-		if (urlData) {
-			// Data mode: attendance data is pre-fetched by the extension
-			window.history.replaceState({}, document.title, window.location.pathname);
-
-			const loadFromData = async () => {
-				try {
-					const json = await decompressAndDecode(urlData);
-					const parsed = JSON.parse(json);
-
-					const updatedStudentDetails: StudentDetails = {
-						...parsed.attendance,
-						attendanceCourseComponentInfoList:
-							parsed.attendance.attendanceCourseComponentInfoList.map(
-								(
-									course: StudentDetails["attendanceCourseComponentInfoList"][number],
-								) => ({
-									...course,
-									attendanceCourseComponentNameInfoList:
-										course.attendanceCourseComponentNameInfoList.map(
-											(component) => ({
-												...component,
-												isProjected: false,
-											}),
-										),
-								}),
-							),
-					};
-
-					setAttendanceData(updatedStudentDetails);
-
-					// Set schedule data from the pre-fetched data
-					if (parsed.schedule) {
-						setScheduleData(parsed.schedule);
-					}
-
-					// Cache studentId from the pre-fetched data
-					if (parsed.studentId) {
-						Cookies.set(STUDENT_ID_COOKIE_NAME, String(parsed.studentId), {
-							expires: COOKIE_EXPIRY,
-						});
-					}
-				} catch (error) {
-					console.error("Failed to decode attendance data", error);
-				}
-			};
-			loadFromData();
-		} else if (urlToken) {
-			// Token mode: fetch attendance data from the ERP API
+		if (urlToken) {
+			// Token mode: fetch attendance data from the ERP API.
+			// The extension's DNR ruleset rewrites request headers so the
+			// ERP accepts calls originating from this app.
 			window.history.replaceState({}, document.title, window.location.pathname);
 
 			const loginWithToken = async () => {
@@ -130,8 +77,6 @@ function App() {
 					value={{
 						attendanceData,
 						setAttendanceData,
-						scheduleData,
-						setScheduleData,
 					}}
 				>
 					{!attendanceData ? (

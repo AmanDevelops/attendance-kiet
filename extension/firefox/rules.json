@@ -1,0 +1,32 @@
+[
+	{
+		"id": 1,
+		"priority": 1,
+		"action": {
+			"type": "modifyHeaders",
+			"requestHeaders": [
+				{ "header": "Origin", "operation": "remove" },
+				{ "header": "Referer", "operation": "remove" }
+			]
+		},
+		"condition": {
+			"urlFilter": "|https://kiet.cybervidya.net/api/attendance/",
+			"excludedRequestMethods": ["options"]
+		}
+	},
+	{
+		"id": 2,
+		"priority": 1,
+		"action": {
+			"type": "modifyHeaders",
+			"requestHeaders": [
+				{ "header": "Origin", "operation": "remove" },
+				{ "header": "Referer", "operation": "remove" }
+			]
+		},
+		"condition": {
+			"urlFilter": "|https://kiet.cybervidya.net/api/student/",
+			"excludedRequestMethods": ["options"]
+		}
+	}
+]

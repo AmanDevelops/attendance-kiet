@@ -24,8 +24,16 @@ jobs:
           zip -r ../../chrome.zip .
           cd ../..
 
+      - name: Create XPI for Firefox
+        run: |
+          cd extension/firefox
+          zip -r ../../firefox.xpi .
+          cd ../..
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: chrome.zip
+          files: |
+            chrome.zip
+            firefox.xpi
           generate_release_notes: true

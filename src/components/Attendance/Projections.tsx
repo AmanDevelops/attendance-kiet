@@ -11,8 +11,7 @@ export default function Projections() {
 	const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
 	const [missedClasses, setMissedClasses] = useState<Set<string>>(new Set());
 	const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
-	const { setAttendanceData, scheduleData: prefetchedSchedule } =
-		useAppContext();
+	const { setAttendanceData } = useAppContext();
 
 	const updateProjectedAttendance = useCallback(
 		(courseCode: string, action: "add" | "subtract") => {
@@ -55,13 +54,6 @@ export default function Projections() {
 	);
 
 	useEffect(() => {
-		// Use pre-fetched schedule data if available (from extension)
-		if (prefetchedSchedule) {
-			setSchedule(prefetchedSchedule);
-			return;
-		}
-
-		// Fallback: fetch from API if token is available
 		const fetchSchedule = async () => {
 			const token = Cookies.get(AUTH_COOKIE_NAME);
 			if (token) {
@@ -79,7 +71,7 @@ export default function Projections() {
 		};
 
 		fetchSchedule();
-	}, [prefetchedSchedule]);
+	}, []);
 
 	const groupedSchedule = useMemo(() => {
 		const grouped = new Map<string, ScheduleEntry[]>();

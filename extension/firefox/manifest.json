@@ -1,32 +1,46 @@
 {
 	"manifest_version": 3,
 	"name": "Kiet Auth Bridge",
-	"version": "3.1",
+	"version": "3.3",
 	"description": "Bridges authentication from Kiet ERP to local Attendance app.",
 	"icons": {
 		"48": "icons/icon-48.png",
 		"128": "icons/icon-128.png"
 	},
-	"permissions": ["storage"],
+	"permissions": ["storage", "declarativeNetRequestWithHostAccess"],
 	"host_permissions": [
 		"https://kiet.cybervidya.net/*",
-		"https://cybervidya.pages.dev/*"
+		"http://localhost/*",
+		"http://127.0.0.1/*",
+		"https://cybervidya.pages.dev/*",
+		"https://*.cybervidya.pages.dev/*"
 	],
 	"content_scripts": [
 		{
 			"matches": [
 				"https://kiet.cybervidya.net/*",
-				"https://cybervidya.pages.dev/*"
+				"https://cybervidya.pages.dev/*",
+				"https://*.cybervidya.pages.dev/*",
+				"http://localhost/*",
+				"http://127.0.0.1/*"
 			],
 			"js": ["content.js"],
-			"css": ["style.css"],
 			"run_at": "document_end"
 		}
 	],
+	"declarative_net_request": {
+		"rule_resources": [
+			{
+				"id": "erp_api_header_bridge",
+				"enabled": true,
+				"path": "rules.json"
+			}
+		]
+	},
 	"browser_specific_settings": {
 		"gecko": {
 			"id": "kiet-auth-bridge@amandevelops.me",
-			"strict_min_version": "120.0"
+			"strict_min_version": "128.0"
 		}
 	}
 }
