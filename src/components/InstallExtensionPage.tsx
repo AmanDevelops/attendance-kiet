@@ -50,7 +50,7 @@ const InstallExtensionPage = ({ onBack }: InstallExtensionPageProps) => {
 							Chrome / Edge / Brave
 						</h3>
 						<a
-							href="https://github.com/AmanDevelops/attendance-kiet/releases/download/v2.0/chrome.zip"
+							href="https://github.com/AmanDevelops/attendance-kiet/releases/latest/download/chrome.zip"
 							className="block w-full text-center py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded shadow transition-all hover:-translate-y-0.5"
 						>
 							Download Extension (ZIP)
@@ -82,7 +82,7 @@ const InstallExtensionPage = ({ onBack }: InstallExtensionPageProps) => {
 							Firefox
 						</h3>
 						<a
-							href="https://github.com/AmanDevelops/attendance-kiet/releases/download/v2.0/firefox.xpi"
+							href="https://github.com/AmanDevelops/attendance-kiet/releases/latest/download/firefox.xpi"
 							className="block w-full text-center py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded shadow transition-all hover:-translate-y-0.5"
 						>
 							Download Extension (.xpi)
@@ -141,7 +141,7 @@ const InstallExtensionPage = ({ onBack }: InstallExtensionPageProps) => {
 							</p>
 
 							<a
-								href="https://github.com/AmanDevelops/attendance-kiet/releases/download/v2.0/firefox.xpi"
+								href="https://github.com/AmanDevelops/attendance-kiet/releases/latest/download/firefox.xpi"
 								className="block w-full text-center py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded shadow transition-all hover:-translate-y-0.5 mb-4"
 							>
 								Download Extension (.xpi)
