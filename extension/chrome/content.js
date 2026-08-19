@@ -239,14 +239,6 @@ function checkRoute() {
 			document.body.appendChild(marker);
 		}
 
-		const hasTokenCookie = document.cookie.includes("auth_token=");
-		const hasUrlData =
-			window.location.search.includes("token=") ||
-			window.location.search.includes("data=");
-
-		if (!hasTokenCookie && !hasUrlData) {
-			window.location.replace("https://kiet.cybervidya.net/");
-		}
 		return;
 	}
 
