@@ -17,6 +17,7 @@ import type {
 } from "../types/response";
 import PasswordInput from "../ui/PasswordInput";
 import { encryptPassword, fetchAttendanceData } from "../utils/LoginUtils";
+import InstallExtensionPage from "./InstallExtensionPage";
 
 interface ApiErrorResponse {
 	error?: {
@@ -73,6 +74,8 @@ function LoginForm({
 	const submittedUsernameRef = useRef<string>("");
 	const submittedRememberMeRef = useRef<boolean>(false);
 	const [error, setError] = useState<string>("");
+	const [isExtensionError, setIsExtensionError] = useState<boolean>(false);
+	const [showInstallPage, setShowInstallPage] = useState<boolean>(false);
 	const [loading, setLoading] = useState<boolean>(false);
 
 	const { setAttendanceData } = useAppContext();
@@ -98,6 +101,7 @@ function LoginForm({
 		e.preventDefault();
 		setLoading(true);
 		setError("");
+		setIsExtensionError(false);
 
 		try {
 			const loginResponse = await axios.post<EncryptLoginResponse>(
@@ -129,6 +133,7 @@ function LoginForm({
 				setError(
 					"Request blocked by the server. Please update the KIET Auth Bridge extension to the latest version.",
 				);
+				setIsExtensionError(true);
 			} else {
 				setError(
 					"Login failed. The server isn’t responding or your internet connection may be unavailable.",
@@ -143,6 +148,7 @@ function LoginForm({
 		e.preventDefault();
 		setLoading(true);
 		setError("");
+		setIsExtensionError(false);
 
 		let token = "";
 
@@ -169,6 +175,7 @@ function LoginForm({
 				setError(
 					"Request blocked by the server. Please update the KIET Auth Bridge extension to the latest version.",
 				);
+				setIsExtensionError(true);
 			} else {
 				setError(
 					"OTP verification failed. The server isn’t responding or your internet connection may be unavailable.",
@@ -203,6 +210,10 @@ function LoginForm({
 			setLoading(false);
 		}
 	};
+
+	if (showInstallPage) {
+		return <InstallExtensionPage onBack={() => setShowInstallPage(false)} />;
+	}
 
 	return (
 		<div className="flex flex-col mb-20 mt-20 items-center justify-center p-4">
@@ -269,9 +280,18 @@ function LoginForm({
 						</div>
 
 						{error && (
-							<p className="style-text text-red-600 text-sm bg-red-100 p-2 style-border">
-								{error}
-							</p>
+							<div className="style-text text-red-600 text-sm bg-red-100 p-2 style-border">
+								<p>{error}</p>
+								{isExtensionError && (
+									<button
+										type="button"
+										onClick={() => setShowInstallPage(true)}
+										className="mt-2 font-bold underline cursor-pointer hover:text-red-800"
+									>
+										View extension installation guide →
+									</button>
+								)}
+							</div>
 						)}
 						<button
 							type="submit"
@@ -308,9 +328,18 @@ function LoginForm({
 						</div>
 
 						{error && (
-							<p className="style-text text-red-600 text-sm bg-red-100 p-2 style-border">
-								{error}
-							</p>
+							<div className="style-text text-red-600 text-sm bg-red-100 p-2 style-border">
+								<p>{error}</p>
+								{isExtensionError && (
+									<button
+										type="button"
+										onClick={() => setShowInstallPage(true)}
+										className="mt-2 font-bold underline cursor-pointer hover:text-red-800"
+									>
+										View extension installation guide →
+									</button>
+								)}
+							</div>
 						)}
 						<button
 							type="submit"
@@ -324,6 +353,7 @@ function LoginForm({
 							onClick={() => {
 								setStep("credentials");
 								setError("");
+								setIsExtensionError(false);
 							}}
 							className="w-full text-center text-sm text-gray-500 bg-none border-none p-0 cursor-pointer hover:text-gray-700 underline"
 						>
