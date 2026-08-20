@@ -65,6 +65,23 @@ function isArmedFromUrl() {
 }
 
 /**
+ * Primary arming signal: the user navigated here from the attendance
+ * website, so the referrer is the website's origin. Manual visits (typed
+ * URL, bookmark, new tab) have an empty or foreign referrer and must never
+ * arm the flow. Unlike the URL marker, the referrer survives the ERP's
+ * client-side redirects (/ -> /login -> /home).
+ */
+function cameFromWebsite() {
+	try {
+		return (
+			!!document.referrer && isWebsiteHost(new URL(document.referrer).hostname)
+		);
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Removes the marker from the URL so a later manual refresh or back
  * navigation on the ERP does not re-arm the flow.
  */
@@ -92,13 +109,14 @@ function redirectWithToken(token) {
  * the website with it. Already-logged-in users are sent back instantly.
  */
 function handleErp() {
-	if (isArmedFromUrl()) {
+	if (isArmedFromUrl() || cameFromWebsite()) {
 		sessionStorage.setItem(ARM_FLAG_KEY, "1");
 		cleanMarkerFromUrl();
 		console.log("Kiet Extension: Attendance flow armed, waiting for login");
 	}
 
 	if (sessionStorage.getItem(ARM_FLAG_KEY) !== "1") {
+		console.log("Kiet Extension: Flow not armed, staying on ERP");
 		return;
 	}
 
