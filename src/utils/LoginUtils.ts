@@ -1,4 +1,5 @@
 import axios from "axios";
+import CryptoJS from "crypto-js";
 import type {
 	StudentAttendanceApiResponse,
 	StudentDetails,
@@ -32,3 +33,16 @@ export const fetchAttendanceData = async (
 		throw new Error(`Failed to fetch attendance data: ${errorMessage}`);
 	}
 };
+
+export function encryptPassword(plaintext: string) {
+	const key = CryptoJS.enc.Base64.parse("NPdLWA5w7yFQhPeUuKmO/A==");
+	const iv = CryptoJS.enc.Base64.parse("bV5V6nK4phvQG9ZhkAjugQ==");
+
+	const encrypted = CryptoJS.AES.encrypt(plaintext, key, {
+		iv: iv,
+		mode: CryptoJS.mode.CBC,
+		padding: CryptoJS.pad.Pkcs7,
+	});
+
+	return encrypted.toString();
+}

@@ -28,5 +28,20 @@
 			"urlFilter": "|https://kiet.cybervidya.net/api/student/",
 			"excludedRequestMethods": ["options"]
 		}
+	},
+	{
+		"id": 3,
+		"priority": 1,
+		"action": {
+			"type": "modifyHeaders",
+			"requestHeaders": [
+				{ "header": "Origin", "operation": "remove" },
+				{ "header": "Referer", "operation": "remove" }
+			]
+		},
+		"condition": {
+			"urlFilter": "|https://kiet.cybervidya.net/api/auth/",
+			"excludedRequestMethods": ["options"]
+		}
 	}
 ]

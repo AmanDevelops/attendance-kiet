@@ -1,6 +1,7 @@
 import Cookies from "js-cookie";
 import { useEffect, useState } from "react";
 import Attendance from "./components/Attendance";
+import ExtensionUpdateNotice from "./components/ExtensionUpdateNotice";
 import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
 import TnC from "./components/TnC";
@@ -72,6 +73,7 @@ function App() {
 					</a>
 				</div>
 			</div>
+			<ExtensionUpdateNotice />
 			<div className="grow flex flex-col justify-center">
 				<AttendanceDataContext.Provider
 					value={{

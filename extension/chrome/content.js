@@ -51,6 +51,8 @@ function handleWebsite() {
 		marker.id = "kiet-extension-installed";
 		marker.style.display = "none";
 		marker.setAttribute("aria-hidden", "true");
+		// Lets the website detect outdated installs and prompt users to update.
+		marker.setAttribute("data-version", chrome.runtime.getManifest().version);
 		document.body.appendChild(marker);
 	}
 

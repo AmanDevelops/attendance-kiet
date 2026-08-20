@@ -1,4 +1,12 @@
-// Login Response
+// Login (encrypt) Response - triggers OTP to the user
+export interface EncryptLoginResponse {
+	data: {
+		transactionId: string;
+	};
+	message: string;
+}
+
+// OTP Verify Response
 export interface LoginResponse {
 	data: {
 		token: string;
