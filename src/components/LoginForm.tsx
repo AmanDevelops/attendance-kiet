@@ -6,6 +6,7 @@ import { useAppContext } from "../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
 	COOKIE_EXPIRY,
+	PASSWORD_COOKIE_NAME,
 	REMEMBER_ME_COOKIE_NAME,
 	STUDENT_ID_COOKIE_NAME,
 	USERNAME_COOKIE_NAME,
@@ -63,6 +64,9 @@ function LoginForm({
 }) {
 	const username: string = Cookies.get(USERNAME_COOKIE_NAME) || "";
 	const rememberMe: boolean = Cookies.get(REMEMBER_ME_COOKIE_NAME) === "true";
+	const savedPassword: string = rememberMe
+		? Cookies.get(PASSWORD_COOKIE_NAME) || ""
+		: "";
 
 	const usernameRef = useRef<HTMLInputElement>(null);
 	const passwordRef = useRef<HTMLInputElement>(null);
@@ -72,6 +76,7 @@ function LoginForm({
 	const [step, setStep] = useState<"credentials" | "otp">("credentials");
 	const [transactionId, setTransactionId] = useState<string>("");
 	const submittedUsernameRef = useRef<string>("");
+	const submittedPasswordRef = useRef<string>("");
 	const submittedRememberMeRef = useRef<boolean>(false);
 	const [error, setError] = useState<string>("");
 	const [isExtensionError, setIsExtensionError] = useState<boolean>(false);
@@ -116,6 +121,7 @@ function LoginForm({
 			);
 
 			submittedUsernameRef.current = usernameRef.current?.value || "";
+			submittedPasswordRef.current = passwordRef.current?.value || "";
 			submittedRememberMeRef.current = rememberMeRef.current?.checked || false;
 			setTransactionId(loginResponse.data.data.transactionId);
 			setStep("otp");
@@ -201,6 +207,14 @@ function LoginForm({
 			},
 		);
 
+		if (submittedRememberMeRef.current) {
+			Cookies.set(PASSWORD_COOKIE_NAME, submittedPasswordRef.current, {
+				expires: COOKIE_EXPIRY,
+			});
+		} else {
+			Cookies.remove(PASSWORD_COOKIE_NAME);
+		}
+
 		try {
 			await loadAttendance(token, setAttendanceData);
 		} catch (fetchError) {
@@ -251,7 +265,7 @@ function LoginForm({
 							>
 								CyberVidya Password
 							</label>
-							<PasswordInput ref={passwordRef} />
+							<PasswordInput ref={passwordRef} defaultValue={savedPassword} />
 						</div>
 						<div className="flex items-center">
 							<input
