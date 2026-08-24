@@ -1,57 +1,31 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 import { CalendarDays, ChevronDown, ChevronUp } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
 import { AUTH_COOKIE_NAME } from "../../types/constants";
-import type { ScheduleEntry, ScheduleResponse } from "../../types/response";
+import type {
+	ScheduleEntry,
+	ScheduleResponse,
+	StudentDetails,
+} from "../../types/response";
 import { getWeekRange } from "../../types/utils";
+
+function getClassKey(classEntry: ScheduleEntry) {
+	return `${classEntry.courseCode}-${classEntry.courseCompName}-${classEntry.lectureDate}-${classEntry.start}`;
+}
+
+type ProjectionMode = "reset" | "present" | "absent";
 
 export default function Projections() {
 	const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
-	const [missedClasses, setMissedClasses] = useState<Set<string>>(new Set());
 	const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
-	const { setAttendanceData } = useAppContext();
-
-	const updateProjectedAttendance = useCallback(
-		(courseCode: string, action: "add" | "subtract") => {
-			const adjustment = action === "add" ? 1 : -1;
-
-			setAttendanceData((prevData) => {
-				if (!prevData) return prevData;
-
-				const courseList = prevData.attendanceCourseComponentInfoList;
-				if (!courseList) return prevData;
-
-				const newCourseList = courseList.map((course) => {
-					if (course.courseCode === courseCode) {
-						const updatedNameInfoList = [
-							...course.attendanceCourseComponentNameInfoList,
-						];
-
-						updatedNameInfoList[0] = {
-							...updatedNameInfoList[0],
-							numberOfPeriods:
-								updatedNameInfoList[0].numberOfPeriods + adjustment,
-							isProjected: action === "add",
-						};
-
-						return {
-							...course,
-							attendanceCourseComponentNameInfoList: updatedNameInfoList,
-						};
-					}
-					return course;
-				});
-
-				return {
-					...prevData,
-					attendanceCourseComponentInfoList: newCourseList,
-				};
-			});
-		},
-		[setAttendanceData],
+	const [selectedClassKeys, setSelectedClassKeys] = useState<Set<string>>(
+		new Set(),
 	);
+	const [projectionMode, setProjectionMode] = useState<ProjectionMode>("reset");
+	const { attendanceData, setAttendanceData } = useAppContext();
+	const originalAttendanceRef = useRef<StudentDetails | null>(attendanceData);
 
 	useEffect(() => {
 		const fetchSchedule = async () => {
@@ -73,8 +47,7 @@ export default function Projections() {
 		fetchSchedule();
 	}, []);
 
-	const groupedSchedule = useMemo(() => {
-		const grouped = new Map<string, ScheduleEntry[]>();
+	const upcomingClasses = useMemo(() => {
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 
@@ -91,7 +64,7 @@ export default function Projections() {
 			);
 		};
 
-		schedule
+		return schedule
 			.filter((c) => {
 				if (c.type !== "CLASS") return false;
 				const [day, month, year] = c.lectureDate.split("/").map(Number);
@@ -102,77 +75,197 @@ export default function Projections() {
 				...c,
 				timestamp: parseDate(c.lectureDate, c.start.split(" ")[1]).getTime(),
 			}))
-			.sort((a, b) => a.timestamp - b.timestamp)
-			.forEach((c) => {
-				const [day, month, year] = c.lectureDate.split("/").map(Number);
-				const classDate = new Date(year, month - 1, day);
-
-				const dayName = classDate.toLocaleDateString("en-US", {
-					weekday: "long",
-					month: "short",
-					day: "numeric",
-				});
-
-				if (!grouped.has(dayName)) {
-					grouped.set(dayName, []);
-				}
-				grouped.get(dayName)?.push(c);
-			});
-
-		return grouped;
+			.sort((a, b) => a.timestamp - b.timestamp);
 	}, [schedule]);
 
-	const handleMissClassToggle = (
-		classStartString: string,
-		courseCode: string,
-	) => {
-		const newSet = new Set(missedClasses);
-		if (newSet.has(classStartString)) {
-			newSet.delete(classStartString);
-			setMissedClasses(newSet);
-			updateProjectedAttendance(courseCode, "subtract");
-		} else {
-			newSet.add(classStartString);
-			updateProjectedAttendance(courseCode, "add");
+	useEffect(() => {
+		const originalAttendance = originalAttendanceRef.current;
+		if (!originalAttendance) return;
 
-			setMissedClasses(newSet);
-		}
-	};
+		const projectedCourseList =
+			originalAttendance.attendanceCourseComponentInfoList.map((course) => {
+				const courseClasses =
+					projectionMode === "reset"
+						? []
+						: upcomingClasses.filter(
+								(classEntry) => classEntry.courseCode === course.courseCode,
+							);
+				const componentNames = new Set(
+					course.attendanceCourseComponentNameInfoList.map(
+						(component) => component.componentName,
+					),
+				);
 
-	const handleDayToggle = (
-		classData: { start: string; courseCode: string }[],
-		dayIsSelected: boolean,
-	) => {
-		classData.forEach((classItem) => {
-			const operation = dayIsSelected ? "subtract" : "add";
-			updateProjectedAttendance(classItem.courseCode, operation);
+				return {
+					...course,
+					attendanceCourseComponentNameInfoList:
+						course.attendanceCourseComponentNameInfoList.map(
+							(component, componentIndex) => {
+								const componentClasses = courseClasses.filter(
+									(classEntry) =>
+										classEntry.courseCompName === component.componentName ||
+										(componentIndex === 0 &&
+											!componentNames.has(classEntry.courseCompName)),
+								);
+
+								const projectedPresent = componentClasses.filter(
+									(classEntry) => {
+										const isSelected = selectedClassKeys.has(
+											getClassKey(classEntry),
+										);
+
+										if (projectionMode === "present") {
+											return isSelected;
+										}
+
+										if (projectionMode === "absent") {
+											return !isSelected;
+										}
+
+										return false;
+									},
+								).length;
+
+								return {
+									...component,
+									numberOfPeriods:
+										component.numberOfPeriods + componentClasses.length,
+									numberOfPresent: component.numberOfPresent + projectedPresent,
+									isProjected: componentClasses.length > 0,
+								};
+							},
+						),
+				};
+			});
+
+		setAttendanceData({
+			...originalAttendance,
+			attendanceCourseComponentInfoList: projectedCourseList,
+		});
+	}, [projectionMode, selectedClassKeys, setAttendanceData, upcomingClasses]);
+
+	useEffect(() => {
+		return () => {
+			if (originalAttendanceRef.current) {
+				setAttendanceData(originalAttendanceRef.current);
+			}
+		};
+	}, [setAttendanceData]);
+
+	const groupedSchedule = useMemo(() => {
+		const grouped = new Map<string, ScheduleEntry[]>();
+
+		upcomingClasses.forEach((c) => {
+			const [day, month, year] = c.lectureDate.split("/").map(Number);
+			const classDate = new Date(year, month - 1, day);
+
+			const dayName = classDate.toLocaleDateString("en-US", {
+				weekday: "long",
+				month: "short",
+				day: "numeric",
+			});
+
+			if (!grouped.has(dayName)) {
+				grouped.set(dayName, []);
+			}
+			grouped.get(dayName)?.push(c);
 		});
 
-		setMissedClasses((prev) => {
+		return grouped;
+	}, [upcomingClasses]);
+
+	const handleClassToggle = (classKey: string) => {
+		setSelectedClassKeys((prev) => {
+			const newSet = new Set(prev);
+			if (newSet.has(classKey)) {
+				newSet.delete(classKey);
+			} else {
+				newSet.add(classKey);
+			}
+			return newSet;
+		});
+	};
+
+	const handleDayToggle = (classKeys: string[], dayIsSelected: boolean) => {
+		setSelectedClassKeys((prev) => {
 			const newSet = new Set(prev);
 			if (dayIsSelected) {
-				for (const classItem of classData) {
-					newSet.delete(classItem.start);
+				for (const classKey of classKeys) {
+					newSet.delete(classKey);
 				}
 			} else {
-				for (const classItem of classData) {
-					newSet.add(classItem.start);
+				for (const classKey of classKeys) {
+					newSet.add(classKey);
 				}
 			}
 			return newSet;
 		});
 	};
 
+	const handleMarkWeekAbsent = () => {
+		setProjectionMode("absent");
+	};
+
+	const handleMarkWeekPresent = () => {
+		setProjectionMode("present");
+	};
+
+	const handleResetProjection = () => {
+		setProjectionMode("reset");
+		setSelectedClassKeys(new Set());
+		setExpandedDays(new Set());
+	};
+
+	const noClassesSelected = selectedClassKeys.size === 0;
+
 	return (
 		<div className="bg-white rounded-lg shadow-md p-6 mb-4 style-border style-fade-in">
-			<div className="flex items-center gap-2 mb-4">
-				<CalendarDays className="h-6 w-6 text-blue-600" />
-				<h3 className="style-text text-md font-semibold text-black">
-					Weekly Projection (Today Onwards)
-				</h3>
+			<div className="flex flex-col gap-4 mb-4 md:flex-row md:items-center md:justify-between">
+				<div className="flex items-center gap-2">
+					<CalendarDays className="h-6 w-6 text-blue-600" />
+					<h3 className="style-text text-md font-semibold text-black">
+						Weekly Projection (Today Onwards)
+					</h3>
+				</div>
+				<div className="flex flex-wrap gap-2">
+					<button
+						type="button"
+						onClick={handleMarkWeekPresent}
+						disabled={upcomingClasses.length === 0 || noClassesSelected}
+						className={`style-border style-text px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 disabled:hover:-translate-y-0 transform transition-transform duration-300 hover:-translate-y-1 ${
+							projectionMode === "present" ? "bg-emerald-100" : "bg-emerald-50"
+						}`}
+					>
+						Present
+					</button>
+					<button
+						type="button"
+						onClick={handleMarkWeekAbsent}
+						disabled={upcomingClasses.length === 0 || noClassesSelected}
+						className={`style-border style-text px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:hover:-translate-y-0 transform transition-transform duration-300 hover:-translate-y-1 ${
+							projectionMode === "absent" ? "bg-red-100" : "bg-red-50"
+						}`}
+					>
+						Absent
+					</button>
+					<button
+						type="button"
+						onClick={handleResetProjection}
+						disabled={upcomingClasses.length === 0}
+						className={`style-border style-text px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:hover:-translate-y-0 transform transition-transform duration-300 hover:-translate-y-1 ${
+							projectionMode === "reset" ? "bg-gray-100" : "bg-gray-50"
+						}`}
+					>
+						Reset
+					</button>
+				</div>
 			</div>
 			<p className="style-text text-xs text-gray-600 mb-4">
-				Select classes you plan to miss:
+				Present marks selected classes as attended and the rest as missed.
+				Absent marks selected classes as missed and the rest as attended.
+			</p>
+			<p className="style-text text-xs text-gray-500 mb-4">
+				Selected classes: {selectedClassKeys.size}
 			</p>
 			<div className="max-h-64 overflow-y-auto space-y-4 pr-2">
 				{groupedSchedule.size === 0 && (
@@ -182,12 +275,9 @@ export default function Projections() {
 				)}
 				{Array.from(groupedSchedule.entries()).map(([day, classes]) => {
 					const isExpanded = expandedDays.has(day);
-					const allDayClasses = classes.map((c) => ({
-						start: c.start,
-						courseCode: c.courseCode,
-					}));
-					const allDaySelected = allDayClasses.every((c) =>
-						missedClasses.has(c.start),
+					const allDayClassKeys = classes.map(getClassKey);
+					const allDaySelected = allDayClassKeys.every((classKey) =>
+						selectedClassKeys.has(classKey),
 					);
 
 					return (
@@ -229,7 +319,6 @@ export default function Projections() {
 							{/* Expandable class list */}
 							{isExpanded && (
 								<div className="bg-white px-4 py-3 space-y-3  border-2">
-									{/* Select all for day */}
 									<div className="flex items-center gap-2 pb-2 border-b border-gray-200">
 										<input
 											type="checkbox"
@@ -237,7 +326,7 @@ export default function Projections() {
 											className="h-4 w-4 border-gray-400"
 											checked={allDaySelected}
 											onChange={() =>
-												handleDayToggle(allDayClasses, allDaySelected)
+												handleDayToggle(allDayClassKeys, allDaySelected)
 											}
 										/>
 										<label
@@ -247,33 +336,33 @@ export default function Projections() {
 											Select all for {day}
 										</label>
 									</div>
-
-									{/* Class list */}
 									<ul className="space-y-2">
-										{classes.map((c) => (
-											<li key={c.start} className="flex items-center gap-2">
-												<input
-													type="checkbox"
-													id={c.start}
-													className="h-4 w-4 border-gray-400"
-													checked={missedClasses.has(c.start)}
-													onChange={() =>
-														handleMissClassToggle(c.start, c.courseCode)
-													}
-												/>
-												<label
-													htmlFor={c.start}
-													className="text-xs font-medium text-gray-800"
+										{classes.map((c) => {
+											const classKey = getClassKey(c);
+
+											return (
+												<li
+													key={classKey}
+													className="flex items-center gap-2 text-xs font-medium text-gray-800"
 												>
-													<span className="block text-[0.85rem] font-semibold">
-														{c.courseName}
-													</span>
-													<span className="text-[0.75rem] text-gray-500">
-														{c.start.split(" ")[1]} – {c.end.split(" ")[1]}
-													</span>
-												</label>
-											</li>
-										))}
+													<input
+														type="checkbox"
+														id={classKey}
+														className="h-4 w-4 shrink-0 border-gray-400"
+														checked={selectedClassKeys.has(classKey)}
+														onChange={() => handleClassToggle(classKey)}
+													/>
+													<label htmlFor={classKey}>
+														<span className="block text-[0.85rem] font-semibold">
+															{c.courseName}
+														</span>
+														<span className="text-[0.75rem] text-gray-500">
+															{c.start.split(" ")[1]} – {c.end.split(" ")[1]}
+														</span>
+													</label>
+												</li>
+											);
+										})}
 									</ul>
 								</div>
 							)}

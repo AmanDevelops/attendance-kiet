@@ -96,9 +96,7 @@ function Attendance() {
 				</div>
 			</div>
 			<div>
-				<div className={`${showProjection % 2 === 1 ? "block" : "hidden"}`}>
-					{showProjection > 0 && <Projections />}
-				</div>
+				{showProjection % 2 === 1 && <Projections />}
 				<OverallAtt />
 			</div>
 
