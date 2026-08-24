@@ -136,7 +136,7 @@ function LoginForm({
 				axios.isAxiosError(loginError) &&
 				loginError.response?.status === 403
 			) {
-				setError("Please Update the Extension to the latest version 3.5!");
+				setError("Please Update the Extension to the latest version 3.6!");
 				setIsExtensionError(true);
 			} else {
 				setError(
@@ -176,7 +176,7 @@ function LoginForm({
 				axios.isAxiosError(otpError) &&
 				otpError.response?.status === 403
 			) {
-				setError("Please Update the Extension to the latest version 3.5!");
+				setError("Please Update the Extension to the latest version 3.6!");
 				setIsExtensionError(true);
 			} else {
 				setError(
