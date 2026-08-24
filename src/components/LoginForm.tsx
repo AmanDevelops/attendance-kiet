@@ -136,9 +136,7 @@ function LoginForm({
 				axios.isAxiosError(loginError) &&
 				loginError.response?.status === 403
 			) {
-				setError(
-					"Request blocked by the server. Please update the KIET Auth Bridge extension to the latest version.",
-				);
+				setError("Please Update the Extension to the latest version 3.5!");
 				setIsExtensionError(true);
 			} else {
 				setError(
@@ -178,9 +176,7 @@ function LoginForm({
 				axios.isAxiosError(otpError) &&
 				otpError.response?.status === 403
 			) {
-				setError(
-					"Request blocked by the server. Please update the KIET Auth Bridge extension to the latest version.",
-				);
+				setError("Please Update the Extension to the latest version 3.5!");
 				setIsExtensionError(true);
 			} else {
 				setError(
@@ -294,7 +290,12 @@ function LoginForm({
 						</div>
 
 						{error && (
-							<div className="style-text text-red-600 text-sm bg-red-100 p-2 style-border">
+							<div className="relative style-text text-yellow-950 text-sm bg-yellow-100 p-2 style-border">
+								{isExtensionError && (
+									<span className="absolute -top-3 -right-3 bg-red-600 text-white text-xs font-black px-2.5 py-0.5 rounded-full border-2 border-black shadow-[2px_2px_0_#000] uppercase tracking-wider">
+										New
+									</span>
+								)}
 								<p>{error}</p>
 								{isExtensionError && (
 									<button
@@ -342,7 +343,12 @@ function LoginForm({
 						</div>
 
 						{error && (
-							<div className="style-text text-red-600 text-sm bg-red-100 p-2 style-border">
+							<div className="relative style-text text-red-600 text-sm bg-red-100 p-2 style-border">
+								{isExtensionError && (
+									<span className="absolute -top-3 -right-3 bg-red-600 text-white text-xs font-black px-2.5 py-0.5 rounded-full border-2 border-black shadow-[2px_2px_0_#000] uppercase tracking-wider">
+										New
+									</span>
+								)}
 								<p>{error}</p>
 								{isExtensionError && (
 									<button
