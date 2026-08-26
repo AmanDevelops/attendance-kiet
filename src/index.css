@@ -47,6 +47,19 @@
 	animation: fadeIn 0.5s ease-out forwards;
 }
 
+@keyframes fadeOpacity {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.style-fade-opacity {
+	animation: fadeOpacity 0.4s ease-out forwards;
+}
+
 @media (max-width: 330px) {
 	.hide-text-below-352 {
 		display: none;
