@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
+import { getBaseUrl } from "../types/constants";
 import type {
 	AttendanceApiResponse,
 	DaywiseReportProps,
@@ -23,7 +24,7 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
 		const fetchDaywiseAttendance = async () => {
 			try {
 				const response = await axios.post<AttendanceApiResponse>(
-					"https://kiet.cybervidya.net/api/attendance/schedule/student/course/attendance/percentage",
+					`${getBaseUrl()}/api/attendance/schedule/student/course/attendance/percentage`,
 					payload,
 					{
 						headers: {

@@ -1,5 +1,5 @@
 import Cookies from "js-cookie";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Attendance from "./components/Attendance";
 import ExtensionUpdateNotice from "./components/ExtensionUpdateNotice";
 import Footer from "./components/Footer";
@@ -16,6 +16,16 @@ function App() {
 	);
 
 	const [isTnCVisible, setIsTnCVisible] = useState<boolean>(false);
+	const [showGreenBanner, setShowGreenBanner] = useState<boolean>(true);
+	const hasSelectedLiveRef = useRef<boolean>(false);
+
+	const handleModeChange = (mode: "proxy" | "live") => {
+		if (mode === "live") {
+			hasSelectedLiveRef.current = true;
+		} else if (mode === "proxy" && hasSelectedLiveRef.current) {
+			setShowGreenBanner(false);
+		}
+	};
 
 	useEffect(() => {
 		const searchParams = new URLSearchParams(window.location.search);
@@ -58,21 +68,23 @@ function App() {
 
 	return (
 		<div className="min-h-screen bg-gray-100 flex flex-col">
-			<div className="overflow-hidden m-auto bg-green-100 w-full">
-				<div className="py-2 text-center text-sm font-medium text-green-600">
-					YOUR CREDENTIALS ARE NEVER SHARED WITH US. THEY ARE SENT DIRECTLY TO
-					CYBERVIDYA AND STORED LOCALLY.
-					<a
-						href="https://github.com/AmanDevelops/attendance-kiet"
-						className="text-blue-400"
-						target="_blank"
-						rel="noopener"
-					>
-						{" "}
-						VIEW SOURCE CODE
-					</a>
+			{showGreenBanner && (
+				<div className="overflow-hidden m-auto bg-green-100 w-full">
+					<div className="py-2 text-center text-sm font-medium text-green-600">
+						YOUR CREDENTIALS ARE NEVER SHARED WITH US. THEY ARE SENT DIRECTLY TO
+						CYBERVIDYA AND STORED LOCALLY.
+						<a
+							href="https://github.com/AmanDevelops/attendance-kiet"
+							className="text-blue-400"
+							target="_blank"
+							rel="noopener"
+						>
+							{" "}
+							VIEW SOURCE CODE
+						</a>
+					</div>
 				</div>
-			</div>
+			)}
 			<ExtensionUpdateNotice />
 			<div className="grow flex flex-col justify-center">
 				<AttendanceDataContext.Provider
@@ -85,7 +97,10 @@ function App() {
 						isTnCVisible ? (
 							<TnC setIsPasswordVisible={setIsTnCVisible} />
 						) : (
-							<LoginForm setIsTnCVisible={setIsTnCVisible} />
+							<LoginForm
+								setIsTnCVisible={setIsTnCVisible}
+								onModeChange={handleModeChange}
+							/>
 						)
 					) : (
 						<Attendance />

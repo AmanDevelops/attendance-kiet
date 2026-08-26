@@ -1,9 +1,10 @@
 import axios from "axios";
+import { getBaseUrl } from "./constants";
 
 export async function fetchStudentId(token: string): Promise<number | null> {
 	try {
 		const response = await axios.get(
-			"https://kiet.cybervidya.net/api/student/dashboard/registered-courses",
+			`${getBaseUrl()}/api/student/dashboard/registered-courses`,
 			{ headers: { Authorization: `GlobalEducation ${token}` } },
 		);
 

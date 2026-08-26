@@ -1,5 +1,6 @@
 import axios from "axios";
 import CryptoJS from "crypto-js";
+import { getBaseUrl } from "../types/constants";
 import type {
 	StudentAttendanceApiResponse,
 	StudentDetails,
@@ -10,7 +11,7 @@ export const fetchAttendanceData = async (
 ): Promise<StudentDetails> => {
 	try {
 		const attendanceResponse = await axios.get<StudentAttendanceApiResponse>(
-			"https://kiet.cybervidya.net/api/attendance/course/component/student",
+			`${getBaseUrl()}/api/attendance/course/component/student`,
 			{
 				headers: {
 					Authorization: `GlobalEducation ${token}`,

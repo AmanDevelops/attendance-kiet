@@ -6,9 +6,12 @@ import { useAppContext } from "../contexts/AppContext";
 import {
 	AUTH_COOKIE_NAME,
 	COOKIE_EXPIRY,
+	getApiMode,
+	getBaseUrl,
 	PASSWORD_COOKIE_NAME,
 	REMEMBER_ME_COOKIE_NAME,
 	STUDENT_ID_COOKIE_NAME,
+	setApiMode,
 	USERNAME_COOKIE_NAME,
 } from "../types/constants";
 import type {
@@ -57,11 +60,12 @@ async function loadAttendance(
 	setAttendanceData(updatedStudentDetails);
 }
 
-function LoginForm({
-	setIsTnCVisible,
-}: {
+interface LoginFormProps {
 	setIsTnCVisible: React.Dispatch<React.SetStateAction<boolean>>;
-}) {
+	onModeChange?: (mode: "proxy" | "live") => void;
+}
+
+function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 	const username: string = Cookies.get(USERNAME_COOKIE_NAME) || "";
 	const rememberMe: boolean = Cookies.get(REMEMBER_ME_COOKIE_NAME) === "true";
 	const savedPassword: string = rememberMe
@@ -75,6 +79,9 @@ function LoginForm({
 
 	const [step, setStep] = useState<"credentials" | "otp">("credentials");
 	const [transactionId, setTransactionId] = useState<string>("");
+	const [apiMode, setApiModeState] = useState<"proxy" | "live">(() =>
+		getApiMode(),
+	);
 	const submittedUsernameRef = useRef<string>("");
 	const submittedPasswordRef = useRef<string>("");
 	const submittedRememberMeRef = useRef<boolean>(false);
@@ -84,6 +91,14 @@ function LoginForm({
 	const [loading, setLoading] = useState<boolean>(false);
 
 	const { setAttendanceData } = useAppContext();
+
+	const handleModeToggle = (newMode: "proxy" | "live") => {
+		setApiModeState(newMode);
+		setApiMode(newMode);
+		setError("");
+		setIsExtensionError(false);
+		onModeChange?.(newMode);
+	};
 
 	useEffect(() => {
 		const token = Cookies.get(AUTH_COOKIE_NAME);
@@ -110,7 +125,7 @@ function LoginForm({
 
 		try {
 			const loginResponse = await axios.post<EncryptLoginResponse>(
-				"https://kiet.cybervidya.net/api/auth/encrypt/login",
+				`${getBaseUrl()}/api/auth/encrypt/login`,
 				{
 					userName: encryptPassword(usernameRef.current?.value || ""),
 					password: encryptPassword(passwordRef.current?.value || ""),
@@ -136,8 +151,16 @@ function LoginForm({
 				axios.isAxiosError(loginError) &&
 				loginError.response?.status === 403
 			) {
-				setError("Please Update the Extension to the latest version 3.6!");
-				setIsExtensionError(true);
+				if (apiMode === "live") {
+					setError("Please Update the Extension to the latest version 3.6!");
+					setIsExtensionError(true);
+				} else {
+					setError(
+						serverReason ||
+							"Access forbidden. Please check your credentials or try again.",
+					);
+					setIsExtensionError(false);
+				}
 			} else {
 				setError(
 					"Login failed. The server isn’t responding or your internet connection may be unavailable.",
@@ -158,7 +181,7 @@ function LoginForm({
 
 		try {
 			const otpResponse = await axios.post<LoginResponse>(
-				"https://kiet.cybervidya.net/api/auth/verify/otp",
+				`${getBaseUrl()}/api/auth/verify/otp`,
 				{
 					otp: otpRef.current?.value || "",
 					transactionId: transactionId,
@@ -176,8 +199,13 @@ function LoginForm({
 				axios.isAxiosError(otpError) &&
 				otpError.response?.status === 403
 			) {
-				setError("Please Update the Extension to the latest version 3.6!");
-				setIsExtensionError(true);
+				if (apiMode === "live") {
+					setError("Please Update the Extension to the latest version 3.6!");
+					setIsExtensionError(true);
+				} else {
+					setError(serverReason || "Invalid or expired OTP");
+					setIsExtensionError(false);
+				}
 			} else {
 				setError(
 					"OTP verification failed. The server isn’t responding or your internet connection may be unavailable.",
@@ -232,9 +260,53 @@ function LoginForm({
 					<BookOpen className="h-16 w-16 text-black transform -rotate-12" />
 					<Sparkles className="h-8 w-8 text-black absolute translate-x-8 -translate-y-8" />
 				</div>
-				<h2 className="anga-text text-3xl font-black text-center text-black mb-8 transform -rotate-2">
+				<h2 className="anga-text text-3xl font-black text-center text-black mb-6 transform -rotate-2">
 					CyberVidya Attendance
 				</h2>
+
+				{/* Minimal connection toggle */}
+				<div className="mb-6 flex flex-col items-center gap-1.5">
+					<div className="relative grid grid-cols-2 w-64 bg-gray-200 border-2 border-black p-0.5 select-none">
+						<button
+							type="button"
+							onClick={() => handleModeToggle("proxy")}
+							className={`relative z-10 py-1.5 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer text-center ${
+								apiMode === "proxy"
+									? "text-white"
+									: "text-black hover:text-gray-700"
+							}`}
+							aria-pressed={apiMode === "proxy"}
+						>
+							Proxy
+						</button>
+						<button
+							type="button"
+							onClick={() => handleModeToggle("live")}
+							className={`relative z-10 py-1.5 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer text-center ${
+								apiMode === "live"
+									? "text-white"
+									: "text-black hover:text-gray-700"
+							}`}
+							aria-pressed={apiMode === "live"}
+						>
+							Live ERP
+						</button>
+
+						{/* Sliding indicator */}
+						<div
+							className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] bg-black transition-all duration-200 ease-in-out ${
+								apiMode === "proxy" ? "left-0.5" : "left-[calc(50%+1px)]"
+							}`}
+						/>
+					</div>
+
+					<p className="text-[11px] text-gray-600 font-bold uppercase tracking-wider text-center">
+						{apiMode === "proxy"
+							? "No extension required"
+							: "Extension required"}
+					</p>
+				</div>
+
 				{step === "credentials" ? (
 					<form onSubmit={handleCredentialsSubmit} className="space-y-6">
 						<div>
