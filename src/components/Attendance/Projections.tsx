@@ -3,7 +3,7 @@ import Cookies from "js-cookie";
 import { CalendarDays, ChevronDown, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
-import { AUTH_COOKIE_NAME } from "../../types/constants";
+import { AUTH_COOKIE_NAME, getBaseUrl } from "../../types/constants";
 import type { ScheduleEntry, ScheduleResponse } from "../../types/response";
 import { getWeekRange } from "../../types/utils";
 
@@ -60,7 +60,7 @@ export default function Projections() {
 				try {
 					const { startDate, endDate } = getWeekRange();
 					const scheduleResponse = await axios.get<ScheduleResponse>(
-						`https://kiet.cybervidya.net/api/student/schedule/class?weekEndDate=${endDate}&weekStartDate=${startDate}`,
+						`${getBaseUrl()}/api/student/schedule/class?weekEndDate=${endDate}&weekStartDate=${startDate}`,
 						{ headers: { Authorization: `GlobalEducation ${token}` } },
 					);
 					setSchedule(scheduleResponse.data.data);

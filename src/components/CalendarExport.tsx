@@ -1,6 +1,6 @@
 import axios from "axios";
 import Cookies from "js-cookie";
-import { AUTH_COOKIE_NAME } from "../types/constants";
+import { AUTH_COOKIE_NAME, getBaseUrl } from "../types/constants";
 
 export interface ScheduleEntry {
 	id: string | null;
@@ -46,7 +46,7 @@ async function fetchSchedule(
 ): Promise<ScheduleEntry[]> {
 	try {
 		const res = await axios.get<ScheduleResponse>(
-			"https://kiet.cybervidya.net/api/student/schedule/class",
+			`${getBaseUrl()}/api/student/schedule/class`,
 			{
 				params: {
 					weekStartDate: formatDate(start),
