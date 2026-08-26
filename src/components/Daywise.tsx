@@ -14,6 +14,25 @@ function formatDate(dateString: string) {
 	return `${day}-${month}-${year}`;
 }
 
+function SkeletonRow() {
+	return (
+		<tr className="animate-pulse">
+			<td className="p-3 border">
+				<div className="h-4 bg-gray-200 rounded w-16 mx-auto" />
+			</td>
+			<td className="p-3 border">
+				<div className="h-4 bg-gray-200 rounded w-10 mx-auto" />
+			</td>
+			<td className="p-3 border">
+				<div className="h-4 bg-gray-200 rounded w-28 mx-auto" />
+			</td>
+			<td className="p-3 border">
+				<div className="h-4 bg-gray-200 rounded w-16 mx-auto" />
+			</td>
+		</tr>
+	);
+}
+
 function DaywiseReport({ token, payload }: DaywiseReportProps) {
 	const [daywiseData, setDaywiseData] = useState<LectureListProps[]>([]);
 	const [loading, setLoading] = useState<boolean>(true);
@@ -60,9 +79,8 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
 		fetchDaywiseAttendance();
 	}, [token, payload]);
 
-	if (loading) return <p>Loading daywise attendance data...</p>;
 	if (error) return <p className="text-red-600">{error}</p>;
-	if (daywiseData.length === 0)
+	if (!loading && daywiseData.length === 0)
 		return <p>No daywise attendance data available.</p>;
 
 	return (
@@ -76,28 +94,43 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
 						<th className="p-3 sm:p-3 border">Attendance</th>
 					</tr>
 				</thead>
-				<tbody className="text-center text-gray-800 text-sm">
-					{daywiseData.map((lecture) => (
-						<tr
-							key={`${lecture.planLecDate}-${lecture.timeSlot}`}
-							className="hover:bg-gray-50 transition-colors"
-						>
-							<td className="p-2 border">{formatDate(lecture.planLecDate)}</td>
-							<td className="p-2 border">{lecture.dayName.substring(0, 3)}</td>
-							<td className="p-2 border text-xs">{lecture.timeSlot}</td>
-							<td className="p-2 border font-semibold">
-								{lecture.attendance === "PRESENT" && (
-									<span className="text-green-600">{lecture.attendance}</span>
-								)}
-								{lecture.attendance === "ADJUSTED" && (
-									<span className="text-green-800">{lecture.attendance}</span>
-								)}
-								{lecture.attendance === "ABSENT" && (
-									<span className="text-red-600">{lecture.attendance}</span>
-								)}
-							</td>
-						</tr>
-					))}
+				<tbody
+					className={`text-center text-gray-800 text-sm ${!loading ? "style-fade-opacity" : ""}`}
+				>
+					{loading ? (
+						<>
+							<SkeletonRow />
+							<SkeletonRow />
+							<SkeletonRow />
+							<SkeletonRow />
+						</>
+					) : (
+						daywiseData.map((lecture) => (
+							<tr
+								key={`${lecture.planLecDate}-${lecture.timeSlot}`}
+								className="hover:bg-gray-50 transition-colors"
+							>
+								<td className="p-2 border">
+									{formatDate(lecture.planLecDate)}
+								</td>
+								<td className="p-2 border">
+									{lecture.dayName.substring(0, 3)}
+								</td>
+								<td className="p-2 border text-xs">{lecture.timeSlot}</td>
+								<td className="p-2 border font-semibold">
+									{lecture.attendance === "PRESENT" && (
+										<span className="text-green-600">{lecture.attendance}</span>
+									)}
+									{lecture.attendance === "ADJUSTED" && (
+										<span className="text-green-800">{lecture.attendance}</span>
+									)}
+									{lecture.attendance === "ABSENT" && (
+										<span className="text-red-600">{lecture.attendance}</span>
+									)}
+								</td>
+							</tr>
+						))
+					)}
 				</tbody>
 			</table>
 		</div>
