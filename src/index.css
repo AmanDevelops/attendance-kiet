@@ -47,7 +47,7 @@
 	animation: fadeIn 0.5s ease-out forwards;
 }
 
-@keyframes fadeOpacity {
+@keyframes fade-data {
 	from {
 		opacity: 0;
 	}
@@ -57,7 +57,7 @@
 }
 
 .style-fade-opacity {
-	animation: fadeOpacity 0.4s ease-out forwards;
+	animation: fade-data 0.4s ease-out forwards;
 }
 
 @media (max-width: 330px) {
@@ -80,4 +80,29 @@
 	.gap-responsive {
 		gap: 1rem; /* gap-4 */
 	}
+}
+
+.custom-table-scroll {
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.custom-table-scroll::-webkit-scrollbar {
+	height: 6px;
+	width: 6px;
+}
+
+.custom-table-scroll::-webkit-scrollbar-track {
+	background: #f1f5f9;
+	border-radius: 9999px;
+}
+
+.custom-table-scroll::-webkit-scrollbar-thumb {
+	background: #cbd5e1;
+	border-radius: 9999px;
+	transition: background-color 0.2s;
+}
+
+.custom-table-scroll::-webkit-scrollbar-thumb:hover {
+	background: #94a3b8;
 }

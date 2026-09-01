@@ -82,7 +82,7 @@ export default function Profile({
 				>
 					<Wand2 className="h-4 w-4 shrink-0" />
 					<span className="hide-text-below-352 text-xs">
-						{showProjection ? "Hide Projection" : "Show Projection"}
+						{showProjection % 2 === 1 ? "Hide Projection" : "Show Projection"}
 					</span>
 				</button>
 
