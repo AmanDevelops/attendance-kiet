@@ -1,16 +1,31 @@
 import axios from "axios";
 import Cookies from "js-cookie";
-import { CalendarDays, ChevronDown, ChevronUp } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
 import { AUTH_COOKIE_NAME, getBaseUrl } from "../../types/constants";
 import type { ScheduleEntry, ScheduleResponse } from "../../types/response";
 import { getWeekRange } from "../../types/utils";
 
+type ClassEntry = ScheduleEntry & {
+	formattedStart: string;
+	formattedEnd: string;
+};
+
+function formatShortTime(timeString: string) {
+	if (!timeString) return "";
+	const timePart = timeString.split(" ")[1] || "";
+	const [h, m] = timePart.split(":");
+	if (!h || !m) return "";
+	const hour = Number.parseInt(h, 10);
+	const ampm = hour >= 12 ? "PM" : "AM";
+	const formattedHour = hour % 12 || 12;
+	return `${formattedHour}:${m} ${ampm}`;
+}
+
 export default function Projections() {
 	const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
 	const [missedClasses, setMissedClasses] = useState<Set<string>>(new Set());
-	const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 	const { setAttendanceData } = useAppContext();
 
 	const updateProjectedAttendance = useCallback(
@@ -73,8 +88,49 @@ export default function Projections() {
 		fetchSchedule();
 	}, []);
 
+	const timeSlots = useMemo(() => {
+		const slotsMap = new Map<
+			string,
+			{
+				label: string;
+				formattedStart: string;
+				formattedEnd: string;
+				timeVal: number;
+			}
+		>();
+
+		schedule.forEach((item) => {
+			if (item.type !== "CLASS") return;
+			const startTimeStr = item.start.split(" ")[1] || "";
+			const key = `${startTimeStr}-${item.end.split(" ")[1] || ""}`;
+
+			if (!slotsMap.has(key)) {
+				const [h, m] = startTimeStr.split(":").map(Number);
+				const formattedStart = formatShortTime(item.start);
+				const formattedEnd = formatShortTime(item.end);
+				slotsMap.set(key, {
+					label: `${formattedStart} - ${formattedEnd}`,
+					formattedStart,
+					formattedEnd,
+					timeVal: (h || 0) * 60 + (m || 0),
+				});
+			}
+		});
+
+		const sorted = Array.from(slotsMap.values()).sort(
+			(a, b) => a.timeVal - b.timeVal,
+		);
+		return {
+			morning: sorted.filter((s) => s.timeVal < 13 * 60),
+			afternoon: sorted.filter((s) => s.timeVal >= 13 * 60),
+		};
+	}, [schedule]);
+
+	const { morning: morningSlots, afternoon: afternoonSlots } = timeSlots;
+	const hasLunchBreak = morningSlots.length > 0 && afternoonSlots.length > 0;
+
 	const groupedSchedule = useMemo(() => {
-		const grouped = new Map<string, ScheduleEntry[]>();
+		const grouped = new Map<string, ClassEntry[]>();
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 
@@ -107,180 +163,180 @@ export default function Projections() {
 				const [day, month, year] = c.lectureDate.split("/").map(Number);
 				const classDate = new Date(year, month - 1, day);
 
-				const dayName = classDate.toLocaleDateString("en-US", {
-					weekday: "long",
+				const dayKey = classDate.toLocaleDateString("en-US", {
+					weekday: "short",
 					month: "short",
 					day: "numeric",
 				});
 
-				if (!grouped.has(dayName)) {
-					grouped.set(dayName, []);
+				if (!grouped.has(dayKey)) {
+					grouped.set(dayKey, []);
 				}
-				grouped.get(dayName)?.push(c);
+				grouped.get(dayKey)?.push({
+					...c,
+					formattedStart: formatShortTime(c.start),
+					formattedEnd: formatShortTime(c.end),
+				});
 			});
 
 		return grouped;
 	}, [schedule]);
 
-	const handleMissClassToggle = (
-		classStartString: string,
-		courseCode: string,
-	) => {
-		const newSet = new Set(missedClasses);
-		if (newSet.has(classStartString)) {
-			newSet.delete(classStartString);
-			setMissedClasses(newSet);
-			updateProjectedAttendance(courseCode, "subtract");
-		} else {
-			newSet.add(classStartString);
-			updateProjectedAttendance(courseCode, "add");
-
-			setMissedClasses(newSet);
-		}
-	};
-
-	const handleDayToggle = (
-		classData: { start: string; courseCode: string }[],
-		dayIsSelected: boolean,
-	) => {
-		classData.forEach((classItem) => {
-			const operation = dayIsSelected ? "subtract" : "add";
-			updateProjectedAttendance(classItem.courseCode, operation);
-		});
-
-		setMissedClasses((prev) => {
-			const newSet = new Set(prev);
-			if (dayIsSelected) {
-				for (const classItem of classData) {
-					newSet.delete(classItem.start);
-				}
+	const handleClassToggle = useCallback(
+		(classStart: string, courseCode: string) => {
+			const nextSet = new Set(missedClasses);
+			if (nextSet.has(classStart)) {
+				nextSet.delete(classStart);
+				updateProjectedAttendance(courseCode, "subtract");
 			} else {
-				for (const classItem of classData) {
-					newSet.add(classItem.start);
-				}
+				nextSet.add(classStart);
+				updateProjectedAttendance(courseCode, "add");
 			}
-			return newSet;
-		});
-	};
+			setMissedClasses(nextSet);
+		},
+		[missedClasses, updateProjectedAttendance],
+	);
+
+	const renderSlotCells = useCallback(
+		(classes: ClassEntry[], slots: typeof morningSlots) => {
+			return slots.map((slot) => {
+				const classItem = classes.find(
+					(c) =>
+						c.formattedStart === slot.formattedStart &&
+						c.formattedEnd === slot.formattedEnd,
+				);
+
+				if (!classItem) {
+					return (
+						<td
+							key={slot.label}
+							className="p-1.5 py-3 border-b border-r border-gray-100 text-center text-gray-300 text-xs align-middle"
+						>
+							-
+						</td>
+					);
+				}
+
+				const isMissed = missedClasses.has(classItem.start);
+
+				return (
+					<td
+						key={classItem.start}
+						className={`p-0 border-b border-r border-gray-100 align-middle transition-colors ${
+							isMissed
+								? "bg-red-100 text-red-800 font-semibold"
+								: "bg-transparent hover:bg-gray-100 text-gray-800"
+						}`}
+					>
+						<button
+							type="button"
+							onClick={() =>
+								handleClassToggle(classItem.start, classItem.courseCode)
+							}
+							className="w-full h-full min-h-[56px] py-3 px-1.5 text-center flex flex-col items-center justify-center cursor-pointer bg-transparent text-inherit"
+						>
+							<span className="block text-xs font-bold leading-tight line-clamp-2 text-center">
+								{classItem.courseName}
+							</span>
+						</button>
+					</td>
+				);
+			});
+		},
+		[handleClassToggle, missedClasses],
+	);
+
+	const dayEntries = Array.from(groupedSchedule.entries());
 
 	return (
 		<div className="bg-white rounded-lg shadow-md p-6 mb-4 style-border style-fade-in">
-			<div className="flex items-center gap-2 mb-4">
+			<div className="flex items-center gap-2 mb-1">
 				<CalendarDays className="h-6 w-6 text-blue-600" />
 				<h3 className="style-text text-md font-semibold text-black">
 					Weekly Projection (Today Onwards)
 				</h3>
 			</div>
-			<p className="style-text text-xs text-gray-600 mb-4">
-				Select classes you plan to miss:
-			</p>
-			<div className="max-h-64 overflow-y-auto space-y-4 pr-2">
-				{groupedSchedule.size === 0 && (
-					<p className="style-text text-gray-500">
-						No upcoming classes found for the rest of the week.
-					</p>
-				)}
-				{Array.from(groupedSchedule.entries()).map(([day, classes]) => {
-					const isExpanded = expandedDays.has(day);
-					const allDayClasses = classes.map((c) => ({
-						start: c.start,
-						courseCode: c.courseCode,
-					}));
-					const allDaySelected = allDayClasses.every((c) =>
-						missedClasses.has(c.start),
-					);
-
-					return (
-						<div key={day} className=" mb-3 gap-2 transition-all ">
-							{/* Header that toggles the day */}
-
-							<button
-								type="button"
-								onClick={() => {
-									setExpandedDays((prev) => {
-										const newSet = new Set(prev);
-										if (newSet.has(day)) {
-											newSet.delete(day);
-										} else {
-											newSet.add(day);
-										}
-										return newSet;
-									});
-								}}
-								aria-expanded={isExpanded}
-								className="group w-full flex justify-between items-center cursor-pointer style-border style-text hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300 px-4 py-2"
-							>
-								<span className="font-semibold text-sm ">{day}</span>
-								<span
-									className={`text-xl font-bold transform transition-transform ${
-										isExpanded
-											? "text-red-600"
-											: "group-not-[&:hover]:text-black"
-									}`}
-								>
-									{isExpanded ? (
-										<ChevronUp className="h-5 w-5" aria-hidden="true" />
-									) : (
-										<ChevronDown className="h-5 w-5" aria-hidden="true" />
-									)}
-								</span>
-							</button>
-
-							{/* Expandable class list */}
-							{isExpanded && (
-								<div className="bg-white px-4 py-3 space-y-3  border-2">
-									{/* Select all for day */}
-									<div className="flex items-center gap-2 pb-2 border-b border-gray-200">
-										<input
-											type="checkbox"
-											id={`day-${day}`}
-											className="h-4 w-4 border-gray-400"
-											checked={allDaySelected}
-											onChange={() =>
-												handleDayToggle(allDayClasses, allDaySelected)
-											}
-										/>
-										<label
-											htmlFor={`day-${day}`}
-											className="text-xs font-semibold text-gray-700"
-										>
-											Select all for {day}
-										</label>
-									</div>
-
-									{/* Class list */}
-									<ul className="space-y-2">
-										{classes.map((c) => (
-											<li key={c.start} className="flex items-center gap-2">
-												<input
-													type="checkbox"
-													id={c.start}
-													className="h-4 w-4 border-gray-400"
-													checked={missedClasses.has(c.start)}
-													onChange={() =>
-														handleMissClassToggle(c.start, c.courseCode)
-													}
-												/>
-												<label
-													htmlFor={c.start}
-													className="text-xs font-medium text-gray-800"
-												>
-													<span className="block text-[0.85rem] font-semibold">
-														{c.courseName}
-													</span>
-													<span className="text-[0.75rem] text-gray-500">
-														{c.start.split(" ")[1]} – {c.end.split(" ")[1]}
-													</span>
-												</label>
-											</li>
-										))}
-									</ul>
-								</div>
-							)}
-						</div>
-					);
-				})}
+			<div className="flex items-center justify-between gap-2 mb-4">
+				<p className="style-text text-xs text-gray-600">
+					Click on any class block to mark it as planned to miss:
+				</p>
+				<span className="md:hidden text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full whitespace-nowrap select-none">
+					Scroll &rarr;
+				</span>
 			</div>
+
+			{dayEntries.length === 0 ? (
+				<p className="style-text text-gray-500">
+					No upcoming classes found for the rest of the week.
+				</p>
+			) : (
+				<div className="w-full border border-gray-200 rounded-lg overflow-x-auto custom-table-scroll bg-white">
+					<table className="w-full min-w-[960px] md:min-w-full table-fixed border-collapse bg-white text-xs">
+						<thead>
+							<tr className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
+								<th className="p-2 text-center w-16 border-r border-gray-200 text-[10px]">
+									Day / Date
+								</th>
+								{morningSlots.map((slot) => (
+									<th
+										key={slot.label}
+										className="p-2 text-center font-medium whitespace-nowrap text-[10px] border-r border-gray-200"
+									>
+										{slot.label}
+									</th>
+								))}
+
+								{hasLunchBreak && (
+									<th className="p-2 text-center font-bold text-[10px] text-gray-500 tracking-wider uppercase bg-gray-100/80 border-r border-gray-200">
+										LUNCH
+									</th>
+								)}
+
+								{afternoonSlots.map((slot) => (
+									<th
+										key={slot.label}
+										className="p-2 text-center font-medium whitespace-nowrap text-[10px] border-r border-gray-200 last:border-r-0"
+									>
+										{slot.label}
+									</th>
+								))}
+							</tr>
+						</thead>
+						<tbody>
+							{dayEntries.map(([dayKey, classes]) => {
+								const [weekday, ...restDate] = dayKey.split(", ");
+								const dateStr = restDate.join(", ");
+
+								return (
+									<tr
+										key={dayKey}
+										className="hover:bg-gray-50/30 transition-colors"
+									>
+										<td className="p-2 py-3 border-b border-r border-gray-200 bg-gray-100/80 text-center align-middle">
+											<div className="font-bold text-xs text-black">
+												{weekday}
+											</div>
+											<div className="text-[10px] text-gray-600 font-medium mt-0.5">
+												{dateStr}
+											</div>
+										</td>
+
+										{renderSlotCells(classes, morningSlots)}
+
+										{hasLunchBreak && (
+											<td className="p-2 py-3 text-center bg-gray-100/50 border-b border-r border-gray-200 font-bold text-[11px] text-gray-400 tracking-wider select-none align-middle">
+												LUNCH
+											</td>
+										)}
+
+										{renderSlotCells(classes, afternoonSlots)}
+									</tr>
+								);
+							})}
+						</tbody>
+					</table>
+				</div>
+			)}
 		</div>
 	);
 }
