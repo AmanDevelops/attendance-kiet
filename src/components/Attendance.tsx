@@ -1,5 +1,5 @@
 import Cookies from "js-cookie";
-import { X } from "lucide-react";
+import { CalendarDays, LayoutGrid, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useAppContext } from "../contexts/AppContext";
 import {
@@ -12,6 +12,7 @@ import type {
 	CourseAttendanceInfo,
 } from "../types/response";
 import { fetchStudentId } from "../types/utils";
+import CalendarView from "./Attendance/CalendarView";
 import CourseCard from "./Attendance/CourseCard";
 import Profile from "./Attendance/Profile";
 import Projections from "./Attendance/Projections";
@@ -41,6 +42,7 @@ function Attendance() {
 	const [isDaywiseModalOpen, setIsDaywiseModalOpen] = useState(false);
 
 	const [showProjection, setShowProjection] = useState<number>(0);
+	const [viewMode, setViewMode] = useState<"card" | "calendar">("card");
 
 	const handleViewDaywiseAttendance = useCallback(
 		(
@@ -102,15 +104,52 @@ function Attendance() {
 				<OverallAtt />
 			</div>
 
-			<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-				{attendanceData.attendanceCourseComponentInfoList.map((course) => (
-					<CourseCard
-						key={course.courseCode}
-						onViewDaywiseAttendance={handleViewDaywiseAttendance}
-						course={course}
-					/>
-				))}
+			{/* View Mode Toggle */}
+			<div className="flex items-center gap-2 mb-6">
+				<button
+					type="button"
+					id="view-toggle-card"
+					onClick={() => setViewMode("card")}
+					className={`style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1.5 transition-all duration-200 hover:-translate-y-0.5 transform focus:outline-none ${
+						viewMode === "card"
+							? "bg-black text-white"
+							: "bg-white text-black hover:bg-gray-100"
+					}`}
+				>
+					<LayoutGrid className="h-3.5 w-3.5 shrink-0" />
+					<span className="hide-text-below-352">Card View</span>
+				</button>
+				<button
+					type="button"
+					id="view-toggle-calendar"
+					onClick={() => setViewMode("calendar")}
+					className={`style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1.5 transition-all duration-200 hover:-translate-y-0.5 transform focus:outline-none ${
+						viewMode === "calendar"
+							? "bg-black text-white"
+							: "bg-white text-black hover:bg-gray-100"
+					}`}
+				>
+					<CalendarDays className="h-3.5 w-3.5 shrink-0" />
+					<span className="hide-text-below-352">Calendar View</span>
+				</button>
 			</div>
+
+			{viewMode === "card" ? (
+				<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+					{attendanceData.attendanceCourseComponentInfoList.map((course) => (
+						<CourseCard
+							key={course.courseCode}
+							onViewDaywiseAttendance={handleViewDaywiseAttendance}
+							course={course}
+						/>
+					))}
+				</div>
+			) : (
+				<CalendarView
+					token={Cookies.get(AUTH_COOKIE_NAME) || ""}
+					studentId={studentId || 0}
+				/>
+			)}
 
 			{/*  Modal to Show Daywise Attendance */}
 			{isDaywiseModalOpen && selectedComponent && (
