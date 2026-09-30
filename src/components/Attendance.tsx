@@ -17,6 +17,7 @@ import Profile from "./Attendance/Profile";
 import Projections from "./Attendance/Projections";
 import DaywiseReport from "./Daywise";
 import OverallAtt from "./OverallAtt";
+import TodayCheckup from "./TodayCheckup";
 
 export interface SelectedComponentType {
 	course: CourseAttendanceInfo;
@@ -99,6 +100,7 @@ function Attendance() {
 				<div className={`${showProjection % 2 === 1 ? "block" : "hidden"}`}>
 					{showProjection > 0 && <Projections />}
 				</div>
+				<TodayCheckup />
 				<OverallAtt />
 			</div>
 

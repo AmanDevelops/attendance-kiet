@@ -25,3 +25,6 @@ dist-ssr
 
 # Browser-generated when loading unpacked extensions
 extension/*/_metadata/
+
+# Superpowers working docs (design specs, implementation plans)
+docs/superpowers/
