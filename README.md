@@ -5,6 +5,7 @@ This project is a web-based attendance viewer designed for KIET (Krishna Institu
 ## Features
 
 - **Student Dashboard**: Students can view their attendance records.
+- **Today's Checkup**: See which of today's classes were marked present, absent, or not yet marked, grouped by subject.
 - **Authentication**: Secure login system for students.
 - **Responsive Design**: Accessible on various devices, including desktops, tablets, and smartphones.
 
@@ -60,6 +61,7 @@ npm run lint
 ## Usage
 
 - **Login**: Login through the cyber vidya credentials
+- **Today's Checkup**: On the dashboard, expand the "Today's Attendance" card to check which of today's classes were marked present, absent, or are still upcoming. It fetches on demand, so it only runs when you ask it to.
 
 ## Screenshots
 ### Login
