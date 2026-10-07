@@ -61,7 +61,7 @@ npm run lint
 ## Usage
 
 - **Login**: Login through the cyber vidya credentials
-- **Today's Checkup**: On the dashboard, expand the "Today's Attendance" card to check which of today's finished classes were marked. It fetches on demand, so it only runs when you ask it to.
+- **Today's Checkup**: On the dashboard, expand the "Today's Attendance" card to check which of today's classes were marked present, absent, or are still upcoming. It fetches on demand, so it only runs when you ask it to.
 
 ## Screenshots
 ### Login

@@ -90,10 +90,8 @@ export function normalizeClass(entry: ScheduleEntry): NormalizedClass | null {
 		courseCompName: entry.courseCompName,
 		dateKey: toDateKey(date),
 		startMinutes,
-		endMinutes,
 		startLabel: toDisplayTime(startRaw),
 		endLabel: toDisplayTime(endRaw),
-		raw: entry,
 	};
 }
 
@@ -129,7 +127,6 @@ export function normalizeLecture(
 		startMinutes: parseTimeSlotStart(lecture.timeSlot),
 		attendance: lecture.attendance,
 		consumed: false,
-		raw: lecture,
 	};
 }
 

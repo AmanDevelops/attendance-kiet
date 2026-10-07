@@ -1,8 +1,4 @@
-import type {
-	LectureListProps,
-	ScheduleEntry,
-	StudentDetails,
-} from "./response";
+import type { LectureListProps, StudentDetails } from "./response";
 
 export type CheckupVerdict =
 	| "present"
@@ -14,7 +10,7 @@ export type CheckupVerdict =
 /**
  * Distinguishes empty states so the UI can accurately reflect schedule status.
  */
-export type CheckupStatus = "ok" | "no-classes" | "none-finished";
+export type CheckupStatus = "ok" | "no-classes";
 
 export interface NormalizedClass {
 	courseCode: string;
@@ -22,10 +18,8 @@ export interface NormalizedClass {
 	courseCompName: string;
 	dateKey: string;
 	startMinutes: number;
-	endMinutes: number;
 	startLabel: string;
 	endLabel: string;
-	raw: ScheduleEntry;
 }
 
 export interface NormalizedLecture {
@@ -33,7 +27,6 @@ export interface NormalizedLecture {
 	startMinutes: number | null;
 	attendance: LectureListProps["attendance"];
 	consumed: boolean;
-	raw: LectureListProps;
 }
 
 export interface ResolvedSubject {
