@@ -4,11 +4,15 @@ import type {
 	StudentDetails,
 } from "./response";
 
-export type CheckupVerdict = "present" | "absent" | "not-marked" | "unknown";
+export type CheckupVerdict =
+	| "present"
+	| "absent"
+	| "not-marked"
+	| "upcoming"
+	| "unknown";
 
 /**
- * Distinguishes the three empty states so the UI never reports
- * "no classes today" when the truth is "none have finished yet".
+ * Distinguishes empty states so the UI can accurately reflect schedule status.
  */
 export type CheckupStatus = "ok" | "no-classes" | "none-finished";
 
@@ -68,6 +72,7 @@ export interface CheckupSummary {
 	present: number;
 	absent: number;
 	notMarked: number;
+	upcoming: number;
 	unknown: number;
 }
 

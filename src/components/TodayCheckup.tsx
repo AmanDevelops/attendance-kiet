@@ -5,6 +5,7 @@ import {
 	CheckCircle,
 	ChevronDown,
 	ChevronUp,
+	Clock,
 	RefreshCw,
 	XCircle,
 } from "lucide-react";
@@ -16,7 +17,12 @@ import type {
 	CheckupSubject,
 	CheckupVerdict,
 } from "../types/checkup";
-import { AUTH_COOKIE_NAME, STUDENT_ID_COOKIE_NAME } from "../types/constants";
+import {
+	AUTH_COOKIE_NAME,
+	COOKIE_EXPIRY,
+	STUDENT_ID_COOKIE_NAME,
+} from "../types/constants";
+import { fetchStudentId } from "../types/utils";
 import { runCheckup } from "../utils/checkup";
 
 const VERDICT_STYLE: Record<
@@ -26,6 +32,7 @@ const VERDICT_STYLE: Record<
 	present: { label: "Present", className: "text-emerald-600" },
 	absent: { label: "Absent", className: "text-red-600" },
 	"not-marked": { label: "Not marked", className: "text-amber-600" },
+	upcoming: { label: "Upcoming", className: "text-blue-600" },
 	unknown: { label: "Unknown", className: "text-gray-500" },
 };
 
@@ -36,7 +43,9 @@ function VerdictBadge({ verdict }: { verdict: CheckupVerdict }) {
 			? CheckCircle
 			: verdict === "absent"
 				? XCircle
-				: AlertTriangle;
+				: verdict === "upcoming"
+					? Clock
+					: AlertTriangle;
 	return (
 		<span className={`flex items-center gap-1 text-xs font-bold ${className}`}>
 			<Icon className="h-4 w-4" />
@@ -55,9 +64,10 @@ function SkeletonRow() {
 }
 
 function SubjectBlock({ subject }: { subject: CheckupSubject }) {
-	const short =
-		subject.completeness !== undefined &&
-		subject.completeness.recorded < subject.completeness.expected;
+	const unrecorded =
+		subject.completeness !== undefined
+			? subject.completeness.expected - subject.completeness.recorded
+			: 0;
 
 	return (
 		<div className="border-t-2 border-black pt-3 mt-3 first:border-t-0 first:mt-0 first:pt-0">
@@ -72,10 +82,10 @@ function SubjectBlock({ subject }: { subject: CheckupSubject }) {
 				<p className="text-xs text-red-600">{subject.error}</p>
 			) : (
 				<>
-					{short && (
+					{unrecorded > 0 && (
 						<p className="text-xs text-amber-600 font-semibold mb-1">
-							{subject.completeness?.recorded} of{" "}
-							{subject.completeness?.expected} lectures not marked
+							{unrecorded} of {subject.completeness?.expected} lectures not yet
+							recorded in ERP
 						</p>
 					)}
 					{subject.entries.map((entry: CheckupEntry) => (
@@ -96,12 +106,13 @@ function SubjectBlock({ subject }: { subject: CheckupSubject }) {
 }
 
 function SummaryLine({ report }: { report: CheckupReport }) {
-	const { present, absent, notMarked, unknown } = report.summary;
-	if (present + absent + notMarked + unknown === 0) return null;
+	const { present, absent, notMarked, upcoming, unknown } = report.summary;
+	if (present + absent + notMarked + upcoming + unknown === 0) return null;
 	const parts = [
-		`${present} present`,
-		`${absent} absent`,
+		present > 0 ? `${present} present` : null,
+		absent > 0 ? `${absent} absent` : null,
 		notMarked > 0 ? `${notMarked} not marked` : null,
+		upcoming > 0 ? `${upcoming} upcoming` : null,
 		unknown > 0 ? `${unknown} unknown` : null,
 	].filter(Boolean);
 	return <span className="text-xs text-gray-600">{parts.join(" · ")}</span>;
@@ -116,14 +127,30 @@ export default function TodayCheckup() {
 
 	const handleCheck = useCallback(async () => {
 		const token = Cookies.get(AUTH_COOKIE_NAME) || "";
-		const studentId = Number(Cookies.get(STUDENT_ID_COOKIE_NAME) || "0");
-		if (!token || !studentId || !attendanceData) {
+		let studentId = Number(Cookies.get(STUDENT_ID_COOKIE_NAME) || "0");
+		if (!token || !attendanceData) {
 			setError("Please log in again to run the checkup.");
 			return;
 		}
+
 		setIsLoading(true);
 		setError("");
+
 		try {
+			if (!studentId) {
+				const fetchedId = await fetchStudentId(token);
+				if (fetchedId) {
+					studentId = fetchedId;
+					Cookies.set(STUDENT_ID_COOKIE_NAME, String(fetchedId), {
+						expires: COOKIE_EXPIRY,
+					});
+				} else {
+					setError("Could not retrieve student ID. Please try again.");
+					setIsLoading(false);
+					return;
+				}
+			}
+
 			setReport(await runCheckup({ token, studentId, attendanceData }));
 		} catch (err) {
 			console.error(err);
@@ -157,7 +184,13 @@ export default function TodayCheckup() {
 							Today&apos;s Attendance
 						</span>
 						{report ? (
-							<SummaryLine report={report} />
+							report.status === "no-classes" ? (
+								<span className="text-xs text-gray-500">
+									No classes scheduled today
+								</span>
+							) : (
+								<SummaryLine report={report} />
+							)
 						) : (
 							<span className="text-xs text-gray-500">
 								Tap to check which classes were marked
@@ -194,18 +227,20 @@ export default function TodayCheckup() {
 					)}
 
 					{!isLoading && error && (
-						<p className="text-sm text-red-600">{error}</p>
+						<div className="flex items-center justify-between gap-2">
+							<p className="text-sm text-red-600">{error}</p>
+							<button
+								type="button"
+								onClick={handleCheck}
+								className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
+							>
+								Retry
+							</button>
+						</div>
 					)}
 
 					{!isLoading && !error && report?.status === "no-classes" && (
 						<p className="text-sm text-gray-500">No classes scheduled today.</p>
-					)}
-
-					{!isLoading && !error && report?.status === "none-finished" && (
-						<p className="text-sm text-gray-500">
-							No classes have finished yet today. Check back after your last
-							class.
-						</p>
 					)}
 
 					{!isLoading && !error && report?.status === "ok" && (

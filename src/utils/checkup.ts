@@ -76,8 +76,8 @@ export function normalizeClass(entry: ScheduleEntry): NormalizedClass | null {
 	const date = parseScheduleDate(entry.lectureDate ?? "");
 	if (!date) return null;
 
-	const startRaw = entry.start.split(" ")[1];
-	const endRaw = entry.end.split(" ")[1];
+	const startRaw = entry.start?.split(" ")[1];
+	const endRaw = entry.end?.split(" ")[1];
 	if (!startRaw || !endRaw) return null;
 
 	const startMinutes = toMinutesSinceMidnight(startRaw);
@@ -95,6 +95,21 @@ export function normalizeClass(entry: ScheduleEntry): NormalizedClass | null {
 		endLabel: toDisplayTime(endRaw),
 		raw: entry,
 	};
+}
+
+/**
+ * Removes duplicate schedule entries returned by the ERP for multi-batch courses.
+ */
+export function deduplicateClasses(
+	classes: NormalizedClass[],
+): NormalizedClass[] {
+	const seen = new Set<string>();
+	return classes.filter((cls) => {
+		const key = `${cls.courseCode}-${cls.courseCompName}-${cls.dateKey}-${cls.startMinutes}`;
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
 }
 
 /**
@@ -118,12 +133,29 @@ export function normalizeLecture(
 	};
 }
 
-/** First HH:MM-like token in a free-text time slot, or null. */
+/**
+ * First HH:MM-like token in a free-text time slot, handling 12h/24h and AM/PM.
+ */
 export function parseTimeSlotStart(timeSlot: string): number | null {
 	if (!timeSlot) return null;
-	const match = timeSlot.match(/(\d{1,2}):(\d{2})/);
+	const match = timeSlot.match(/(\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i);
 	if (!match) return null;
-	return toMinutesSinceMidnight(`${match[1]}:${match[2]}`);
+	let hours = Number.parseInt(match[1], 10);
+	const minutes = Number.parseInt(match[2], 10);
+	const meridiem = match[3]?.toUpperCase();
+
+	if (hours > 23 || minutes > 59) return null;
+
+	if (meridiem === "PM" && hours < 12) {
+		hours += 12;
+	} else if (meridiem === "AM" && hours === 12) {
+		hours = 0;
+	} else if (!meridiem && hours >= 1 && hours <= 6) {
+		// In a standard college schedule, slots with hours 1-6 are afternoon classes (13:00-18:00)
+		hours += 12;
+	}
+
+	return hours * 60 + minutes;
 }
 
 /**
@@ -137,13 +169,16 @@ export function resolveSubject(
 	courseCompName: string,
 	courses: CourseAttendanceInfo[],
 ): ResolvedSubject | { error: string } {
-	const course = courses.find((c) => c.courseCode === courseCode);
+	const targetCode = normalizeName(courseCode);
+	const course = courses.find(
+		(c) => normalizeName(c.courseCode) === targetCode,
+	);
 	if (!course) {
 		return { error: "subject not in your enrolled list" };
 	}
 
 	const wanted = normalizeName(courseCompName);
-	const match = course.attendanceCourseComponentNameInfoList.find(
+	const match = course.attendanceCourseComponentNameInfoList?.find(
 		(component) => normalizeName(component.componentName) === wanted,
 	);
 
@@ -152,7 +187,7 @@ export function resolveSubject(
 	// reserved for genuinely unresolvable data.
 	const component =
 		match ??
-		(course.attendanceCourseComponentNameInfoList.length === 1
+		(course.attendanceCourseComponentNameInfoList?.length === 1
 			? course.attendanceCourseComponentNameInfoList[0]
 			: undefined);
 
@@ -193,13 +228,11 @@ export function groupBySubject(
 /**
  * Assigns a verdict to each class in a subject group.
  *
- * Match strategy, most precise first:
- *   1. exact - same date and same start time
- *   2. loose - same date, consumed in chronological order. Used when the
- *              lecture's timeSlot could not be parsed
+ * Match strategy, two-pass:
+ *   1. exact - same date and same start time (claims exact matches first)
+ *   2. loose - same date, consumed in chronological order for unmatched classes
  *
- * A class with no matching lecture is `not-marked`. The ERP exposes no
- * "pending" flag, so absence of a record is the only available signal.
+ * A class with no matching lecture is `not-marked` (or `upcoming` if yet to start).
  */
 export function reconcileGroup(
 	key: string,
@@ -207,6 +240,7 @@ export function reconcileGroup(
 	lectures: NormalizedLecture[],
 	resolved: ResolvedSubject | null,
 	resolveError: string | null,
+	nowMinutes?: number,
 ): CheckupSubject {
 	const [courseCode = "", courseCompName = ""] = key.split("||");
 	const first = classes[0];
@@ -230,9 +264,7 @@ export function reconcileGroup(
 		};
 	}
 
-	// Unclaimed lectures bucketed by date, so a class can only ever consume a
-	// lecture from its own day. Sorted by start time so the loose match is
-	// deterministic rather than dependent on ERP response order.
+	// Unclaimed lectures bucketed by date, sorted by start time
 	const poolByDate = new Map<string, NormalizedLecture[]>();
 	for (const lecture of lectures) {
 		if (lecture.consumed) continue;
@@ -251,6 +283,31 @@ export function reconcileGroup(
 		});
 	}
 
+	// Two-pass matching:
+	// Pass 1: exact matches (same date & same start time)
+	const matchedLectures = new Map<NormalizedClass, NormalizedLecture>();
+	for (const cls of classes) {
+		const pool = poolByDate.get(cls.dateKey) ?? [];
+		const exact = pool.find(
+			(l) => !l.consumed && l.startMinutes === cls.startMinutes,
+		);
+		if (exact) {
+			exact.consumed = true;
+			matchedLectures.set(cls, exact);
+		}
+	}
+
+	// Pass 2: loose matches for remaining classes (same date, chronological order)
+	for (const cls of classes) {
+		if (matchedLectures.has(cls)) continue;
+		const pool = poolByDate.get(cls.dateKey) ?? [];
+		const loose = pool.find((l) => !l.consumed);
+		if (loose) {
+			loose.consumed = true;
+			matchedLectures.set(cls, loose);
+		}
+	}
+
 	const entries: CheckupEntry[] = classes.map((cls) => {
 		const base = {
 			courseCode: cls.courseCode,
@@ -260,19 +317,18 @@ export function reconcileGroup(
 			endTime: cls.endLabel,
 		};
 
-		const pool = poolByDate.get(cls.dateKey) ?? [];
-		const exact = pool.find(
-			(l) => !l.consumed && l.startMinutes === cls.startMinutes,
-		);
-		const loose = exact ?? pool.find((l) => !l.consumed);
-
-		if (!loose) {
-			return { ...base, verdict: "not-marked" as const };
+		const matched = matchedLectures.get(cls);
+		if (!matched) {
+			const isUpcoming =
+				nowMinutes !== undefined && cls.startMinutes > nowMinutes;
+			const verdict: CheckupEntry["verdict"] = isUpcoming
+				? "upcoming"
+				: "not-marked";
+			return { ...base, verdict };
 		}
 
-		loose.consumed = true;
 		const verdict: CheckupEntry["verdict"] =
-			loose.attendance === "ABSENT" ? "absent" : "present";
+			matched.attendance === "ABSENT" ? "absent" : "present";
 		return { ...base, verdict };
 	});
 
@@ -281,9 +337,7 @@ export function reconcileGroup(
 		courseName,
 		courseCompName,
 		entries,
-		// Signal B: a short count proves unmarked lectures are genuinely
-		// absent from the daywise response, and catches classes missing
-		// from the schedule entirely.
+		// Signal B: completeness proves whether unrecorded lectures exist in ERP
 		completeness: {
 			recorded: lectures.length,
 			expected: resolved.periodsHeld,
@@ -295,25 +349,22 @@ const emptySummary = (): CheckupSummary => ({
 	present: 0,
 	absent: 0,
 	notMarked: 0,
+	upcoming: 0,
 	unknown: 0,
 });
 
 /**
- * Today's timetable. A failure here is fatal: without the schedule there is
- * nothing to check.
+ * Today's timetable.
  */
 async function fetchTodaysClasses(token: string, now: Date) {
-	const start = new Date(now);
-	start.setHours(0, 0, 0, 0);
-	const end = new Date(now);
-	end.setHours(23, 59, 59, 999);
+	const dateKey = toDateKey(now);
 
 	const response = await axios.get<ScheduleResponse>(
 		`${getBaseUrl()}/api/student/schedule/class`,
 		{
 			params: {
-				weekStartDate: toDateKey(start),
-				weekEndDate: toDateKey(end),
+				weekStartDate: dateKey,
+				weekEndDate: dateKey,
 			},
 			headers: { Authorization: `GlobalEducation ${token}` },
 		},
@@ -361,10 +412,7 @@ async function fetchSubjectLectures(
 }
 
 /**
- * Runs the checkup for today's classes that have already ended.
- *
- * Reads no cookies and imports no React, so it stays usable from a future
- * email job or scheduled Worker unchanged.
+ * Runs the checkup for today's classes.
  */
 export async function runCheckup({
 	token,
@@ -376,24 +424,21 @@ export async function runCheckup({
 	const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
 	const rawClasses = await fetchTodaysClasses(token, now);
-	const allClasses = rawClasses
-		.filter((entry) => entry.type === "CLASS")
-		.map(normalizeClass)
-		.filter((c): c is NormalizedClass => c !== null);
+	const allClasses = deduplicateClasses(
+		rawClasses
+			.filter((entry) => entry.type === "CLASS")
+			.map(normalizeClass)
+			.filter((c): c is NormalizedClass => c !== null),
+	);
 
-	const todaysClasses = allClasses.filter((c) => c.dateKey === dateKey);
-
-	// "Today so far": anything still running or yet to start is out of scope.
-	const finished = todaysClasses
-		.filter((c) => c.endMinutes <= nowMinutes)
+	const todaysClasses = allClasses
+		.filter((c) => c.dateKey === dateKey)
 		.sort((a, b) => a.startMinutes - b.startMinutes);
 
-	// A free day and a day whose classes have not ended yet are different
-	// states and must not be conflated.
-	if (finished.length === 0) {
+	if (todaysClasses.length === 0) {
 		return {
 			date: dateKey,
-			status: todaysClasses.length === 0 ? "no-classes" : "none-finished",
+			status: "no-classes",
 			subjects: [],
 			summary: emptySummary(),
 		};
@@ -402,48 +447,63 @@ export async function runCheckup({
 	const courses: CourseAttendanceInfo[] =
 		attendanceData.attendanceCourseComponentInfoList ?? [];
 
-	const subjects: CheckupSubject[] = [];
-	for (const [key, classes] of groupBySubject(finished)) {
-		const sample = classes[0];
-		const resolution = resolveSubject(
-			sample.courseCode,
-			sample.courseCompName,
-			courses,
-		);
+	const subjectGroups = Array.from(groupBySubject(todaysClasses).entries());
+	const subjects: CheckupSubject[] = await Promise.all(
+		subjectGroups.map(async ([key, classes]) => {
+			const sample = classes[0];
+			const resolution = resolveSubject(
+				sample.courseCode,
+				sample.courseCompName,
+				courses,
+			);
 
-		if ("error" in resolution) {
-			subjects.push(reconcileGroup(key, classes, [], null, resolution.error));
-			continue;
-		}
+			if ("error" in resolution) {
+				return reconcileGroup(
+					key,
+					classes,
+					[],
+					null,
+					resolution.error,
+					nowMinutes,
+				);
+			}
 
-		const result = await fetchSubjectLectures(token, {
-			courseCompId: resolution.courseComponentId,
-			courseId: resolution.courseId,
-			studentId,
-		});
-
-		if ("error" in result) {
-			subjects.push({
-				courseCode: sample.courseCode,
-				courseName: sample.courseName,
-				courseCompName: sample.courseCompName,
-				entries: [],
-				error: result.error,
+			const result = await fetchSubjectLectures(token, {
+				courseCompId: resolution.courseComponentId,
+				courseId: resolution.courseId,
+				studentId,
 			});
-			continue;
-		}
 
-		const lectures = result
-			.map(normalizeLecture)
-			.filter((l): l is NormalizedLecture => l !== null);
-		subjects.push(reconcileGroup(key, classes, lectures, resolution, null));
-	}
+			if ("error" in result) {
+				return {
+					courseCode: sample.courseCode,
+					courseName: sample.courseName,
+					courseCompName: sample.courseCompName,
+					entries: [],
+					error: result.error,
+				};
+			}
+
+			const lectures = result
+				.map(normalizeLecture)
+				.filter((l): l is NormalizedLecture => l !== null);
+			return reconcileGroup(
+				key,
+				classes,
+				lectures,
+				resolution,
+				null,
+				nowMinutes,
+			);
+		}),
+	);
 
 	const summary = emptySummary();
 	const countKey: Record<CheckupEntry["verdict"], keyof CheckupSummary> = {
 		present: "present",
 		absent: "absent",
 		"not-marked": "notMarked",
+		upcoming: "upcoming",
 		unknown: "unknown",
 	};
 	for (const subject of subjects) {
