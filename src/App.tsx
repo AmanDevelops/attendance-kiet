@@ -1,4 +1,3 @@
-import Cookies from "js-cookie";
 import { useEffect, useRef, useState } from "react";
 import Attendance from "./components/Attendance";
 import ExtensionUpdateNotice from "./components/ExtensionUpdateNotice";
@@ -6,8 +5,12 @@ import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
 import TnC from "./components/TnC";
 import { AttendanceDataContext } from "./contexts/AppContext";
-import { AUTH_COOKIE_NAME, COOKIE_EXPIRY } from "./types/constants";
 import type { StudentDetails } from "./types/response";
+import {
+	clearAuthCookies,
+	msUntilAuthExpiry,
+	setAuthCookie,
+} from "./utils/jwt";
 import { fetchAttendanceData } from "./utils/LoginUtils";
 
 function App() {
@@ -39,7 +42,7 @@ function App() {
 
 			const loginWithToken = async () => {
 				try {
-					Cookies.set(AUTH_COOKIE_NAME, urlToken, { expires: COOKIE_EXPIRY });
+					setAuthCookie(urlToken);
 					const data = await fetchAttendanceData(urlToken);
 
 					const updatedStudentDetails: StudentDetails = {
@@ -65,6 +68,29 @@ function App() {
 			loginWithToken();
 		}
 	}, []);
+
+	// Log out automatically the moment the JWT expires. Keyed on the boolean so
+	// the timer is not rebuilt every time attendanceData is updated.
+	const isLoggedIn = attendanceData !== null;
+	useEffect(() => {
+		if (!isLoggedIn) return;
+		let timer: ReturnType<typeof setTimeout>;
+
+		const schedule = () => {
+			const remaining = msUntilAuthExpiry();
+			if (remaining === null) return;
+			if (remaining <= 0) {
+				clearAuthCookies();
+				setAttendanceData(null);
+				return;
+			}
+			// setTimeout overflows past ~24.8 days; wake early and re-check.
+			timer = setTimeout(schedule, Math.min(remaining, 2 ** 31 - 1));
+		};
+
+		schedule();
+		return () => clearTimeout(timer);
+	}, [isLoggedIn]);
 
 	return (
 		<div className="min-h-screen bg-gray-100 flex flex-col">

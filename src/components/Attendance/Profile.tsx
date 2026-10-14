@@ -6,6 +6,7 @@ import {
 	AUTH_COOKIE_NAME,
 	STUDENT_ID_COOKIE_NAME,
 } from "../../types/constants";
+import { clearAuthCookies } from "../../utils/jwt";
 import { exportSemesterICS } from "../CalendarExport";
 
 interface ProfileProps {
@@ -23,8 +24,7 @@ export default function Profile({
 	const [calendarError, setCalendarError] = useState("");
 
 	function handleLogout(): void {
-		Cookies.remove(AUTH_COOKIE_NAME);
-		Cookies.remove(STUDENT_ID_COOKIE_NAME);
+		clearAuthCookies();
 		setAttendanceData(null);
 	}
 

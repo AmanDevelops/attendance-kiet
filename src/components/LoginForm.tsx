@@ -20,6 +20,7 @@ import type {
 	StudentDetails,
 } from "../types/response";
 import PasswordInput from "../ui/PasswordInput";
+import { setAuthCookie } from "../utils/jwt";
 import { encryptPassword, fetchAttendanceData } from "../utils/LoginUtils";
 import InstallExtensionPage from "./InstallExtensionPage";
 
@@ -117,12 +118,87 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		}
 	}, [setAttendanceData]);
 
+	const completeLogin = async (
+		token: string,
+		user: string,
+		pass: string,
+		remember: boolean,
+		studentId?: number | string,
+	) => {
+		if (username !== user) {
+			Cookies.remove(STUDENT_ID_COOKIE_NAME);
+		}
+		if (studentId) {
+			Cookies.set(STUDENT_ID_COOKIE_NAME, String(studentId), {
+				expires: COOKIE_EXPIRY,
+			});
+		}
+
+		setAuthCookie(token);
+		Cookies.set(USERNAME_COOKIE_NAME, user, { expires: COOKIE_EXPIRY });
+		Cookies.set(REMEMBER_ME_COOKIE_NAME, remember.toString(), {
+			expires: COOKIE_EXPIRY,
+		});
+
+		if (remember) {
+			Cookies.set(PASSWORD_COOKIE_NAME, pass, { expires: COOKIE_EXPIRY });
+		} else {
+			Cookies.remove(PASSWORD_COOKIE_NAME);
+		}
+
+		try {
+			await loadAttendance(token, setAttendanceData);
+		} catch (fetchError) {
+			console.error(fetchError);
+			setError("Login successful, but failed to load attendance data.");
+		} finally {
+			setLoading(false);
+		}
+	};
+
 	const handleCredentialsSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setLoading(true);
 		setError("");
 		setIsExtensionError(false);
 
+		const enteredUser = usernameRef.current?.value || "";
+		const enteredPass = passwordRef.current?.value || "";
+		const enteredRemember = rememberMeRef.current?.checked || false;
+
+		// 1. Direct login. If the server returns a token we are done.
+		try {
+			const directResponse = await axios.post<LoginResponse>(
+				`${getBaseUrl()}/api/auth/login`,
+				{ userName: enteredUser, password: enteredPass },
+			);
+			const directToken =
+				directResponse.data.token || directResponse.data.data?.token;
+			if (directToken) {
+				await completeLogin(
+					directToken,
+					enteredUser,
+					enteredPass,
+					enteredRemember,
+					directResponse.data.data?.id,
+				);
+				return;
+			}
+		} catch (directError) {
+			// Credentials explicitly rejected: no point retrying the OTP flow.
+			if (
+				axios.isAxiosError(directError) &&
+				directError.response?.status === 400
+			) {
+				setError(
+					getServerErrorReason(directError) || "Invalid Username or Password",
+				);
+				setLoading(false);
+				return;
+			}
+		}
+
+		// 2. Fallback: encrypted login, which may trigger an OTP challenge.
 		try {
 			const loginResponse = await axios.post<EncryptLoginResponse>(
 				`${getBaseUrl()}/api/auth/encrypt/login`,
@@ -190,7 +266,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 				},
 			);
 
-			token = otpResponse.data.data.token;
+			token = otpResponse.data.token || otpResponse.data.data?.token || "";
 		} catch (otpError) {
 			const serverReason = getServerErrorReason(otpError);
 			if (axios.isAxiosError(otpError) && otpError.response?.status === 400) {
@@ -215,38 +291,12 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 			return;
 		}
 
-		if (username !== submittedUsernameRef.current) {
-			Cookies.remove(STUDENT_ID_COOKIE_NAME);
-		}
-
-		Cookies.set(AUTH_COOKIE_NAME, token, { expires: 1 / 24 });
-		Cookies.set(USERNAME_COOKIE_NAME, submittedUsernameRef.current, {
-			expires: COOKIE_EXPIRY,
-		});
-		Cookies.set(
-			REMEMBER_ME_COOKIE_NAME,
-			submittedRememberMeRef.current.toString(),
-			{
-				expires: COOKIE_EXPIRY,
-			},
+		await completeLogin(
+			token,
+			submittedUsernameRef.current,
+			submittedPasswordRef.current,
+			submittedRememberMeRef.current,
 		);
-
-		if (submittedRememberMeRef.current) {
-			Cookies.set(PASSWORD_COOKIE_NAME, submittedPasswordRef.current, {
-				expires: COOKIE_EXPIRY,
-			});
-		} else {
-			Cookies.remove(PASSWORD_COOKIE_NAME);
-		}
-
-		try {
-			await loadAttendance(token, setAttendanceData);
-		} catch (fetchError) {
-			console.error(fetchError);
-			setError("Login successful, but failed to load attendance data.");
-		} finally {
-			setLoading(false);
-		}
 	};
 
 	if (showInstallPage) {
