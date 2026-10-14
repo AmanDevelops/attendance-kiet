@@ -111,6 +111,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 					setError(error instanceof Error ? error.message : String(error));
 					// Clear invalid token to allow fresh login
 					Cookies.remove(AUTH_COOKIE_NAME);
+					Cookies.remove(STUDENT_ID_COOKIE_NAME);
 				}
 			};
 			loadData();
@@ -215,10 +216,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 			return;
 		}
 
-		if (username !== submittedUsernameRef.current) {
-			Cookies.remove(STUDENT_ID_COOKIE_NAME);
-		}
-
+		Cookies.remove(STUDENT_ID_COOKIE_NAME);
 		Cookies.set(AUTH_COOKIE_NAME, token, { expires: 1 / 24 });
 		Cookies.set(USERNAME_COOKIE_NAME, submittedUsernameRef.current, {
 			expires: COOKIE_EXPIRY,

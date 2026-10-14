@@ -34,15 +34,17 @@ function startOfDay(date: Date): Date {
 }
 
 function formatDateLabel(date: Date, isToday: boolean): string {
-	if (isToday) return "Today";
+	if (isToday) return "TODAY";
 	const yesterday = startOfDay(new Date());
 	yesterday.setDate(yesterday.getDate() - 1);
-	if (toDateKey(date) === toDateKey(yesterday)) return "Yesterday";
-	return date.toLocaleDateString("en-GB", {
-		day: "numeric",
-		month: "long",
-		year: "numeric",
-	});
+	if (toDateKey(date) === toDateKey(yesterday)) return "YESTERDAY";
+	return date
+		.toLocaleDateString("en-GB", {
+			day: "numeric",
+			month: "short",
+			year: "numeric",
+		})
+		.toUpperCase();
 }
 
 const VERDICT_STYLE: Record<
@@ -74,26 +76,11 @@ function VerdictBadge({ verdict }: { verdict: CheckupVerdict }) {
 	);
 }
 
-function SkeletonCard({ rows }: { rows: number }) {
+function SkeletonRow() {
 	return (
-		<div className="animate-pulse rounded-lg border-2 border-gray-200 p-3 mb-3 last:mb-0">
-			<div className="flex justify-between items-center gap-2 mb-3">
-				<div className="h-4 w-40 rounded bg-gray-200" />
-				<div className="h-4 w-14 rounded bg-gray-100" />
-			</div>
-			{Array.from({ length: rows }, (_, i) => (
-				<div
-					// biome-ignore lint/suspicious/noArrayIndexKey: static placeholder rows
-					key={i}
-					className="flex justify-between items-center gap-2 py-1.5 border-b border-gray-100 last:border-b-0"
-				>
-					<div className="flex items-center gap-1.5">
-						<div className="h-3.5 w-3.5 rounded-full bg-gray-200" />
-						<div className="h-3 w-28 rounded bg-gray-200" />
-					</div>
-					<div className="h-4 w-16 rounded bg-gray-200" />
-				</div>
-			))}
+		<div className="animate-pulse flex items-center gap-3 py-2">
+			<div className="h-4 w-20 bg-gray-200" />
+			<div className="h-4 w-32 bg-gray-200" />
 		</div>
 	);
 }
@@ -105,12 +92,12 @@ function SubjectBlock({ subject }: { subject: CheckupSubject }) {
 			: 0;
 
 	return (
-		<div className="rounded-lg border-2 border-gray-200 p-3 mb-3 last:mb-0">
-			<div className="flex flex-wrap justify-between items-center gap-2 mb-2">
-				<span className="text-sm font-bold text-gray-800 style-text">
+		<div className="border-t-2 border-black pt-3 mt-3 first:border-t-0 first:mt-0 first:pt-0">
+			<div className="flex flex-wrap justify-between items-center gap-2 mb-1">
+				<span className="text-sm font-bold text-gray-800 style-text uppercase">
 					{subject.courseName}
 				</span>
-				<span className="text-[11px] font-semibold text-gray-600 bg-gray-100 rounded px-2 py-0.5">
+				<span className="text-xs text-gray-500 uppercase">
 					{subject.courseCompName}
 				</span>
 			</div>
@@ -130,8 +117,7 @@ function SubjectBlock({ subject }: { subject: CheckupSubject }) {
 							key={`${subject.courseCode}-${entry.startTime}-${entry.courseCompName}`}
 							className="flex flex-wrap justify-between items-center gap-2 py-1.5 border-b border-gray-100 last:border-b-0"
 						>
-							<span className="flex items-center gap-1.5 text-xs font-medium text-gray-700">
-								<Clock className="h-3.5 w-3.5 text-gray-400" />
+							<span className="text-xs text-gray-700">
 								{entry.startTime} – {entry.endTime}
 							</span>
 							<VerdictBadge verdict={entry.verdict} />
@@ -156,7 +142,13 @@ function SummaryLine({ report }: { report: CheckupReport }) {
 	return <span className="text-xs text-gray-600">{parts.join(" · ")}</span>;
 }
 
-export default function TodayCheckup() {
+interface TodayCheckupProps {
+	studentId?: number | null;
+}
+
+export default function TodayCheckup({
+	studentId: propStudentId,
+}: TodayCheckupProps = {}) {
 	const { attendanceData } = useAppContext();
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
@@ -170,7 +162,16 @@ export default function TodayCheckup() {
 
 	const handleCheck = useCallback(async () => {
 		const token = Cookies.get(AUTH_COOKIE_NAME) || "";
-		let studentId = Number(Cookies.get(STUDENT_ID_COOKIE_NAME) || "0");
+		let studentId = propStudentId ?? 0;
+
+		if (!studentId || studentId <= 0) {
+			const rawStudentId = (Cookies.get(STUDENT_ID_COOKIE_NAME) || "")
+				.replace(/^"|"$/g, "")
+				.trim();
+			studentId = Number(rawStudentId || "0");
+			if (Number.isNaN(studentId)) studentId = 0;
+		}
+
 		if (!token || !attendanceData) {
 			setError("Please log in again to run the checkup.");
 			return;
@@ -180,7 +181,7 @@ export default function TodayCheckup() {
 		setError("");
 
 		try {
-			if (!studentId) {
+			if (!studentId || studentId <= 0) {
 				const fetchedId = await fetchStudentId(token);
 				if (fetchedId) {
 					studentId = fetchedId;
@@ -221,7 +222,7 @@ export default function TodayCheckup() {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [attendanceData, selectedDate, isToday]);
+	}, [attendanceData, selectedDate, isToday, propStudentId]);
 
 	const toggle = () => {
 		const next = !isExpanded;
@@ -260,18 +261,16 @@ export default function TodayCheckup() {
 
 	return (
 		<div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
-			<div className="flex items-center gap-3">
+			<div className="flex items-center justify-between gap-2">
 				<button
 					type="button"
 					onClick={toggle}
-					className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer bg-transparent border-none p-0"
+					className="flex items-center gap-2 text-left cursor-pointer bg-transparent border-none p-0"
 					aria-expanded={isExpanded}
 				>
-					<span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 border-2 border-blue-200">
-						<CalendarCheck className="h-6 w-6 text-blue-600" />
-					</span>
-					<span className="flex flex-1 min-w-0 flex-col items-start gap-0.5">
-						<span className="style-text text-md font-semibold text-black">
+					<CalendarCheck className="h-6 w-6 text-blue-600 shrink-0" />
+					<span className="flex flex-col items-start">
+						<span className="style-text text-md font-semibold text-black uppercase">
 							Today&apos;s Attendance
 						</span>
 						{report ? (
@@ -288,33 +287,23 @@ export default function TodayCheckup() {
 							</span>
 						)}
 					</span>
+					{isExpanded ? (
+						<ChevronUp className="h-5 w-5 text-gray-500" />
+					) : (
+						<ChevronDown className="h-5 w-5 text-gray-500" />
+					)}
 				</button>
 
 				{report && !isLoading && (
 					<button
 						type="button"
 						onClick={handleCheck}
-						aria-label="Refresh"
-						className="style-border style-text py-1.5 px-2 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transition-colors"
+						className="style-border style-text py-1.5 px-2 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transition-colors uppercase"
 					>
 						<RefreshCw className="h-3.5 w-3.5" />
-						<span className="hidden sm:inline">Refresh</span>
+						REFRESH
 					</button>
 				)}
-
-				<button
-					type="button"
-					onClick={toggle}
-					tabIndex={-1}
-					aria-hidden="true"
-					className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 cursor-pointer border-none transition-colors"
-				>
-					{isExpanded ? (
-						<ChevronUp className="h-5 w-5 text-gray-600" />
-					) : (
-						<ChevronDown className="h-5 w-5 text-gray-600" />
-					)}
-				</button>
 			</div>
 
 			{isExpanded && (
@@ -329,7 +318,7 @@ export default function TodayCheckup() {
 						>
 							<ChevronLeft className="h-4 w-4" />
 						</button>
-						<span className="style-text text-sm font-bold text-black">
+						<span className="style-text text-sm font-bold text-black uppercase">
 							{formatDateLabel(selectedDate, isToday)}
 						</span>
 						<button
@@ -345,9 +334,9 @@ export default function TodayCheckup() {
 
 					{isLoading && (
 						<div>
-							<SkeletonCard rows={2} />
-							<SkeletonCard rows={1} />
-							<SkeletonCard rows={2} />
+							<SkeletonRow />
+							<SkeletonRow />
+							<SkeletonRow />
 						</div>
 					)}
 
@@ -373,7 +362,7 @@ export default function TodayCheckup() {
 					{!isLoading && !error && report?.status === "ok" && (
 						<>
 							{report.summary.notMarked > 0 && (
-								<p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 p-2 mb-3">
+								<p className="text-xs text-amber-800 bg-[#fffbeb] border border-[#fef3c7] p-2.5 mb-3">
 									&quot;Not marked&quot; means no record exists yet. Faculty may
 									simply not have marked it at the time you checked.
 								</p>

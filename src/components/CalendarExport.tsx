@@ -1,6 +1,7 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 import { AUTH_COOKIE_NAME, getBaseUrl } from "../types/constants";
+import { formatAuthHeader } from "../types/utils";
 
 export interface ScheduleEntry {
 	id: string | null;
@@ -52,7 +53,7 @@ async function fetchSchedule(
 					weekStartDate: formatDate(start),
 					weekEndDate: formatDate(end),
 				},
-				headers: { Authorization: `GlobalEducation ${token}` },
+				headers: { Authorization: formatAuthHeader(token) },
 			},
 		);
 		return removeDuplicates(res.data.data ?? []);
