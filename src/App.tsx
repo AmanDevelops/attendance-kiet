@@ -46,6 +46,10 @@ function App() {
 
 			const loginWithToken = async () => {
 				try {
+					// A fresh token mode login means a (possibly different) student is
+					// signing in, so drop any studentId left over from a previous
+					// session before storing the new auth cookie.
+					clearAuthCookies();
 					setAuthCookie(urlToken);
 					const data = await fetchAttendanceData(urlToken);
 

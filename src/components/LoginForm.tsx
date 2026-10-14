@@ -143,6 +143,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 					setError(error instanceof Error ? error.message : String(error));
 					// Clear invalid token to allow fresh login
 					Cookies.remove(AUTH_COOKIE_NAME);
+					Cookies.remove(STUDENT_ID_COOKIE_NAME);
 				}
 			};
 			loadData();
@@ -158,14 +159,12 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		rememberMe: boolean;
 		studentId?: number | string;
 	}) => {
-		// Renaming `username` to `user` here avoids clashing with the `username`
-		// cookie value read near the top of this component (the two are
-		// compared just below, so they need to stay as separate names).
 		const { token, username: user, password, rememberMe, studentId } = login;
 
-		if (username !== user) {
-			Cookies.remove(STUDENT_ID_COOKIE_NAME);
-		}
+		// Always drop any studentId left over from a previous session before
+		// possibly storing a fresh one below - otherwise a stale id can stick
+		// around and get sent for the wrong account.
+		Cookies.remove(STUDENT_ID_COOKIE_NAME);
 		if (studentId) {
 			Cookies.set(STUDENT_ID_COOKIE_NAME, String(studentId), {
 				expires: COOKIE_EXPIRY,

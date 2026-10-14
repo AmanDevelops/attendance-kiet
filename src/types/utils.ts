@@ -1,11 +1,20 @@
 import axios from "axios";
 import { getBaseUrl } from "./constants";
 
+export function formatAuthHeader(token: string): string {
+	if (!token) return "";
+	const clean = token
+		.replace(/^"|"$/g, "")
+		.trim()
+		.replace(/^(GlobalEducation\s*)+/i, "");
+	return `GlobalEducation ${clean}`;
+}
+
 export async function fetchStudentId(token: string): Promise<number | null> {
 	try {
 		const response = await axios.get(
 			`${getBaseUrl()}/api/student/dashboard/registered-courses`,
-			{ headers: { Authorization: `GlobalEducation ${token}` } },
+			{ headers: { Authorization: formatAuthHeader(token) } },
 		);
 
 		if (response.data.data.length > 0) {
