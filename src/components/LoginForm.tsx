@@ -158,6 +158,9 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		rememberMe: boolean;
 		studentId?: number | string;
 	}) => {
+		// Renaming `username` to `user` here avoids clashing with the `username`
+		// cookie value read near the top of this component (the two are
+		// compared just below, so they need to stay as separate names).
 		const { token, username: user, password, rememberMe, studentId } = login;
 
 		if (username !== user) {
@@ -200,6 +203,16 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		const enteredUser = usernameRef.current?.value || "";
 		const enteredPass = passwordRef.current?.value || "";
 		const enteredRemember = rememberMeRef.current?.checked || false;
+
+		// Login happens in up to two steps, because some accounts can skip the
+		// OTP step entirely and some can't:
+		//   1. Try a direct login. If it hands back a token, we're already done.
+		//   2. Otherwise, fall back to the encrypted login, which starts the
+		//      OTP flow (the user is then asked to enter a code).
+		// If step 1 fails because the credentials are wrong, we stop there -
+		// retrying with step 2 would just fail for the same reason. Any other
+		// kind of failure (network error, server hiccup, etc.) falls through to
+		// step 2 as a second attempt.
 
 		// 1. Direct login. If the server returns a token we are done (no OTP
 		// needed for this account).

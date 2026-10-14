@@ -78,8 +78,17 @@ function App() {
 	const isLoggedIn = attendanceData !== null;
 	useEffect(() => {
 		if (!isLoggedIn) return;
+
+		// `timer` is declared here (outside `schedule`) so the cleanup function
+		// below can always see the *latest* timer and cancel it.
 		let timer: ReturnType<typeof setTimeout>;
 
+		// This function calls setTimeout with itself as the callback, so it
+		// keeps re-running every time it fires - like an alarm that resets
+		// itself. We can't just set one big timer for "time left until expiry"
+		// because a JWT can last longer than setTimeout's ~24.8 day limit
+		// (MAX_SETTIMEOUT_DELAY_MS), so instead we wait in smaller chunks and
+		// recheck the remaining time after each chunk.
 		const schedule = () => {
 			const remaining = msUntilAuthExpiry();
 			if (remaining === null) return;
@@ -95,6 +104,8 @@ function App() {
 		};
 
 		schedule();
+		// Runs if the component unmounts or the user logs out before the timer
+		// fires, so we don't try to update state that no longer exists.
 		return () => clearTimeout(timer);
 	}, [isLoggedIn]);
 

@@ -6,12 +6,22 @@ const FALLBACK_LIFETIME_MS = 60 * 60 * 1000;
 /** Expiry of a JWT as a Date, or null if it has no readable `exp` claim. */
 export function getTokenExpiry(token: string): Date | null {
 	try {
+		// A JWT is three base64url parts joined by dots: header.payload.signature.
+		// The expiry lives in the middle part, so that's the only one we need.
 		const payload = token.split(".")[1];
 		if (!payload) return null;
+
+		// "base64url" swaps in `-`/`_` for the `+`/`/` that regular base64 (and
+		// hence atob, the browser's base64 decoder) expects, and it drops the
+		// trailing `=` padding - so we restore both before decoding.
 		const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-		const claims = JSON.parse(
-			atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")),
-		) as { exp?: unknown };
+		const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+
+		// atob turns base64 text back into the original JSON string, which we
+		// then parse into the token's claims (e.g. `exp`, the expiry time).
+		const claims = JSON.parse(atob(padded)) as { exp?: unknown };
+
+		// `exp` is seconds since epoch per the JWT spec; Date wants milliseconds.
 		return typeof claims.exp === "number" ? new Date(claims.exp * 1000) : null;
 	} catch {
 		return null;
