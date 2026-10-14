@@ -2,10 +2,7 @@ import Cookies from "js-cookie";
 import { Calendar, LogOut, User, Wand2 } from "lucide-react";
 import { useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
-import {
-	AUTH_COOKIE_NAME,
-	STUDENT_ID_COOKIE_NAME,
-} from "../../types/constants";
+import { AUTH_COOKIE_NAME } from "../../types/constants";
 import { clearAuthCookies } from "../../utils/jwt";
 import { exportSemesterICS } from "../CalendarExport";
 
