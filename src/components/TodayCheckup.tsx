@@ -4,12 +4,14 @@ import {
 	CalendarCheck,
 	CheckCircle,
 	ChevronDown,
+	ChevronLeft,
+	ChevronRight,
 	ChevronUp,
 	Clock,
 	RefreshCw,
 	XCircle,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAppContext } from "../contexts/AppContext";
 import type {
 	CheckupEntry,
@@ -23,7 +25,25 @@ import {
 	STUDENT_ID_COOKIE_NAME,
 } from "../types/constants";
 import { fetchStudentId } from "../types/utils";
-import { runCheckup } from "../utils/checkup";
+import { runCheckup, toDateKey } from "../utils/checkup";
+
+function startOfDay(date: Date): Date {
+	const copy = new Date(date);
+	copy.setHours(0, 0, 0, 0);
+	return copy;
+}
+
+function formatDateLabel(date: Date, isToday: boolean): string {
+	if (isToday) return "Today";
+	const yesterday = startOfDay(new Date());
+	yesterday.setDate(yesterday.getDate() - 1);
+	if (toDateKey(date) === toDateKey(yesterday)) return "Yesterday";
+	return date.toLocaleDateString("en-GB", {
+		day: "numeric",
+		month: "long",
+		year: "numeric",
+	});
+}
 
 const VERDICT_STYLE: Record<
 	CheckupVerdict,
@@ -54,11 +74,26 @@ function VerdictBadge({ verdict }: { verdict: CheckupVerdict }) {
 	);
 }
 
-function SkeletonRow() {
+function SkeletonCard({ rows }: { rows: number }) {
 	return (
-		<div className="animate-pulse flex items-center gap-3 py-2">
-			<div className="h-4 w-20 bg-gray-200" />
-			<div className="h-4 w-32 bg-gray-200" />
+		<div className="animate-pulse rounded-lg border-2 border-gray-200 p-3 mb-3 last:mb-0">
+			<div className="flex justify-between items-center gap-2 mb-3">
+				<div className="h-4 w-40 rounded bg-gray-200" />
+				<div className="h-4 w-14 rounded bg-gray-100" />
+			</div>
+			{Array.from({ length: rows }, (_, i) => (
+				<div
+					// biome-ignore lint/suspicious/noArrayIndexKey: static placeholder rows
+					key={i}
+					className="flex justify-between items-center gap-2 py-1.5 border-b border-gray-100 last:border-b-0"
+				>
+					<div className="flex items-center gap-1.5">
+						<div className="h-3.5 w-3.5 rounded-full bg-gray-200" />
+						<div className="h-3 w-28 rounded bg-gray-200" />
+					</div>
+					<div className="h-4 w-16 rounded bg-gray-200" />
+				</div>
+			))}
 		</div>
 	);
 }
@@ -70,12 +105,14 @@ function SubjectBlock({ subject }: { subject: CheckupSubject }) {
 			: 0;
 
 	return (
-		<div className="border-t-2 border-black pt-3 mt-3 first:border-t-0 first:mt-0 first:pt-0">
-			<div className="flex flex-wrap justify-between items-center gap-2 mb-1">
+		<div className="rounded-lg border-2 border-gray-200 p-3 mb-3 last:mb-0">
+			<div className="flex flex-wrap justify-between items-center gap-2 mb-2">
 				<span className="text-sm font-bold text-gray-800 style-text">
 					{subject.courseName}
 				</span>
-				<span className="text-xs text-gray-500">{subject.courseCompName}</span>
+				<span className="text-[11px] font-semibold text-gray-600 bg-gray-100 rounded px-2 py-0.5">
+					{subject.courseCompName}
+				</span>
 			</div>
 
 			{subject.error ? (
@@ -93,7 +130,8 @@ function SubjectBlock({ subject }: { subject: CheckupSubject }) {
 							key={`${subject.courseCode}-${entry.startTime}-${entry.courseCompName}`}
 							className="flex flex-wrap justify-between items-center gap-2 py-1.5 border-b border-gray-100 last:border-b-0"
 						>
-							<span className="text-xs text-gray-700">
+							<span className="flex items-center gap-1.5 text-xs font-medium text-gray-700">
+								<Clock className="h-3.5 w-3.5 text-gray-400" />
 								{entry.startTime} – {entry.endTime}
 							</span>
 							<VerdictBadge verdict={entry.verdict} />
@@ -124,6 +162,11 @@ export default function TodayCheckup() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState("");
 	const [report, setReport] = useState<CheckupReport | null>(null);
+	const [selectedDate, setSelectedDate] = useState(() =>
+		startOfDay(new Date()),
+	);
+
+	const isToday = toDateKey(selectedDate) === toDateKey(new Date());
 
 	const handleCheck = useCallback(async () => {
 		const token = Cookies.get(AUTH_COOKIE_NAME) || "";
@@ -151,14 +194,34 @@ export default function TodayCheckup() {
 				}
 			}
 
-			setReport(await runCheckup({ token, studentId, attendanceData }));
+			// Past days have no "upcoming" lectures left, so pin the clock to the
+			// end of that day; today keeps the real time for the upcoming/not-marked split.
+			const effectiveNow = isToday
+				? new Date()
+				: new Date(
+						selectedDate.getFullYear(),
+						selectedDate.getMonth(),
+						selectedDate.getDate(),
+						23,
+						59,
+						59,
+					);
+
+			setReport(
+				await runCheckup({
+					token,
+					studentId,
+					attendanceData,
+					now: effectiveNow,
+				}),
+			);
 		} catch (err) {
 			console.error(err);
-			setError("Could not load today's timetable. Please try again.");
+			setError("Could not load the timetable for this day. Please try again.");
 		} finally {
 			setIsLoading(false);
 		}
-	}, [attendanceData]);
+	}, [attendanceData, selectedDate, isToday]);
 
 	const toggle = () => {
 		const next = !isExpanded;
@@ -169,24 +232,52 @@ export default function TodayCheckup() {
 		}
 	};
 
+	// Refetches whenever the selected day changes, but only while the card is
+	// open; the initial expand is handled by `toggle` above.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: only the date change should retrigger this, not every identity change of handleCheck/isExpanded (that would double-fetch on open).
+	useEffect(() => {
+		if (isExpanded) {
+			handleCheck();
+		}
+	}, [selectedDate]);
+
+	const goToPreviousDay = () => {
+		setSelectedDate((prev) => {
+			const next = new Date(prev);
+			next.setDate(next.getDate() - 1);
+			return next;
+		});
+	};
+
+	const goToNextDay = () => {
+		if (isToday) return;
+		setSelectedDate((prev) => {
+			const next = new Date(prev);
+			next.setDate(next.getDate() + 1);
+			return next;
+		});
+	};
+
 	return (
 		<div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
-			<div className="flex items-center justify-between gap-2">
+			<div className="flex items-center gap-3">
 				<button
 					type="button"
 					onClick={toggle}
-					className="flex items-center gap-2 text-left cursor-pointer bg-transparent border-none p-0"
+					className="flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer bg-transparent border-none p-0"
 					aria-expanded={isExpanded}
 				>
-					<CalendarCheck className="h-6 w-6 text-blue-600 shrink-0" />
-					<span className="flex flex-col items-start">
+					<span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 border-2 border-blue-200">
+						<CalendarCheck className="h-6 w-6 text-blue-600" />
+					</span>
+					<span className="flex flex-1 min-w-0 flex-col items-start gap-0.5">
 						<span className="style-text text-md font-semibold text-black">
 							Today&apos;s Attendance
 						</span>
 						{report ? (
 							report.status === "no-classes" ? (
 								<span className="text-xs text-gray-500">
-									No classes scheduled today
+									No classes scheduled{isToday ? " today" : ""}
 								</span>
 							) : (
 								<SummaryLine report={report} />
@@ -197,32 +288,66 @@ export default function TodayCheckup() {
 							</span>
 						)}
 					</span>
-					{isExpanded ? (
-						<ChevronUp className="h-5 w-5 text-gray-500" />
-					) : (
-						<ChevronDown className="h-5 w-5 text-gray-500" />
-					)}
 				</button>
 
 				{report && !isLoading && (
 					<button
 						type="button"
 						onClick={handleCheck}
+						aria-label="Refresh"
 						className="style-border style-text py-1.5 px-2 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transition-colors"
 					>
 						<RefreshCw className="h-3.5 w-3.5" />
-						Refresh
+						<span className="hidden sm:inline">Refresh</span>
 					</button>
 				)}
+
+				<button
+					type="button"
+					onClick={toggle}
+					tabIndex={-1}
+					aria-hidden="true"
+					className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 cursor-pointer border-none transition-colors"
+				>
+					{isExpanded ? (
+						<ChevronUp className="h-5 w-5 text-gray-600" />
+					) : (
+						<ChevronDown className="h-5 w-5 text-gray-600" />
+					)}
+				</button>
 			</div>
 
 			{isExpanded && (
 				<div className="mt-4">
+					<div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-gray-200">
+						<button
+							type="button"
+							onClick={goToPreviousDay}
+							disabled={isLoading}
+							aria-label="Previous day"
+							className="style-border p-1.5 cursor-pointer hover:bg-black hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+						>
+							<ChevronLeft className="h-4 w-4" />
+						</button>
+						<span className="style-text text-sm font-bold text-black">
+							{formatDateLabel(selectedDate, isToday)}
+						</span>
+						<button
+							type="button"
+							onClick={goToNextDay}
+							disabled={isToday || isLoading}
+							aria-label="Next day"
+							className="style-border p-1.5 cursor-pointer hover:bg-black hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+						>
+							<ChevronRight className="h-4 w-4" />
+						</button>
+					</div>
+
 					{isLoading && (
 						<div>
-							<SkeletonRow />
-							<SkeletonRow />
-							<SkeletonRow />
+							<SkeletonCard rows={2} />
+							<SkeletonCard rows={1} />
+							<SkeletonCard rows={2} />
 						</div>
 					)}
 
@@ -240,7 +365,9 @@ export default function TodayCheckup() {
 					)}
 
 					{!isLoading && !error && report?.status === "no-classes" && (
-						<p className="text-sm text-gray-500">No classes scheduled today.</p>
+						<p className="text-sm text-gray-500">
+							No classes scheduled{isToday ? " today" : ""}.
+						</p>
 					)}
 
 					{!isLoading && !error && report?.status === "ok" && (
