@@ -1,4 +1,5 @@
 import axios from "axios";
+import Cookies from "js-cookie";
 import type {
 	CheckupEntry,
 	CheckupParams,
@@ -9,7 +10,7 @@ import type {
 	NormalizedLecture,
 	ResolvedSubject,
 } from "../types/checkup";
-import { getBaseUrl } from "../types/constants";
+import { getBaseUrl, STUDENT_ID_COOKIE_NAME } from "../types/constants";
 import type {
 	AttendanceApiResponse,
 	CourseAttendanceInfo,
@@ -17,6 +18,7 @@ import type {
 	ScheduleEntry,
 	ScheduleResponse,
 } from "../types/response";
+import { formatAuthHeader } from "../types/utils";
 
 /**
  * Collapses whitespace and lowercases, so that "Data Structures " and
@@ -45,16 +47,31 @@ export function toMinutesSinceMidnight(hhmm: string): number | null {
 	return hours * 60 + minutes;
 }
 
-/** "10/01/2024" -> local Date for 10 Jan 2024. Returns null if malformed. */
+/** "10/01/2024" or "2024-01-10" -> local Date. Returns null if malformed. */
 export function parseScheduleDate(lectureDate: string): Date | null {
-	const parts = lectureDate.split("/").map((p) => Number.parseInt(p, 10));
-	if (parts.length !== 3 || parts.some((p) => Number.isNaN(p))) return null;
-	const [day, month, year] = parts;
-	if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-	const date = new Date(year, month - 1, day);
-	// Rejects overflow like 31/02, which would roll into the next month.
-	if (date.getDate() !== day || date.getMonth() !== month - 1) return null;
-	return date;
+	if (!lectureDate) return null;
+	const trimmed = lectureDate.trim();
+	const dmy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+	if (dmy) {
+		const day = Number.parseInt(dmy[1], 10);
+		const month = Number.parseInt(dmy[2], 10);
+		const year = Number.parseInt(dmy[3], 10);
+		if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+		const date = new Date(year, month - 1, day);
+		if (date.getDate() !== day || date.getMonth() !== month - 1) return null;
+		return date;
+	}
+	const ymd = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+	if (ymd) {
+		const year = Number.parseInt(ymd[1], 10);
+		const month = Number.parseInt(ymd[2], 10);
+		const day = Number.parseInt(ymd[3], 10);
+		if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+		const date = new Date(year, month - 1, day);
+		if (date.getDate() !== day || date.getMonth() !== month - 1) return null;
+		return date;
+	}
+	return null;
 }
 
 /** "09:00:00" -> "9:00 AM". */
@@ -69,11 +86,12 @@ function toDisplayTime(hhmm: string): string {
 }
 
 /**
- * The schedule endpoint gives `start` as "YYYY-MM-DD HH:MM:SS" and
- * `lectureDate` as "DD/MM/YYYY". Returns null when either is unparseable.
+ * The schedule endpoint gives `start` as "YYYY-MM-DD HH:MM:SS" (or "DD/MM/YYYY HH:MM:SS")
+ * and `lectureDate` as "DD/MM/YYYY". Returns null when either is unparseable.
  */
 export function normalizeClass(entry: ScheduleEntry): NormalizedClass | null {
-	const date = parseScheduleDate(entry.lectureDate ?? "");
+	const rawDate = entry.lectureDate || entry.start?.split(" ")[0] || "";
+	const date = parseScheduleDate(rawDate);
 	if (!date) return null;
 
 	const startRaw = entry.start?.split(" ")[1];
@@ -111,19 +129,37 @@ export function deduplicateClasses(
 }
 
 /**
- * `planLecDate` is fed straight into `new Date()` by the existing daywise
- * report, so it is treated the same way here. `timeSlot` is free text, so its
- * start time is best-effort: null when the first HH:MM-like token cannot be
- * read, which makes the caller fall back to date-only matching.
+ * Parses lecture date string to YYYY-MM-DD directly without letting Date()
+ * shift days due to UTC timezone offsets.
+ */
+export function parseLectureDateKey(planLecDate: string): string | null {
+	if (!planLecDate) return null;
+	const trimmed = planLecDate.trim();
+	const ymd = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+	if (ymd) {
+		return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+	}
+	const dmy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+	if (dmy) {
+		return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+	}
+	const date = new Date(trimmed);
+	if (Number.isNaN(date.getTime())) return null;
+	return toDateKey(date);
+}
+
+/**
+ * Normalizes daywise lecture entry with timezone-safe date extraction.
  */
 export function normalizeLecture(
 	lecture: LectureListProps,
 ): NormalizedLecture | null {
-	const date = new Date(lecture.planLecDate);
-	if (Number.isNaN(date.getTime())) return null;
+	const rawDate = lecture.planLecDate || "";
+	const dateKey = parseLectureDateKey(rawDate);
+	if (!dateKey) return null;
 
 	return {
-		dateKey: toDateKey(date),
+		dateKey,
 		startMinutes: parseTimeSlotStart(lecture.timeSlot),
 		attendance: lecture.attendance,
 		consumed: false,
@@ -165,11 +201,14 @@ export function resolveSubject(
 	courseCode: string,
 	courseCompName: string,
 	courses: CourseAttendanceInfo[],
+	courseName?: string,
 ): ResolvedSubject | { error: string } {
 	const targetCode = normalizeName(courseCode);
-	const course = courses.find(
-		(c) => normalizeName(c.courseCode) === targetCode,
-	);
+	let course = courses.find((c) => normalizeName(c.courseCode) === targetCode);
+	if (!course && courseName) {
+		const targetName = normalizeName(courseName);
+		course = courses.find((c) => normalizeName(c.courseName) === targetName);
+	}
 	if (!course) {
 		return { error: "subject not in your enrolled list" };
 	}
@@ -190,6 +229,12 @@ export function resolveSubject(
 
 	if (!component) {
 		return { error: "component not found in your enrolled list" };
+	}
+
+	if (!course.courseId || !component.courseComponentId) {
+		return {
+			error: "Invalid course or component identifier in your enrolled list",
+		};
 	}
 
 	return {
@@ -243,7 +288,7 @@ export function reconcileGroup(
 	const first = classes[0];
 	const courseName = first?.courseName ?? "";
 
-	if (!resolved) {
+	if (!resolved || resolveError) {
 		return {
 			courseCode,
 			courseName,
@@ -363,7 +408,7 @@ async function fetchTodaysClasses(token: string, now: Date) {
 				weekStartDate: dateKey,
 				weekEndDate: dateKey,
 			},
-			headers: { Authorization: `GlobalEducation ${token}` },
+			headers: { Authorization: formatAuthHeader(token) },
 		},
 	);
 
@@ -378,34 +423,84 @@ async function fetchSubjectLectures(
 	token: string,
 	payload: { courseCompId: number; courseId: number; studentId: number },
 ): Promise<LectureListProps[] | { error: string }> {
-	try {
-		const response = await axios.post<AttendanceApiResponse>(
-			`${getBaseUrl()}/api/attendance/schedule/student/course/attendance/percentage`,
-			{
-				courseCompId: payload.courseCompId,
-				courseId: payload.courseId,
-				sessionId: null,
-				studentId: payload.studentId,
-			},
-			{
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `GlobalEducation ${token}`,
-				},
-			},
-		);
-		const buckets = response.data.data;
-		if (!buckets || buckets.length === 0) return [];
-		return buckets[0].lectureList ?? [];
-	} catch (err) {
-		const status = axios.isAxiosError(err) ? err.response?.status : undefined;
-		return {
-			error:
-				status === 401
-					? "Session expired. Please log in again."
-					: "Could not load attendance for this subject.",
-		};
+	if (
+		!payload.studentId ||
+		payload.studentId <= 0 ||
+		Number.isNaN(payload.studentId) ||
+		!payload.courseCompId ||
+		payload.courseCompId <= 0 ||
+		!payload.courseId ||
+		payload.courseId <= 0
+	) {
+		console.warn("fetchSubjectLectures skipped due to invalid IDs:", payload);
+		return { error: "Missing or invalid subject/student identifier." };
 	}
+
+	const authHeader = formatAuthHeader(token);
+	const maxAttempts = 3;
+	for (let attempt = 0; attempt < maxAttempts; attempt++) {
+		try {
+			const response = await axios.post<AttendanceApiResponse>(
+				`${getBaseUrl()}/api/attendance/schedule/student/course/attendance/percentage`,
+				{
+					courseCompId: payload.courseCompId,
+					courseId: payload.courseId,
+					sessionId: null,
+					studentId: payload.studentId,
+				},
+				{
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: authHeader,
+					},
+					timeout: 15000,
+				},
+			);
+			const buckets = response.data.data;
+			if (!buckets || buckets.length === 0) return [];
+			return buckets[0].lectureList ?? [];
+		} catch (err) {
+			const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+			// Only retry on network drops/timeouts or 5xx server errors. Never retry 4xx client errors (400, 401, 403, 404).
+			const shouldRetry =
+				attempt < maxAttempts - 1 && (!status || status >= 500);
+
+			if (shouldRetry) {
+				await new Promise((resolve) =>
+					setTimeout(resolve, 400 * (attempt + 1)),
+				);
+				continue;
+			}
+
+			console.error(
+				"fetchSubjectLectures failed for subject:",
+				payload,
+				"Status:",
+				status,
+				"Data:",
+				axios.isAxiosError(err) ? err.response?.data : err,
+			);
+
+			const resData = axios.isAxiosError(err) ? err.response?.data : undefined;
+			const serverMsg =
+				resData?.error?.reason ??
+				resData?.message ??
+				(typeof resData?.error === "string" ? resData.error : undefined);
+
+			if (resData?.error?.reason === "No data found") {
+				// The studentId cookie was stale or invalid for this course. Clear it to force re-fetch.
+				Cookies.remove(STUDENT_ID_COOKIE_NAME);
+			}
+
+			return {
+				error:
+					status === 401
+						? "Session expired. Please log in again."
+						: (serverMsg ?? "Could not load attendance for this subject."),
+			};
+		}
+	}
+	return { error: "Could not load attendance for this subject." };
 }
 
 /**
@@ -445,55 +540,66 @@ export async function runCheckup({
 		attendanceData.attendanceCourseComponentInfoList ?? [];
 
 	const subjectGroups = Array.from(groupBySubject(todaysClasses).entries());
-	const subjects: CheckupSubject[] = await Promise.all(
-		subjectGroups.map(async ([key, classes]) => {
-			const sample = classes[0];
-			const resolution = resolveSubject(
-				sample.courseCode,
-				sample.courseCompName,
-				courses,
-			);
 
-			if ("error" in resolution) {
+	// Process subject groups with controlled concurrency (2 at a time) to prevent
+	// network dropped packets or rate limits from the proxy.
+	const subjects: CheckupSubject[] = [];
+	const chunkSize = 2;
+	for (let i = 0; i < subjectGroups.length; i += chunkSize) {
+		const chunk = subjectGroups.slice(i, i + chunkSize);
+		const chunkResults = await Promise.all(
+			chunk.map(async ([key, classes]) => {
+				const sample = classes[0];
+				const resolution = resolveSubject(
+					sample.courseCode,
+					sample.courseCompName,
+					courses,
+					sample.courseName,
+				);
+
+				if ("error" in resolution) {
+					return reconcileGroup(
+						key,
+						classes,
+						[],
+						null,
+						resolution.error,
+						nowMinutes,
+					);
+				}
+
+				const result = await fetchSubjectLectures(token, {
+					courseCompId: resolution.courseComponentId,
+					courseId: resolution.courseId,
+					studentId,
+				});
+
+				if ("error" in result) {
+					return reconcileGroup(
+						key,
+						classes,
+						[],
+						resolution,
+						result.error,
+						nowMinutes,
+					);
+				}
+
+				const lectures = result
+					.map(normalizeLecture)
+					.filter((l): l is NormalizedLecture => l !== null);
 				return reconcileGroup(
 					key,
 					classes,
-					[],
+					lectures,
+					resolution,
 					null,
-					resolution.error,
 					nowMinutes,
 				);
-			}
-
-			const result = await fetchSubjectLectures(token, {
-				courseCompId: resolution.courseComponentId,
-				courseId: resolution.courseId,
-				studentId,
-			});
-
-			if ("error" in result) {
-				return {
-					courseCode: sample.courseCode,
-					courseName: sample.courseName,
-					courseCompName: sample.courseCompName,
-					entries: [],
-					error: result.error,
-				};
-			}
-
-			const lectures = result
-				.map(normalizeLecture)
-				.filter((l): l is NormalizedLecture => l !== null);
-			return reconcileGroup(
-				key,
-				classes,
-				lectures,
-				resolution,
-				null,
-				nowMinutes,
-			);
-		}),
-	);
+			}),
+		);
+		subjects.push(...chunkResults);
+	}
 
 	const summary = emptySummary();
 	const countKey: Record<CheckupEntry["verdict"], keyof CheckupSummary> = {

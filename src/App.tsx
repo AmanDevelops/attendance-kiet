@@ -6,7 +6,11 @@ import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
 import TnC from "./components/TnC";
 import { AttendanceDataContext } from "./contexts/AppContext";
-import { AUTH_COOKIE_NAME, COOKIE_EXPIRY } from "./types/constants";
+import {
+	AUTH_COOKIE_NAME,
+	COOKIE_EXPIRY,
+	STUDENT_ID_COOKIE_NAME,
+} from "./types/constants";
 import type { StudentDetails } from "./types/response";
 import { fetchAttendanceData } from "./utils/LoginUtils";
 
@@ -39,6 +43,7 @@ function App() {
 
 			const loginWithToken = async () => {
 				try {
+					Cookies.remove(STUDENT_ID_COOKIE_NAME);
 					Cookies.set(AUTH_COOKIE_NAME, urlToken, { expires: COOKIE_EXPIRY });
 					const data = await fetchAttendanceData(urlToken);
 

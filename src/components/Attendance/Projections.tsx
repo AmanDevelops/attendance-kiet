@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
 import { AUTH_COOKIE_NAME, getBaseUrl } from "../../types/constants";
 import type { ScheduleEntry, ScheduleResponse } from "../../types/response";
-import { getWeekRange } from "../../types/utils";
+import { formatAuthHeader, getWeekRange } from "../../types/utils";
 
 type ClassEntry = ScheduleEntry & {
 	formattedStart: string;
@@ -76,7 +76,7 @@ export default function Projections() {
 					const { startDate, endDate } = getWeekRange();
 					const scheduleResponse = await axios.get<ScheduleResponse>(
 						`${getBaseUrl()}/api/student/schedule/class?weekEndDate=${endDate}&weekStartDate=${startDate}`,
-						{ headers: { Authorization: `GlobalEducation ${token}` } },
+						{ headers: { Authorization: formatAuthHeader(token) } },
 					);
 					setSchedule(scheduleResponse.data.data);
 				} catch (err) {

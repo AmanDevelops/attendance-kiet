@@ -5,6 +5,7 @@ import type {
 	StudentAttendanceApiResponse,
 	StudentDetails,
 } from "../types/response";
+import { formatAuthHeader } from "../types/utils";
 
 export const fetchAttendanceData = async (
 	token: string,
@@ -14,7 +15,7 @@ export const fetchAttendanceData = async (
 			`${getBaseUrl()}/api/attendance/course/component/student`,
 			{
 				headers: {
-					Authorization: `GlobalEducation ${token}`,
+					Authorization: formatAuthHeader(token),
 				},
 			},
 		);

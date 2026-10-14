@@ -32,10 +32,9 @@ export default function Profile({
 
 	async function handleCalendarExport() {
 		const token = Cookies.get(AUTH_COOKIE_NAME);
-		const studentId = Cookies.get(STUDENT_ID_COOKIE_NAME);
 
-		if (!token || !studentId) {
-			console.error("Missing token or studentId");
+		if (!token) {
+			console.error("Missing token");
 			setCalendarError("Authentication failed. Please login again.");
 			return;
 		}

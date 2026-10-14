@@ -6,6 +6,7 @@ import type {
 	DaywiseReportProps,
 	LectureListProps,
 } from "../types/response";
+import { formatAuthHeader } from "../types/utils";
 
 function formatDate(dateString: string) {
 	const date = new Date(dateString);
@@ -41,6 +42,18 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
 
 	useEffect(() => {
 		const fetchDaywiseAttendance = async () => {
+			if (
+				!payload.studentId ||
+				Number(payload.studentId) <= 0 ||
+				Number.isNaN(Number(payload.studentId)) ||
+				!payload.courseCompId ||
+				!payload.courseId
+			) {
+				setError("Missing course or student identification.");
+				setLoading(false);
+				return;
+			}
+
 			try {
 				const response = await axios.post<AttendanceApiResponse>(
 					`${getBaseUrl()}/api/attendance/schedule/student/course/attendance/percentage`,
@@ -48,7 +61,7 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
 					{
 						headers: {
 							"Content-Type": "application/json",
-							Authorization: `GlobalEducation ${token}`,
+							Authorization: formatAuthHeader(token),
 						},
 					},
 				);

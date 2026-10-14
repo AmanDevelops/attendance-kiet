@@ -27,8 +27,11 @@ export interface SelectedComponentType {
 function Attendance() {
 	const { attendanceData } = useAppContext();
 	const [studentId, setStudentId] = useState<number | null>(() => {
-		const cookieStudentId = Cookies.get(STUDENT_ID_COOKIE_NAME);
-		return cookieStudentId ? Number(cookieStudentId) : null;
+		const cookieStudentId = (Cookies.get(STUDENT_ID_COOKIE_NAME) || "")
+			.replace(/^"|"$/g, "")
+			.trim();
+		const parsed = Number(cookieStudentId);
+		return parsed && !Number.isNaN(parsed) && parsed > 0 ? parsed : null;
 	});
 
 	useEffect(() => {
@@ -68,21 +71,18 @@ function Attendance() {
 	}, []);
 
 	useEffect(() => {
-		if (studentId === null) {
-			const token = Cookies.get(AUTH_COOKIE_NAME) || "";
-
-			if (token) {
-				fetchStudentId(token).then((id) => {
-					if (id) {
-						setStudentId(id);
-						Cookies.set(STUDENT_ID_COOKIE_NAME, String(id), {
-							expires: COOKIE_EXPIRY,
-						});
-					}
-				});
-			}
+		const token = Cookies.get(AUTH_COOKIE_NAME) || "";
+		if (token) {
+			fetchStudentId(token).then((id) => {
+				if (id) {
+					setStudentId(id);
+					Cookies.set(STUDENT_ID_COOKIE_NAME, String(id), {
+						expires: COOKIE_EXPIRY,
+					});
+				}
+			});
 		}
-	}, [studentId]);
+	}, []);
 
 	if (!attendanceData) return null;
 
@@ -100,7 +100,7 @@ function Attendance() {
 				<div className={`${showProjection % 2 === 1 ? "block" : "hidden"}`}>
 					{showProjection > 0 && <Projections />}
 				</div>
-				<TodayCheckup />
+				<TodayCheckup studentId={studentId} />
 				<OverallAtt />
 			</div>
 
@@ -136,15 +136,21 @@ function Attendance() {
 							</button>
 						</div>
 
-						<DaywiseReport
-							token={Cookies.get(AUTH_COOKIE_NAME) || ""}
-							payload={{
-								courseCompId: selectedComponent.component.courseComponentId,
-								courseId: selectedComponent.course.courseId,
-								sessionId: null,
-								studentId: studentId || 0,
-							}}
-						/>
+						{studentId ? (
+							<DaywiseReport
+								token={Cookies.get(AUTH_COOKIE_NAME) || ""}
+								payload={{
+									courseCompId: selectedComponent.component.courseComponentId,
+									courseId: selectedComponent.course.courseId,
+									sessionId: null,
+									studentId,
+								}}
+							/>
+						) : (
+							<p className="text-gray-500 text-sm">
+								Loading student attendance data...
+							</p>
+						)}
 					</div>
 				</div>
 			)}
