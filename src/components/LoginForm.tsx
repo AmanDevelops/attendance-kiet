@@ -101,6 +101,37 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		onModeChange?.(newMode);
 	};
 
+	// Shared by the login and OTP forms: reads the server's error response and
+	// picks a user-friendly message, flagging the "update extension" banner
+	// when a 403 happens in live mode.
+	const handleAuthError = (
+		err: unknown,
+		badRequestMessage: string,
+		forbiddenMessage: string,
+		networkErrorMessage: string,
+	) => {
+		if (!axios.isAxiosError(err)) {
+			setError(networkErrorMessage);
+			return;
+		}
+
+		const serverReason = getServerErrorReason(err);
+		const status = err.response?.status;
+
+		if (status === 400) {
+			setError(serverReason || badRequestMessage);
+		} else if (status === 403) {
+			if (apiMode === "live") {
+				setError("Please Update the Extension to the latest version 3.6!");
+				setIsExtensionError(true);
+			} else {
+				setError(serverReason || forbiddenMessage);
+			}
+		} else {
+			setError(networkErrorMessage);
+		}
+	};
+
 	useEffect(() => {
 		const token = Cookies.get(AUTH_COOKIE_NAME);
 
@@ -118,13 +149,17 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		}
 	}, [setAttendanceData]);
 
-	const completeLogin = async (
-		token: string,
-		user: string,
-		pass: string,
-		remember: boolean,
-		studentId?: number | string,
-	) => {
+	// Saves the login cookies and loads the student's attendance data. Used by
+	// both the direct-login path and the OTP path once either one has a token.
+	const completeLogin = async (login: {
+		token: string;
+		username: string;
+		password: string;
+		rememberMe: boolean;
+		studentId?: number | string;
+	}) => {
+		const { token, username: user, password, rememberMe, studentId } = login;
+
 		if (username !== user) {
 			Cookies.remove(STUDENT_ID_COOKIE_NAME);
 		}
@@ -136,12 +171,12 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 
 		setAuthCookie(token);
 		Cookies.set(USERNAME_COOKIE_NAME, user, { expires: COOKIE_EXPIRY });
-		Cookies.set(REMEMBER_ME_COOKIE_NAME, remember.toString(), {
+		Cookies.set(REMEMBER_ME_COOKIE_NAME, rememberMe.toString(), {
 			expires: COOKIE_EXPIRY,
 		});
 
-		if (remember) {
-			Cookies.set(PASSWORD_COOKIE_NAME, pass, { expires: COOKIE_EXPIRY });
+		if (rememberMe) {
+			Cookies.set(PASSWORD_COOKIE_NAME, password, { expires: COOKIE_EXPIRY });
 		} else {
 			Cookies.remove(PASSWORD_COOKIE_NAME);
 		}
@@ -166,7 +201,8 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		const enteredPass = passwordRef.current?.value || "";
 		const enteredRemember = rememberMeRef.current?.checked || false;
 
-		// 1. Direct login. If the server returns a token we are done.
+		// 1. Direct login. If the server returns a token we are done (no OTP
+		// needed for this account).
 		try {
 			const directResponse = await axios.post<LoginResponse>(
 				`${getBaseUrl()}/api/auth/login`,
@@ -175,13 +211,13 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 			const directToken =
 				directResponse.data.token || directResponse.data.data?.token;
 			if (directToken) {
-				await completeLogin(
-					directToken,
-					enteredUser,
-					enteredPass,
-					enteredRemember,
-					directResponse.data.data?.id,
-				);
+				await completeLogin({
+					token: directToken,
+					username: enteredUser,
+					password: enteredPass,
+					rememberMe: enteredRemember,
+					studentId: directResponse.data.data?.id,
+				});
 				return;
 			}
 		} catch (directError) {
@@ -203,45 +239,26 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 			const loginResponse = await axios.post<EncryptLoginResponse>(
 				`${getBaseUrl()}/api/auth/encrypt/login`,
 				{
-					userName: encryptPassword(usernameRef.current?.value || ""),
-					password: encryptPassword(passwordRef.current?.value || ""),
+					userName: encryptPassword(enteredUser),
+					password: encryptPassword(enteredPass),
 					device: "WEB",
 					version: null,
 					reCaptchaToken: null,
 				},
 			);
 
-			submittedUsernameRef.current = usernameRef.current?.value || "";
-			submittedPasswordRef.current = passwordRef.current?.value || "";
-			submittedRememberMeRef.current = rememberMeRef.current?.checked || false;
+			submittedUsernameRef.current = enteredUser;
+			submittedPasswordRef.current = enteredPass;
+			submittedRememberMeRef.current = enteredRemember;
 			setTransactionId(loginResponse.data.data.transactionId);
 			setStep("otp");
 		} catch (loginError) {
-			const serverReason = getServerErrorReason(loginError);
-			if (
-				axios.isAxiosError(loginError) &&
-				loginError.response?.status === 400
-			) {
-				setError(serverReason || "Invalid Username or Password");
-			} else if (
-				axios.isAxiosError(loginError) &&
-				loginError.response?.status === 403
-			) {
-				if (apiMode === "live") {
-					setError("Please Update the Extension to the latest version 3.6!");
-					setIsExtensionError(true);
-				} else {
-					setError(
-						serverReason ||
-							"Access forbidden. Please check your credentials or try again.",
-					);
-					setIsExtensionError(false);
-				}
-			} else {
-				setError(
-					"Login failed. The server isn’t responding or your internet connection may be unavailable.",
-				);
-			}
+			handleAuthError(
+				loginError,
+				"Invalid Username or Password",
+				"Access forbidden. Please check your credentials or try again.",
+				"Login failed. The server isn’t responding or your internet connection may be unavailable.",
+			);
 		} finally {
 			setLoading(false);
 		}
@@ -268,35 +285,22 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 
 			token = otpResponse.data.token || otpResponse.data.data?.token || "";
 		} catch (otpError) {
-			const serverReason = getServerErrorReason(otpError);
-			if (axios.isAxiosError(otpError) && otpError.response?.status === 400) {
-				setError(serverReason || "Invalid or expired OTP");
-			} else if (
-				axios.isAxiosError(otpError) &&
-				otpError.response?.status === 403
-			) {
-				if (apiMode === "live") {
-					setError("Please Update the Extension to the latest version 3.6!");
-					setIsExtensionError(true);
-				} else {
-					setError(serverReason || "Invalid or expired OTP");
-					setIsExtensionError(false);
-				}
-			} else {
-				setError(
-					"OTP verification failed. The server isn’t responding or your internet connection may be unavailable.",
-				);
-			}
+			handleAuthError(
+				otpError,
+				"Invalid or expired OTP",
+				"Invalid or expired OTP",
+				"OTP verification failed. The server isn’t responding or your internet connection may be unavailable.",
+			);
 			setLoading(false);
 			return;
 		}
 
-		await completeLogin(
+		await completeLogin({
 			token,
-			submittedUsernameRef.current,
-			submittedPasswordRef.current,
-			submittedRememberMeRef.current,
-		);
+			username: submittedUsernameRef.current,
+			password: submittedPasswordRef.current,
+			rememberMe: submittedRememberMeRef.current,
+		});
 	};
 
 	if (showInstallPage) {

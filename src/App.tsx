@@ -13,6 +13,10 @@ import {
 } from "./utils/jwt";
 import { fetchAttendanceData } from "./utils/LoginUtils";
 
+// setTimeout stores its delay in a signed 32-bit int, so anything past this
+// fires immediately instead of waiting. We cap each wait to this and re-check.
+const MAX_SETTIMEOUT_DELAY_MS = 2 ** 31 - 1;
+
 function App() {
 	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
 		null,
@@ -84,8 +88,10 @@ function App() {
 				setAttendanceData(null);
 				return;
 			}
-			// setTimeout overflows past ~24.8 days; wake early and re-check.
-			timer = setTimeout(schedule, Math.min(remaining, 2 ** 31 - 1));
+			timer = setTimeout(
+				schedule,
+				Math.min(remaining, MAX_SETTIMEOUT_DELAY_MS),
+			);
 		};
 
 		schedule();

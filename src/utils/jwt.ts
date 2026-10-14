@@ -9,10 +9,10 @@ export function getTokenExpiry(token: string): Date | null {
 		const payload = token.split(".")[1];
 		if (!payload) return null;
 		const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-		const json = JSON.parse(
+		const claims = JSON.parse(
 			atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")),
-		);
-		return typeof json.exp === "number" ? new Date(json.exp * 1000) : null;
+		) as { exp?: unknown };
+		return typeof claims.exp === "number" ? new Date(claims.exp * 1000) : null;
 	} catch {
 		return null;
 	}
