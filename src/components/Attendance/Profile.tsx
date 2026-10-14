@@ -1,5 +1,5 @@
 import Cookies from "js-cookie";
-import { Calendar, LogOut, User, Wand2 } from "lucide-react";
+import { Calendar, LogOut, Palmtree, User, Wand2 } from "lucide-react";
 import { useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
 import { AUTH_COOKIE_NAME } from "../../types/constants";
@@ -9,11 +9,15 @@ import { exportSemesterICS } from "../CalendarExport";
 interface ProfileProps {
 	setShowProjection: React.Dispatch<React.SetStateAction<number>>;
 	showProjection: number;
+	setShowHolidayPlanner: React.Dispatch<React.SetStateAction<number>>;
+	showHolidayPlanner: number;
 }
 
 export default function Profile({
 	setShowProjection,
 	showProjection,
+	setShowHolidayPlanner,
+	showHolidayPlanner,
 }: ProfileProps) {
 	const { attendanceData, setAttendanceData } = useAppContext();
 
@@ -79,6 +83,17 @@ export default function Profile({
 					<Wand2 className="h-4 w-4 shrink-0" />
 					<span className="hide-text-below-352 text-xs">
 						{showProjection % 2 === 1 ? "Hide Projection" : "Show Projection"}
+					</span>
+				</button>
+
+				<button
+					type="button"
+					onClick={() => setShowHolidayPlanner((prev) => prev + 1)}
+					className="style-border style-text py-2 px-2 text-xs font-bold flex items-center gap-responsive text-amber-700 bg-amber-50 hover:bg-amber-100 focus:outline-none transform hover:-translate-y-1 transition-transform w-auto"
+				>
+					<Palmtree className="h-4 w-4 shrink-0 text-amber-600" />
+					<span className="hide-text-below-352 text-xs">
+						{showHolidayPlanner % 2 === 1 ? "Hide Holidays" : "Plan Holiday"}
 					</span>
 				</button>
 

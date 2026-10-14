@@ -16,6 +16,7 @@ import CourseCard from "./Attendance/CourseCard";
 import Profile from "./Attendance/Profile";
 import Projections from "./Attendance/Projections";
 import DaywiseReport from "./Daywise";
+import HolidayPlanner from "./HolidayPlanner";
 import OverallAtt from "./OverallAtt";
 import TodayCheckup from "./TodayCheckup";
 
@@ -45,6 +46,7 @@ function Attendance() {
 	const [isDaywiseModalOpen, setIsDaywiseModalOpen] = useState(false);
 
 	const [showProjection, setShowProjection] = useState<number>(0);
+	const [showHolidayPlanner, setShowHolidayPlanner] = useState<number>(0);
 
 	const handleViewDaywiseAttendance = useCallback(
 		(
@@ -93,6 +95,8 @@ function Attendance() {
 					<Profile
 						setShowProjection={setShowProjection}
 						showProjection={showProjection}
+						setShowHolidayPlanner={setShowHolidayPlanner}
+						showHolidayPlanner={showHolidayPlanner}
 					/>
 				</div>
 			</div>
@@ -100,6 +104,10 @@ function Attendance() {
 				<div className={`${showProjection % 2 === 1 ? "block" : "hidden"}`}>
 					{showProjection > 0 && <Projections />}
 				</div>
+				<HolidayPlanner
+					showPlanner={showHolidayPlanner}
+					setShowPlanner={setShowHolidayPlanner}
+				/>
 				<TodayCheckup studentId={studentId} />
 				<OverallAtt />
 			</div>
