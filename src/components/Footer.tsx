@@ -54,13 +54,13 @@ function Footer() {
 								/>
 							</a>
 							<a
-								href="http://github.com/RudreshRajvansh"
+								href="http://github.com/dev-himanshu-x"
 								target="_blank"
 								rel="noopener noreferrer"
 							>
 								<img
 									className="inline-block h-8 w-8 rounded-full ring-2 ring-white style-border transform hover:-translate-y-1 transition-transform"
-									src="https://avatars.githubusercontent.com/RudreshRajvansh?s=48"
+									src="https://avatars.githubusercontent.com/dev-himanshu-x?s=48"
 									alt="Contributor 1"
 								/>
 							</a>
