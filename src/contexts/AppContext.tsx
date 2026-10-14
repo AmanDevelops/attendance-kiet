@@ -9,6 +9,8 @@ import type { StudentDetails } from "../types/response";
 export type AttendanceDataContextType = {
 	attendanceData: StudentDetails | null;
 	setAttendanceData: Dispatch<SetStateAction<StudentDetails | null>>;
+	targetPercentage: number;
+	setTargetPercentage: (val: number) => void;
 };
 
 export const AttendanceDataContext = createContext<

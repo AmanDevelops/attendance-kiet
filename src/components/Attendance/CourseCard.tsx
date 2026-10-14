@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle } from "lucide-react";
 import { memo } from "react";
+import { useAppContext } from "../../contexts/AppContext";
 import { TARGET_PERCENTAGE } from "../../types/constants";
 import type { CourseAttendanceInfo } from "../../types/response";
 import type { SelectedComponentType } from "../Attendance";
@@ -12,15 +13,19 @@ interface CourseCardProps {
 	course: CourseAttendanceInfo;
 }
 
-function calculateAttendanceProjection(present: number, total: number) {
+function calculateAttendanceProjection(
+	present: number,
+	total: number,
+	targetPercentage: number = TARGET_PERCENTAGE,
+) {
 	if (total === 0) {
 		return { status: "safe", message: "No classes held yet." };
 	}
 	const currentPercentage = (present / total) * 100;
 
-	if (currentPercentage >= TARGET_PERCENTAGE) {
+	if (currentPercentage >= targetPercentage) {
 		const canMiss = Math.floor(
-			(present - (TARGET_PERCENTAGE / 100) * total) / (TARGET_PERCENTAGE / 100),
+			(present - (targetPercentage / 100) * total) / (targetPercentage / 100),
 		);
 		return {
 			status: "safe",
@@ -31,8 +36,8 @@ function calculateAttendanceProjection(present: number, total: number) {
 		};
 	} else {
 		const needToAttend = Math.ceil(
-			((TARGET_PERCENTAGE / 100) * total - present) /
-				(1 - TARGET_PERCENTAGE / 100),
+			((targetPercentage / 100) * total - present) /
+				(1 - targetPercentage / 100),
 		);
 		return {
 			status: "warning",
@@ -44,6 +49,7 @@ function calculateAttendanceProjection(present: number, total: number) {
 }
 
 function CourseCard({ onViewDaywiseAttendance, course }: CourseCardProps) {
+	const { targetPercentage } = useAppContext();
 	const subjectMissed = 0;
 
 	return (
@@ -71,6 +77,7 @@ function CourseCard({ onViewDaywiseAttendance, course }: CourseCardProps) {
 						const currentSubjectProjection = calculateAttendanceProjection(
 							component.numberOfPresent + component.numberOfExtraAttendance,
 							component.numberOfPeriods + subjectMissed,
+							targetPercentage,
 						);
 
 						return (
@@ -84,7 +91,7 @@ function CourseCard({ onViewDaywiseAttendance, course }: CourseCardProps) {
 									</span>
 									<span
 										className={`text-sm font-semibold ${
-											projectedSubjectPercent >= TARGET_PERCENTAGE
+											projectedSubjectPercent >= targetPercentage
 												? "text-emerald-600"
 												: "text-red-600"
 										}`}

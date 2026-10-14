@@ -5,6 +5,7 @@ import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
 import TnC from "./components/TnC";
 import { AttendanceDataContext } from "./contexts/AppContext";
+import { TARGET_PERCENTAGE } from "./types/constants";
 import type { StudentDetails } from "./types/response";
 import {
 	clearAuthCookies,
@@ -21,6 +22,26 @@ function App() {
 	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
 		null,
 	);
+	const [targetPercentage, setTargetPercentageState] = useState<number>(() => {
+		try {
+			const saved = localStorage.getItem("attendance_target_percentage");
+			if (saved === "60" || saved === "75") {
+				return Number(saved);
+			}
+		} catch {
+			// Ignore storage errors
+		}
+		return TARGET_PERCENTAGE;
+	});
+
+	const setTargetPercentage = (val: number) => {
+		setTargetPercentageState(val);
+		try {
+			localStorage.setItem("attendance_target_percentage", String(val));
+		} catch {
+			// Ignore storage errors
+		}
+	};
 
 	const [isTnCVisible, setIsTnCVisible] = useState<boolean>(false);
 	const [showGreenBanner, setShowGreenBanner] = useState<boolean>(true);
@@ -138,6 +159,8 @@ function App() {
 					value={{
 						attendanceData,
 						setAttendanceData,
+						targetPercentage,
+						setTargetPercentage,
 					}}
 				>
 					{!attendanceData ? (
