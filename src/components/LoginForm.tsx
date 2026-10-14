@@ -20,6 +20,7 @@ import type {
 	StudentDetails,
 } from "../types/response";
 import PasswordInput from "../ui/PasswordInput";
+import { setAuthCookie } from "../utils/jwt";
 import { encryptPassword, fetchAttendanceData } from "../utils/LoginUtils";
 import InstallExtensionPage from "./InstallExtensionPage";
 
@@ -100,6 +101,37 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		onModeChange?.(newMode);
 	};
 
+	// Shared by the login and OTP forms: reads the server's error response and
+	// picks a user-friendly message, flagging the "update extension" banner
+	// when a 403 happens in live mode.
+	const handleAuthError = (
+		err: unknown,
+		badRequestMessage: string,
+		forbiddenMessage: string,
+		networkErrorMessage: string,
+	) => {
+		if (!axios.isAxiosError(err)) {
+			setError(networkErrorMessage);
+			return;
+		}
+
+		const serverReason = getServerErrorReason(err);
+		const status = err.response?.status;
+
+		if (status === 400) {
+			setError(serverReason || badRequestMessage);
+		} else if (status === 403) {
+			if (apiMode === "live") {
+				setError("Please Update the Extension to the latest version 3.6!");
+				setIsExtensionError(true);
+			} else {
+				setError(serverReason || forbiddenMessage);
+			}
+		} else {
+			setError(networkErrorMessage);
+		}
+	};
+
 	useEffect(() => {
 		const token = Cookies.get(AUTH_COOKIE_NAME);
 
@@ -118,55 +150,127 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		}
 	}, [setAttendanceData]);
 
+	// Saves the login cookies and loads the student's attendance data. Used by
+	// both the direct-login path and the OTP path once either one has a token.
+	const completeLogin = async (login: {
+		token: string;
+		username: string;
+		password: string;
+		rememberMe: boolean;
+		studentId?: number | string;
+	}) => {
+		const { token, username: user, password, rememberMe, studentId } = login;
+
+		// Always drop any studentId left over from a previous session before
+		// possibly storing a fresh one below - otherwise a stale id can stick
+		// around and get sent for the wrong account.
+		Cookies.remove(STUDENT_ID_COOKIE_NAME);
+		if (studentId) {
+			Cookies.set(STUDENT_ID_COOKIE_NAME, String(studentId), {
+				expires: COOKIE_EXPIRY,
+			});
+		}
+
+		setAuthCookie(token);
+		Cookies.set(USERNAME_COOKIE_NAME, user, { expires: COOKIE_EXPIRY });
+		Cookies.set(REMEMBER_ME_COOKIE_NAME, rememberMe.toString(), {
+			expires: COOKIE_EXPIRY,
+		});
+
+		if (rememberMe) {
+			Cookies.set(PASSWORD_COOKIE_NAME, password, { expires: COOKIE_EXPIRY });
+		} else {
+			Cookies.remove(PASSWORD_COOKIE_NAME);
+		}
+
+		try {
+			await loadAttendance(token, setAttendanceData);
+		} catch (fetchError) {
+			console.error(fetchError);
+			setError("Login successful, but failed to load attendance data.");
+		} finally {
+			setLoading(false);
+		}
+	};
+
 	const handleCredentialsSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setLoading(true);
 		setError("");
 		setIsExtensionError(false);
 
+		const enteredUser = usernameRef.current?.value || "";
+		const enteredPass = passwordRef.current?.value || "";
+		const enteredRemember = rememberMeRef.current?.checked || false;
+
+		// Login happens in up to two steps, because some accounts can skip the
+		// OTP step entirely and some can't:
+		//   1. Try a direct login. If it hands back a token, we're already done.
+		//   2. Otherwise, fall back to the encrypted login, which starts the
+		//      OTP flow (the user is then asked to enter a code).
+		// If step 1 fails because the credentials are wrong, we stop there -
+		// retrying with step 2 would just fail for the same reason. Any other
+		// kind of failure (network error, server hiccup, etc.) falls through to
+		// step 2 as a second attempt.
+
+		// 1. Direct login. If the server returns a token we are done (no OTP
+		// needed for this account).
+		try {
+			const directResponse = await axios.post<LoginResponse>(
+				`${getBaseUrl()}/api/auth/login`,
+				{ userName: enteredUser, password: enteredPass },
+			);
+			const directToken =
+				directResponse.data.token || directResponse.data.data?.token;
+			if (directToken) {
+				await completeLogin({
+					token: directToken,
+					username: enteredUser,
+					password: enteredPass,
+					rememberMe: enteredRemember,
+					studentId: directResponse.data.data?.id,
+				});
+				return;
+			}
+		} catch (directError) {
+			// Credentials explicitly rejected: no point retrying the OTP flow.
+			if (
+				axios.isAxiosError(directError) &&
+				directError.response?.status === 400
+			) {
+				setError(
+					getServerErrorReason(directError) || "Invalid Username or Password",
+				);
+				setLoading(false);
+				return;
+			}
+		}
+
+		// 2. Fallback: encrypted login, which may trigger an OTP challenge.
 		try {
 			const loginResponse = await axios.post<EncryptLoginResponse>(
 				`${getBaseUrl()}/api/auth/encrypt/login`,
 				{
-					userName: encryptPassword(usernameRef.current?.value || ""),
-					password: encryptPassword(passwordRef.current?.value || ""),
+					userName: encryptPassword(enteredUser),
+					password: encryptPassword(enteredPass),
 					device: "WEB",
 					version: null,
 					reCaptchaToken: null,
 				},
 			);
 
-			submittedUsernameRef.current = usernameRef.current?.value || "";
-			submittedPasswordRef.current = passwordRef.current?.value || "";
-			submittedRememberMeRef.current = rememberMeRef.current?.checked || false;
+			submittedUsernameRef.current = enteredUser;
+			submittedPasswordRef.current = enteredPass;
+			submittedRememberMeRef.current = enteredRemember;
 			setTransactionId(loginResponse.data.data.transactionId);
 			setStep("otp");
 		} catch (loginError) {
-			const serverReason = getServerErrorReason(loginError);
-			if (
-				axios.isAxiosError(loginError) &&
-				loginError.response?.status === 400
-			) {
-				setError(serverReason || "Invalid Username or Password");
-			} else if (
-				axios.isAxiosError(loginError) &&
-				loginError.response?.status === 403
-			) {
-				if (apiMode === "live") {
-					setError("Please Update the Extension to the latest version 3.6!");
-					setIsExtensionError(true);
-				} else {
-					setError(
-						serverReason ||
-							"Access forbidden. Please check your credentials or try again.",
-					);
-					setIsExtensionError(false);
-				}
-			} else {
-				setError(
-					"Login failed. The server isn’t responding or your internet connection may be unavailable.",
-				);
-			}
+			handleAuthError(
+				loginError,
+				"Invalid Username or Password",
+				"Access forbidden. Please check your credentials or try again.",
+				"Login failed. The server isn’t responding or your internet connection may be unavailable.",
+			);
 		} finally {
 			setLoading(false);
 		}
@@ -191,60 +295,24 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 				},
 			);
 
-			token = otpResponse.data.data.token;
+			token = otpResponse.data.token || otpResponse.data.data?.token || "";
 		} catch (otpError) {
-			const serverReason = getServerErrorReason(otpError);
-			if (axios.isAxiosError(otpError) && otpError.response?.status === 400) {
-				setError(serverReason || "Invalid or expired OTP");
-			} else if (
-				axios.isAxiosError(otpError) &&
-				otpError.response?.status === 403
-			) {
-				if (apiMode === "live") {
-					setError("Please Update the Extension to the latest version 3.6!");
-					setIsExtensionError(true);
-				} else {
-					setError(serverReason || "Invalid or expired OTP");
-					setIsExtensionError(false);
-				}
-			} else {
-				setError(
-					"OTP verification failed. The server isn’t responding or your internet connection may be unavailable.",
-				);
-			}
+			handleAuthError(
+				otpError,
+				"Invalid or expired OTP",
+				"Invalid or expired OTP",
+				"OTP verification failed. The server isn’t responding or your internet connection may be unavailable.",
+			);
 			setLoading(false);
 			return;
 		}
 
-		Cookies.remove(STUDENT_ID_COOKIE_NAME);
-		Cookies.set(AUTH_COOKIE_NAME, token, { expires: 1 / 24 });
-		Cookies.set(USERNAME_COOKIE_NAME, submittedUsernameRef.current, {
-			expires: COOKIE_EXPIRY,
+		await completeLogin({
+			token,
+			username: submittedUsernameRef.current,
+			password: submittedPasswordRef.current,
+			rememberMe: submittedRememberMeRef.current,
 		});
-		Cookies.set(
-			REMEMBER_ME_COOKIE_NAME,
-			submittedRememberMeRef.current.toString(),
-			{
-				expires: COOKIE_EXPIRY,
-			},
-		);
-
-		if (submittedRememberMeRef.current) {
-			Cookies.set(PASSWORD_COOKIE_NAME, submittedPasswordRef.current, {
-				expires: COOKIE_EXPIRY,
-			});
-		} else {
-			Cookies.remove(PASSWORD_COOKIE_NAME);
-		}
-
-		try {
-			await loadAttendance(token, setAttendanceData);
-		} catch (fetchError) {
-			console.error(fetchError);
-			setError("Login successful, but failed to load attendance data.");
-		} finally {
-			setLoading(false);
-		}
 	};
 
 	if (showInstallPage) {

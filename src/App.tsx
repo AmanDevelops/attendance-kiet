@@ -1,4 +1,3 @@
-import Cookies from "js-cookie";
 import { useEffect, useRef, useState } from "react";
 import Attendance from "./components/Attendance";
 import ExtensionUpdateNotice from "./components/ExtensionUpdateNotice";
@@ -6,13 +5,17 @@ import Footer from "./components/Footer";
 import LoginForm from "./components/LoginForm";
 import TnC from "./components/TnC";
 import { AttendanceDataContext } from "./contexts/AppContext";
-import {
-	AUTH_COOKIE_NAME,
-	COOKIE_EXPIRY,
-	STUDENT_ID_COOKIE_NAME,
-} from "./types/constants";
 import type { StudentDetails } from "./types/response";
+import {
+	clearAuthCookies,
+	msUntilAuthExpiry,
+	setAuthCookie,
+} from "./utils/jwt";
 import { fetchAttendanceData } from "./utils/LoginUtils";
+
+// setTimeout stores its delay in a signed 32-bit int, so anything past this
+// fires immediately instead of waiting. We cap each wait to this and re-check.
+const MAX_SETTIMEOUT_DELAY_MS = 2 ** 31 - 1;
 
 function App() {
 	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
@@ -43,8 +46,11 @@ function App() {
 
 			const loginWithToken = async () => {
 				try {
-					Cookies.remove(STUDENT_ID_COOKIE_NAME);
-					Cookies.set(AUTH_COOKIE_NAME, urlToken, { expires: COOKIE_EXPIRY });
+					// A fresh token mode login means a (possibly different) student is
+					// signing in, so drop any studentId left over from a previous
+					// session before storing the new auth cookie.
+					clearAuthCookies();
+					setAuthCookie(urlToken);
 					const data = await fetchAttendanceData(urlToken);
 
 					const updatedStudentDetails: StudentDetails = {
@@ -70,6 +76,42 @@ function App() {
 			loginWithToken();
 		}
 	}, []);
+
+	// Log out automatically the moment the JWT expires. Keyed on the boolean so
+	// the timer is not rebuilt every time attendanceData is updated.
+	const isLoggedIn = attendanceData !== null;
+	useEffect(() => {
+		if (!isLoggedIn) return;
+
+		// `timer` is declared here (outside `schedule`) so the cleanup function
+		// below can always see the *latest* timer and cancel it.
+		let timer: ReturnType<typeof setTimeout>;
+
+		// This function calls setTimeout with itself as the callback, so it
+		// keeps re-running every time it fires - like an alarm that resets
+		// itself. We can't just set one big timer for "time left until expiry"
+		// because a JWT can last longer than setTimeout's ~24.8 day limit
+		// (MAX_SETTIMEOUT_DELAY_MS), so instead we wait in smaller chunks and
+		// recheck the remaining time after each chunk.
+		const schedule = () => {
+			const remaining = msUntilAuthExpiry();
+			if (remaining === null) return;
+			if (remaining <= 0) {
+				clearAuthCookies();
+				setAttendanceData(null);
+				return;
+			}
+			timer = setTimeout(
+				schedule,
+				Math.min(remaining, MAX_SETTIMEOUT_DELAY_MS),
+			);
+		};
+
+		schedule();
+		// Runs if the component unmounts or the user logs out before the timer
+		// fires, so we don't try to update state that no longer exists.
+		return () => clearTimeout(timer);
+	}, [isLoggedIn]);
 
 	return (
 		<div className="min-h-screen bg-gray-100 flex flex-col">

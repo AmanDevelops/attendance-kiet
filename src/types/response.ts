@@ -8,9 +8,12 @@ export interface EncryptLoginResponse {
 
 // OTP Verify Response
 export interface LoginResponse {
-	data: {
-		token: string;
+	token?: string;
+	data?: {
+		token?: string;
+		id?: number | string;
 	};
+	message?: string;
 }
 
 // Attendance Data Response
