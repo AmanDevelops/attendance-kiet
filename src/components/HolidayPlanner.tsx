@@ -17,10 +17,20 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppContext } from "../contexts/AppContext";
-import { AUTH_COOKIE_NAME, getBaseUrl } from "../types/constants";
+import {
+	AUTH_COOKIE_NAME,
+	getBaseUrl,
+	NON_WORKING_DAYS,
+} from "../types/constants";
 import type { ScheduleEntry, ScheduleResponse } from "../types/response";
-import { formatAuthHeader, getWeekRange } from "../types/utils";
-import { parseScheduleDate, toDateKey } from "../utils/checkup";
+import {
+	formatAuthHeader,
+	formatNonWorkingDay,
+	getWeekRange,
+	isNonWorkingDayKey,
+	parseScheduleDate,
+	toDateKey,
+} from "../types/utils";
 
 // --------------- Types ---------------
 
@@ -163,6 +173,7 @@ async function fetchScheduleForHoliday(
 
 			const dateKey = toDateKey(parsed);
 			if (!dateKeySet.has(dateKey)) continue;
+			if (isNonWorkingDayKey(dateKey)) continue;
 
 			const dedupeKey = `${entry.courseCode}-${dateKey}-${entry.start}`;
 			if (seen.has(dedupeKey)) continue;
@@ -237,8 +248,10 @@ async function fetchScheduleForHoliday(
 			const dow = day.getDay();
 			if (dow === 0) continue; // Skip Sundays
 
-			const templateClasses = classesByDayOfWeek.get(dow) || [];
 			const dateKey = toDateKey(day);
+			if (isNonWorkingDayKey(dateKey)) continue;
+
+			const templateClasses = classesByDayOfWeek.get(dow) || [];
 			const label = formatShortDate(day);
 
 			for (const t of templateClasses) {
@@ -660,6 +673,22 @@ export default function HolidayPlanner({
 									Plan holidays like Diwali in advance, see all classes, and
 									apply absences in one click.
 								</p>
+								{NON_WORKING_DAYS.length > 0 && (
+									<div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+										<span className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
+											Non-working day
+											{NON_WORKING_DAYS.length > 1 ? "s" : ""}:
+										</span>
+										{NON_WORKING_DAYS.map((dateKey) => (
+											<span
+												key={dateKey}
+												className="text-[10px] font-semibold text-amber-800 bg-amber-100 border border-amber-300 rounded px-1.5 py-0.5"
+											>
+												{formatNonWorkingDay(dateKey)}
+											</span>
+										))}
+									</div>
+								)}
 							</div>
 						</div>
 						<button

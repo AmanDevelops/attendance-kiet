@@ -1,7 +1,7 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 import { AUTH_COOKIE_NAME, getBaseUrl } from "../types/constants";
-import { formatAuthHeader } from "../types/utils";
+import { formatAuthHeader, isNonWorkingScheduleDate } from "../types/utils";
 
 export interface ScheduleEntry {
 	id: string | null;
@@ -101,6 +101,7 @@ function generateICS(events: ScheduleEntry[]) {
 
 	for (const event of events) {
 		if (event.type !== "CLASS" || !event.lectureDate) continue;
+		if (isNonWorkingScheduleDate(event.lectureDate, event.start)) continue;
 
 		const startTime = event.start.split(" ").pop();
 		const endTime = event.end.split(" ").pop();

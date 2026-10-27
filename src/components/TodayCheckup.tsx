@@ -24,8 +24,8 @@ import {
 	COOKIE_EXPIRY,
 	STUDENT_ID_COOKIE_NAME,
 } from "../types/constants";
-import { fetchStudentId } from "../types/utils";
-import { runCheckup, toDateKey } from "../utils/checkup";
+import { fetchStudentId, isNonWorkingDayKey, toDateKey } from "../types/utils";
+import { runCheckup } from "../utils/checkup";
 
 function startOfDay(date: Date): Date {
 	const copy = new Date(date);
@@ -159,6 +159,7 @@ export default function TodayCheckup({
 	);
 
 	const isToday = toDateKey(selectedDate) === toDateKey(new Date());
+	const isSelectedDateNonWorking = isNonWorkingDayKey(toDateKey(selectedDate));
 
 	const handleCheck = useCallback(async () => {
 		const token = Cookies.get(AUTH_COOKIE_NAME) || "";
@@ -276,7 +277,9 @@ export default function TodayCheckup({
 						{report ? (
 							report.status === "no-classes" ? (
 								<span className="text-xs text-gray-500">
-									No classes scheduled{isToday ? " today" : ""}
+									{isSelectedDateNonWorking
+										? "Non-working day"
+										: `No classes scheduled${isToday ? " today" : ""}`}
 								</span>
 							) : (
 								<SummaryLine report={report} />
@@ -355,7 +358,9 @@ export default function TodayCheckup({
 
 					{!isLoading && !error && report?.status === "no-classes" && (
 						<p className="text-sm text-gray-500">
-							No classes scheduled{isToday ? " today" : ""}.
+							{isSelectedDateNonWorking
+								? "This date is marked as a non-working day."
+								: `No classes scheduled${isToday ? " today" : ""}.`}
 						</p>
 					)}
 

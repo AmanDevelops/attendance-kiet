@@ -18,7 +18,12 @@ import type {
 	ScheduleEntry,
 	ScheduleResponse,
 } from "../types/response";
-import { formatAuthHeader } from "../types/utils";
+import {
+	formatAuthHeader,
+	isNonWorkingDayKey,
+	parseScheduleDate,
+	toDateKey,
+} from "../types/utils";
 
 /**
  * Collapses whitespace and lowercases, so that "Data Structures " and
@@ -29,14 +34,6 @@ export function normalizeName(name: string): string {
 	return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-/** Local-time YYYY-MM-DD. Deliberately not toISOString, which shifts to UTC. */
-export function toDateKey(date: Date): string {
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, "0");
-	const day = String(date.getDate()).padStart(2, "0");
-	return `${year}-${month}-${day}`;
-}
-
 /** "09:05" or "09:05:30" -> 545. Returns null if unparseable. */
 export function toMinutesSinceMidnight(hhmm: string): number | null {
 	const match = hhmm.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
@@ -45,33 +42,6 @@ export function toMinutesSinceMidnight(hhmm: string): number | null {
 	const minutes = Number.parseInt(match[2], 10);
 	if (hours > 23 || minutes > 59) return null;
 	return hours * 60 + minutes;
-}
-
-/** "10/01/2024" or "2024-01-10" -> local Date. Returns null if malformed. */
-export function parseScheduleDate(lectureDate: string): Date | null {
-	if (!lectureDate) return null;
-	const trimmed = lectureDate.trim();
-	const dmy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-	if (dmy) {
-		const day = Number.parseInt(dmy[1], 10);
-		const month = Number.parseInt(dmy[2], 10);
-		const year = Number.parseInt(dmy[3], 10);
-		if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-		const date = new Date(year, month - 1, day);
-		if (date.getDate() !== day || date.getMonth() !== month - 1) return null;
-		return date;
-	}
-	const ymd = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
-	if (ymd) {
-		const year = Number.parseInt(ymd[1], 10);
-		const month = Number.parseInt(ymd[2], 10);
-		const day = Number.parseInt(ymd[3], 10);
-		if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-		const date = new Date(year, month - 1, day);
-		if (date.getDate() !== day || date.getMonth() !== month - 1) return null;
-		return date;
-	}
-	return null;
 }
 
 /** "09:00:00" -> "9:00 AM". */
@@ -94,6 +64,9 @@ export function normalizeClass(entry: ScheduleEntry): NormalizedClass | null {
 	const date = parseScheduleDate(rawDate);
 	if (!date) return null;
 
+	const dateKey = toDateKey(date);
+	if (isNonWorkingDayKey(dateKey)) return null;
+
 	const startRaw = entry.start?.split(" ")[1];
 	const endRaw = entry.end?.split(" ")[1];
 	if (!startRaw || !endRaw) return null;
@@ -106,7 +79,7 @@ export function normalizeClass(entry: ScheduleEntry): NormalizedClass | null {
 		courseCode: entry.courseCode,
 		courseName: entry.courseName,
 		courseCompName: entry.courseCompName,
-		dateKey: toDateKey(date),
+		dateKey,
 		startMinutes,
 		startLabel: toDisplayTime(startRaw),
 		endLabel: toDisplayTime(endRaw),
@@ -514,6 +487,16 @@ export async function runCheckup({
 }: CheckupParams): Promise<CheckupReport> {
 	const dateKey = toDateKey(now);
 	const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+	// Don't hit the ERP for a date the college has explicitly marked off.
+	if (isNonWorkingDayKey(dateKey)) {
+		return {
+			date: dateKey,
+			status: "no-classes",
+			subjects: [],
+			summary: emptySummary(),
+		};
+	}
 
 	const rawClasses = await fetchTodaysClasses(token, now);
 	const allClasses = deduplicateClasses(
