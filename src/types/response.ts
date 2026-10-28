@@ -1,9 +1,13 @@
-// Login (encrypt) Response - triggers OTP to the user
+// Login (encrypt) Response - normally triggers OTP, but some accounts may
+// receive a token directly.
 export interface EncryptLoginResponse {
 	data: {
-		transactionId: string;
+		transactionId?: string;
+		token?: string;
+		id?: number | string;
 	};
-	message: string;
+	token?: string;
+	message?: string;
 }
 
 // OTP Verify Response

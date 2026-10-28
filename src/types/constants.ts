@@ -42,3 +42,8 @@ export const COOKIE_EXPIRY = 7; // Days
 export const STUDENT_ID_COOKIE_NAME = "studentId";
 export const TARGET_PERCENTAGE = 75;
 export const REQUIRED_EXTENSION_VERSION = "3.6";
+
+// College non-working days in local YYYY-MM-DD format. The ERP timetable can
+// still list classes on these dates, so schedule-based features must explicitly
+// ignore them.
+export const NON_WORKING_DAYS: readonly string[] = ["2026-11-06"];

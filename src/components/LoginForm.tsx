@@ -38,6 +38,14 @@ function getServerErrorReason(err: unknown): string | null {
 	return null;
 }
 
+function isUnsupportedClientVersionError(err: unknown): boolean {
+	const reason = getServerErrorReason(err)?.toLowerCase() ?? "";
+	return (
+		reason.includes("update your mobile application") ||
+		reason.includes("version is no longer supported")
+	);
+}
+
 async function loadAttendance(
 	token: string,
 	setAttendanceData: React.Dispatch<
@@ -194,6 +202,13 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		const enteredPass = passwordRef.current?.value || "";
 		const enteredRemember = rememberMeRef.current?.checked || false;
 
+		// Login happens in up to two steps:
+		//   1. Try the legacy direct login. Some accounts may still get a token
+		//      without OTP.
+		//   2. Otherwise use the encrypted login, which starts the OTP flow.
+		// The legacy endpoint currently rejects every request with a
+		// client-version error, so that specific 400 must fall through instead
+		// of being reported as a bad password.
 		try {
 			const directResponse = await axios.post<LoginResponse>(
 				`${getBaseUrl()}/api/auth/login`,
@@ -214,7 +229,8 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		} catch (directError) {
 			if (
 				axios.isAxiosError(directError) &&
-				directError.response?.status === 400
+				directError.response?.status === 400 &&
+				!isUnsupportedClientVersionError(directError)
 			) {
 				setError(
 					getServerErrorReason(directError) || "Invalid Username or Password",
@@ -224,6 +240,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 			}
 		}
 
+		// 2. Encrypted login fallback, which triggers the OTP flow.
 		try {
 			const loginResponse = await axios.post<EncryptLoginResponse>(
 				`${getBaseUrl()}/api/auth/encrypt/login`,
@@ -236,10 +253,29 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 				},
 			);
 
+			const loginData = loginResponse.data;
+			const directToken = loginData.token || loginData.data?.token;
+			if (directToken) {
+				await completeLogin({
+					token: directToken,
+					username: enteredUser,
+					password: enteredPass,
+					rememberMe: enteredRemember,
+					studentId: loginData.data?.id,
+				});
+				return;
+			}
+
+			const nextTransactionId = loginData.data?.transactionId;
+			if (!nextTransactionId) {
+				setError("Login failed. The server did not return an OTP transaction.");
+				return;
+			}
+
 			submittedUsernameRef.current = enteredUser;
 			submittedPasswordRef.current = enteredPass;
 			submittedRememberMeRef.current = enteredRemember;
-			setTransactionId(loginResponse.data.data.transactionId);
+			setTransactionId(nextTransactionId);
 			setStep("otp");
 		} catch (loginError) {
 			handleAuthError(

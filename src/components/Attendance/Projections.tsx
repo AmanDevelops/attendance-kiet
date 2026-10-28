@@ -5,7 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppContext } from "../../contexts/AppContext";
 import { AUTH_COOKIE_NAME, getBaseUrl } from "../../types/constants";
 import type { ScheduleEntry, ScheduleResponse } from "../../types/response";
-import { formatAuthHeader, getWeekRange } from "../../types/utils";
+import {
+	formatAuthHeader,
+	getWeekRange,
+	isNonWorkingScheduleDate,
+} from "../../types/utils";
 
 type ClassEntry = ScheduleEntry & {
 	formattedStart: string;
@@ -78,7 +82,12 @@ export default function Projections() {
 						`${getBaseUrl()}/api/student/schedule/class?weekEndDate=${endDate}&weekStartDate=${startDate}`,
 						{ headers: { Authorization: formatAuthHeader(token) } },
 					);
-					setSchedule(scheduleResponse.data.data);
+					setSchedule(
+						(scheduleResponse.data.data ?? []).filter(
+							(entry) =>
+								!isNonWorkingScheduleDate(entry.lectureDate, entry.start),
+						),
+					);
 				} catch (err) {
 					console.error("Failed to fetch schedule", err);
 				}
