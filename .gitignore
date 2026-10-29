@@ -25,3 +25,6 @@ dist-ssr
 
 # Browser-generated when loading unpacked extensions
 extension/*/_metadata/
+
+# Local Netlify folder
+.netlify

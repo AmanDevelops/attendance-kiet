@@ -1,7 +1,7 @@
 import Cookies from "js-cookie";
 
 export const LIVE_URL = "https://kiet.cybervidya.net";
-export const PROXY_URL = "https://proxy.cybervidya.workers.dev";
+export const PROXY_URL = "https://proxy-cybervidya.netlify.app";
 export const API_MODE_COOKIE_NAME = "api_mode"; // "proxy" | "live"
 
 export function getApiMode(): "proxy" | "live" {
