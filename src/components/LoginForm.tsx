@@ -195,7 +195,9 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 			await loadAttendance(token, setAttendanceData);
 		} catch (fetchError) {
 			console.error(fetchError);
-			setError("Login successful, but failed to load attendance data.");
+			setError(
+				"Login successful, but CyberVidya didn't return your attendance data. Please refresh the page in a moment.",
+			);
 		} finally {
 			setLoading(false);
 		}
@@ -277,7 +279,9 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 
 			const nextTransactionId = loginData.data?.transactionId;
 			if (!nextTransactionId) {
-				setError("Login failed. The server did not return an OTP transaction.");
+				setError(
+					"CyberVidya didn't return an OTP transaction. Please try again in a moment.",
+				);
 				return;
 			}
 
@@ -291,7 +295,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 				loginError,
 				"Invalid Username or Password",
 				"Access forbidden. Please check your credentials or try again.",
-				"Login failed. The server isn’t responding or your internet connection may be unavailable.",
+				"Login failed. CyberVidya's login service isn't responding right now. Please try again in a moment.",
 			);
 		} finally {
 			setLoading(false);
@@ -323,7 +327,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 				otpError,
 				"Invalid or expired OTP",
 				"Invalid or expired OTP",
-				"OTP verification failed. The server isn’t responding or your internet connection may be unavailable.",
+				"OTP verification failed. CyberVidya's login service isn't responding right now. Please try again in a moment.",
 			);
 			setLoading(false);
 			return;
