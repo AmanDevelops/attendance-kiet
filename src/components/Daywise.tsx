@@ -63,6 +63,7 @@ function DaywiseReport({ token, payload }: DaywiseReportProps) {
 							"Content-Type": "application/json",
 							Authorization: formatAuthHeader(token),
 						},
+						timeout: 15000,
 					},
 				);
 
