@@ -2,10 +2,13 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import {
 	AlertCircle,
+	AlertTriangle,
 	CalendarPlus,
 	Check,
 	ChevronDown,
 	ChevronUp,
+	Clock,
+	Loader2,
 	Palmtree,
 	Play,
 	Plus,
@@ -269,6 +272,127 @@ async function fetchScheduleForHoliday(
 	}
 }
 
+// --------------- Loading & Progress Feedback ---------------
+
+export type HolidayWaitStage = "loading" | "slow" | "stalled";
+
+export interface HolidayActionStatus {
+	type: "apply" | "refresh" | "preview";
+	holidayId?: string;
+	completed: number;
+	total: number;
+	currentSubject?: string;
+}
+
+function HolidayProgressIndicator({
+	status,
+	waitStage = "loading",
+}: {
+	status: HolidayActionStatus;
+	waitStage?: HolidayWaitStage;
+}) {
+	const completed = status.completed;
+	const total = status.total;
+	const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+	const isSlow = waitStage === "slow";
+	const isStalled = waitStage === "stalled";
+
+	if (isSlow || isStalled) {
+		return (
+			<output
+				aria-live="polite"
+				className={`block border p-3 rounded-lg mb-3 ${
+					isStalled
+						? "border-amber-300 bg-amber-50"
+						: "border-amber-200 bg-[#fffbeb]"
+				}`}
+			>
+				<div className="flex items-start gap-2.5">
+					<span
+						className={`mt-0.5 shrink-0 ${
+							isStalled ? "text-amber-700" : "text-amber-600"
+						}`}
+					>
+						{isStalled ? (
+							<AlertTriangle className="h-4 w-4" />
+						) : (
+							<Clock className="h-4 w-4 animate-pulse" />
+						)}
+					</span>
+					<div className="min-w-0 flex-1">
+						<p className="text-xs font-bold text-amber-900">
+							{isStalled
+								? "CyberVidya is still not responding"
+								: "CyberVidya is taking longer than usual"}
+						</p>
+						<p className="text-[11px] text-amber-800 mt-0.5">
+							{isStalled
+								? "CyberVidya attendance service is under heavy load right now. Reconciling past attendance and will complete as soon as CyberVidya responds."
+								: "CyberVidya attendance service is responding slowly right now. Results will appear automatically as each subject is verified."}
+						</p>
+						<p className="text-[10px] font-semibold text-amber-700 mt-1">
+							This delay is on CyberVidya&apos;s side — your account is fine.
+						</p>
+						<div className="mt-2">
+							<div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+								<span>
+									{total > 0
+										? `${completed} of ${total} subjects checked${
+												status.currentSubject
+													? ` · ${status.currentSubject}`
+													: ""
+											}`
+										: "Checking timetable and marked attendance…"}
+								</span>
+								<span>{percent}%</span>
+							</div>
+							<div className="mt-1 h-1.5 w-full bg-amber-200/80 rounded-full overflow-hidden">
+								<div
+									className="h-full bg-amber-600 transition-all duration-300 rounded-full"
+									style={{ width: `${percent}%` }}
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
+			</output>
+		);
+	}
+
+	return (
+		<output
+			aria-live="polite"
+			className="block border border-amber-200 bg-amber-50/70 p-3 rounded-lg mb-3"
+		>
+			<div className="flex items-center justify-between gap-2">
+				<span className="flex items-center gap-2 text-xs font-medium text-amber-950">
+					<Loader2 className="h-4 w-4 animate-spin text-amber-600 shrink-0" />
+					<span className="truncate">
+						{total > 0
+							? `${completed} of ${total} subjects checked${
+									status.currentSubject ? ` · ${status.currentSubject}` : ""
+								}`
+							: "Checking schedule & marked attendance with CyberVidya…"}
+					</span>
+				</span>
+				{total > 0 && (
+					<span className="text-[11px] font-bold text-amber-700 shrink-0">
+						{percent}%
+					</span>
+				)}
+			</div>
+			{total > 0 && (
+				<div className="mt-2 h-1.5 w-full bg-amber-100 rounded-full overflow-hidden">
+					<div
+						className="h-full bg-amber-500 transition-all duration-300 rounded-full"
+						style={{ width: `${percent}%` }}
+					/>
+				</div>
+			)}
+		</output>
+	);
+}
+
 // --------------- Component ---------------
 
 interface HolidayPlannerProps {
@@ -287,6 +411,13 @@ export default function HolidayPlanner({
 	const [isCreating, setIsCreating] = useState(false);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 
+	// Action & UX progress state
+	const [actionStatus, setActionStatus] = useState<HolidayActionStatus | null>(
+		null,
+	);
+	const [waitStage, setWaitStage] = useState<HolidayWaitStage>("loading");
+	const [isAutoReconciling, setIsAutoReconciling] = useState(false);
+
 	// Form state
 	const [formName, setFormName] = useState("");
 	const [formStart, setFormStart] = useState("");
@@ -302,6 +433,26 @@ export default function HolidayPlanner({
 	useEffect(() => {
 		saveHolidays(holidays);
 	}, [holidays]);
+
+	// Transition slow/stalled wait stages for live feedback during slow network
+	useEffect(() => {
+		if (!isFetchingSchedule) {
+			setWaitStage("loading");
+			return;
+		}
+
+		setWaitStage("loading");
+		const slowTimer = window.setTimeout(() => setWaitStage("slow"), 4000);
+		const stalledTimer = window.setTimeout(
+			() => setWaitStage("stalled"),
+			14000,
+		);
+
+		return () => {
+			window.clearTimeout(slowTimer);
+			window.clearTimeout(stalledTimer);
+		};
+	}, [isFetchingSchedule]);
 
 	const getEffectiveStudentId = useCallback(async (): Promise<number> => {
 		if (propStudentId && propStudentId > 0) return propStudentId;
@@ -353,6 +504,7 @@ export default function HolidayPlanner({
 			if (isCancelled || !effStudentId || effStudentId <= 0) return;
 
 			isReconcilingRef.current = true;
+			setIsAutoReconciling(true);
 			try {
 				const updatedClasses = await reconcileHolidayClasses({
 					classes: appliedHoliday.classes,
@@ -416,6 +568,7 @@ export default function HolidayPlanner({
 				console.error("Auto-reconcile holiday with ERP failed:", err);
 			} finally {
 				isReconcilingRef.current = false;
+				setIsAutoReconciling(false);
 			}
 		};
 
@@ -460,6 +613,12 @@ export default function HolidayPlanner({
 
 		setFormError("");
 		setIsFetchingSchedule(true);
+		setActionStatus({
+			type: "preview",
+			completed: 0,
+			total: 0,
+		});
+
 		try {
 			const { classes, fromWeeklyTemplate } = await fetchScheduleForHoliday(
 				formStart,
@@ -476,6 +635,18 @@ export default function HolidayPlanner({
 					courses: attendanceData.attendanceCourseComponentInfoList,
 					token,
 					studentId: effStudentId,
+					onProgress: (p) => {
+						setActionStatus((prev) =>
+							prev && prev.type === "preview"
+								? {
+										...prev,
+										completed: p.completed,
+										total: p.total,
+										currentSubject: p.currentSubject,
+									}
+								: prev,
+						);
+					},
 				});
 				finalClasses = reconciled.map((c) => ({
 					...c,
@@ -489,6 +660,7 @@ export default function HolidayPlanner({
 			setFormError("Failed to fetch schedule for the given dates.");
 		} finally {
 			setIsFetchingSchedule(false);
+			setActionStatus(null);
 		}
 	};
 
@@ -572,7 +744,15 @@ export default function HolidayPlanner({
 			const holiday = holidays.find((h) => h.id === holidayId);
 			if (!holiday) return;
 
+			setExpandedId(holidayId);
 			setIsFetchingSchedule(true);
+			setActionStatus({
+				type: "apply",
+				holidayId,
+				completed: 0,
+				total: 0,
+			});
+
 			try {
 				let classesToApply = holiday.classes;
 				const token = Cookies.get(AUTH_COOKIE_NAME) || "";
@@ -585,6 +765,18 @@ export default function HolidayPlanner({
 							courses: attendanceData.attendanceCourseComponentInfoList,
 							token,
 							studentId: effStudentId,
+							onProgress: (p) => {
+								setActionStatus((prev) =>
+									prev && prev.holidayId === holidayId
+										? {
+												...prev,
+												completed: p.completed,
+												total: p.total,
+												currentSubject: p.currentSubject,
+											}
+										: prev,
+								);
+							},
 						});
 					} catch (err) {
 						console.warn("Reconciliation before apply failed:", err);
@@ -636,6 +828,7 @@ export default function HolidayPlanner({
 				);
 			} finally {
 				setIsFetchingSchedule(false);
+				setActionStatus(null);
 			}
 		},
 		[holidays, attendanceData, getEffectiveStudentId, setAttendanceData],
@@ -706,7 +899,15 @@ export default function HolidayPlanner({
 		const holiday = holidays.find((h) => h.id === holidayId);
 		if (!holiday) return;
 
+		setExpandedId(holidayId);
 		setIsFetchingSchedule(true);
+		setActionStatus({
+			type: "refresh",
+			holidayId,
+			completed: 0,
+			total: 0,
+		});
+
 		try {
 			const { classes, fromWeeklyTemplate } = await fetchScheduleForHoliday(
 				holiday.startDate,
@@ -723,6 +924,18 @@ export default function HolidayPlanner({
 					courses: attendanceData.attendanceCourseComponentInfoList,
 					token,
 					studentId: effStudentId,
+					onProgress: (p) => {
+						setActionStatus((prev) =>
+							prev && prev.holidayId === holidayId
+								? {
+										...prev,
+										completed: p.completed,
+										total: p.total,
+										currentSubject: p.currentSubject,
+									}
+								: prev,
+						);
+					},
 				});
 			}
 
@@ -791,6 +1004,7 @@ export default function HolidayPlanner({
 			);
 		} finally {
 			setIsFetchingSchedule(false);
+			setActionStatus(null);
 		}
 	};
 
@@ -838,6 +1052,12 @@ export default function HolidayPlanner({
 										)}
 										). Projections are active below.
 									</p>
+									{isAutoReconciling && (
+										<div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
+											<Loader2 className="h-3.5 w-3.5 animate-spin text-amber-700 shrink-0" />
+											<span>Syncing attendance updates with CyberVidya…</span>
+										</div>
+									)}
 								</div>
 							</div>
 							<div className="flex items-center gap-2">
@@ -990,26 +1210,36 @@ export default function HolidayPlanner({
 
 							{/* Fetch schedule button */}
 							{!previewClasses && (
-								<button
-									type="button"
-									onClick={handleFetchPreview}
-									disabled={
-										isFetchingSchedule ||
-										!formName.trim() ||
-										!formStart ||
-										!formEnd
-									}
-									className="style-border style-text w-full py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-								>
-									{isFetchingSchedule ? (
-										<RefreshCw className="h-4 w-4 animate-spin" />
-									) : (
-										<CalendarPlus className="h-4 w-4" />
+								<>
+									{actionStatus?.type === "preview" && (
+										<HolidayProgressIndicator
+											status={actionStatus}
+											waitStage={waitStage}
+										/>
 									)}
-									{isFetchingSchedule
-										? "Building Holiday Schedule..."
-										: "Load Schedule For These Dates"}
-								</button>
+									<button
+										type="button"
+										onClick={handleFetchPreview}
+										disabled={
+											isFetchingSchedule ||
+											!formName.trim() ||
+											!formStart ||
+											!formEnd
+										}
+										className="style-border style-text w-full py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+									>
+										{isFetchingSchedule ? (
+											<Loader2 className="h-4 w-4 animate-spin" />
+										) : (
+											<CalendarPlus className="h-4 w-4" />
+										)}
+										{isFetchingSchedule
+											? actionStatus?.total && actionStatus.total > 0
+												? `Checking CyberVidya (${actionStatus.completed}/${actionStatus.total})…`
+												: "Building Holiday Schedule…"
+											: "Load Schedule For These Dates"}
+									</button>
+								</>
 							)}
 
 							{/* Preview of schedule for given dates and all in between */}
@@ -1111,6 +1341,13 @@ export default function HolidayPlanner({
 									(c) => c.markedInErp,
 								).length;
 
+								const isThisHolidayBusy =
+									isFetchingSchedule && actionStatus?.holidayId === holiday.id;
+								const isThisHolidayApplying =
+									isThisHolidayBusy && actionStatus?.type === "apply";
+								const isThisHolidayRefreshing =
+									isThisHolidayBusy && actionStatus?.type === "refresh";
+
 								return (
 									<div
 										key={holiday.id}
@@ -1193,10 +1430,28 @@ export default function HolidayPlanner({
 														disabled={
 															absentClassesCount === 0 || isFetchingSchedule
 														}
-														className="style-border style-text py-1.5 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-40"
+														className={`style-border style-text py-1.5 px-3 text-xs font-bold flex items-center gap-1.5 cursor-pointer text-white transition-colors disabled:opacity-40 ${
+															isThisHolidayApplying
+																? "bg-amber-600 cursor-wait"
+																: "bg-amber-500 hover:bg-amber-600"
+														}`}
 													>
-														<Play className="h-3.5 w-3.5" />
-														<span>Apply</span>
+														{isThisHolidayApplying ? (
+															<>
+																<Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+																<span>
+																	Applying
+																	{actionStatus.total > 0
+																		? ` (${Math.round((actionStatus.completed / actionStatus.total) * 100)}%)`
+																		: "…"}
+																</span>
+															</>
+														) : (
+															<>
+																<Play className="h-3.5 w-3.5 shrink-0" />
+																<span>Apply</span>
+															</>
+														)}
 													</button>
 												)}
 
@@ -1214,6 +1469,13 @@ export default function HolidayPlanner({
 										{/* Expanded Schedule for this holiday */}
 										{isExpanded && (
 											<div className="border-t-2 border-black/10 bg-gray-50/70 p-4 style-fade-in">
+												{isThisHolidayBusy && (
+													<HolidayProgressIndicator
+														status={actionStatus}
+														waitStage={waitStage}
+													/>
+												)}
+
 												<div className="flex flex-wrap items-center justify-between gap-2 mb-3">
 													<p className="text-xs text-gray-700 font-semibold">
 														Schedule for all dates in {holiday.name}:
@@ -1234,9 +1496,13 @@ export default function HolidayPlanner({
 															title="Re-check timetable and ERP marked attendance"
 														>
 															<RefreshCw
-																className={`h-3 w-3 ${isFetchingSchedule ? "animate-spin" : ""}`}
+																className={`h-3 w-3 ${isThisHolidayRefreshing ? "animate-spin text-amber-600" : ""}`}
 															/>
-															Re-sync with ERP
+															{isThisHolidayRefreshing
+																? actionStatus.total > 0
+																	? `Checking CyberVidya (${actionStatus.completed}/${actionStatus.total})…`
+																	: "Checking CyberVidya…"
+																: "Re-sync with ERP"}
 														</button>
 													</div>
 												</div>
@@ -1273,13 +1539,31 @@ export default function HolidayPlanner({
 															disabled={
 																absentClassesCount === 0 || isFetchingSchedule
 															}
-															className="style-border style-text w-full py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-40"
+															className={`style-border style-text w-full py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer text-white transition-colors disabled:opacity-40 ${
+																isThisHolidayApplying
+																	? "bg-amber-600 cursor-wait"
+																	: "bg-amber-500 hover:bg-amber-600"
+															}`}
 														>
-															<Play className="h-4 w-4" />
-															{absentClassesCount === 0 &&
-															markedClassesCount > 0
-																? "All Holiday Classes Already Marked in ERP"
-																: `Apply Holiday — Mark ${absentClassesCount} Classes Absent in 1-Click`}
+															{isThisHolidayApplying ? (
+																<>
+																	<Loader2 className="h-4 w-4 animate-spin shrink-0" />
+																	<span>
+																		Checking CyberVidya & Applying Holiday…
+																		{actionStatus.total > 0
+																			? ` (${actionStatus.completed}/${actionStatus.total} · ${Math.round((actionStatus.completed / actionStatus.total) * 100)}%)`
+																			: ""}
+																	</span>
+																</>
+															) : (
+																<>
+																	<Play className="h-4 w-4 shrink-0" />
+																	{absentClassesCount === 0 &&
+																	markedClassesCount > 0
+																		? "All Holiday Classes Already Marked in ERP"
+																		: `Apply Holiday — Mark ${absentClassesCount} Classes Absent in 1-Click`}
+																</>
+															)}
 														</button>
 													)}
 												</div>

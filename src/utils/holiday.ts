@@ -45,11 +45,18 @@ export function getPlannedClassStartMinutes(c: PlannedClass): number | null {
 	return null;
 }
 
+export interface HolidayReconcileProgress {
+	completed: number;
+	total: number;
+	currentSubject?: string;
+}
+
 export interface ReconcileHolidayParams {
 	classes: PlannedClass[];
 	courses: CourseAttendanceInfo[];
 	token: string;
 	studentId: number;
+	onProgress?: (progress: HolidayReconcileProgress) => void;
 }
 
 /**
@@ -67,6 +74,7 @@ export async function reconcileHolidayClasses({
 	courses,
 	token,
 	studentId,
+	onProgress,
 }: ReconcileHolidayParams): Promise<PlannedClass[]> {
 	if (!classes || classes.length === 0) return [];
 	if (
@@ -102,6 +110,11 @@ export async function reconcileHolidayClasses({
 	}
 
 	const subjectGroups = Array.from(groupMap.entries());
+	const total = subjectGroups.length;
+	let completed = 0;
+
+	onProgress?.({ completed: 0, total });
+
 	const matchedClassMap = new Map<
 		string,
 		{ markedInErp: boolean; erpAttendance?: LectureListProps["attendance"] }
@@ -116,83 +129,92 @@ export async function reconcileHolidayClasses({
 				const sample = groupClasses[0];
 				if (!sample) return;
 
-				const resolution = resolveSubject(
-					sample.courseCode,
-					sample.courseCompName,
-					courses,
-					sample.courseName,
-				);
-
-				if ("error" in resolution) {
-					// Cannot resolve subject in enrolled list; leave as is
-					return;
-				}
-
-				const result = await fetchSubjectLectures(token, {
-					courseCompId: resolution.courseComponentId,
-					courseId: resolution.courseId,
-					studentId,
-				});
-
-				if ("error" in result || !Array.isArray(result)) {
-					// Failed to fetch lectures for this subject
-					return;
-				}
-
-				// Normalize lectures and bucket by dateKey
-				const normalizedLectures = result
-					.map(normalizeLecture)
-					.filter((l) => l !== null);
-
-				const poolByDate = new Map<string, typeof normalizedLectures>();
-				for (const lec of normalizedLectures) {
-					const list = poolByDate.get(lec.dateKey) || [];
-					list.push(lec);
-					poolByDate.set(lec.dateKey, list);
-				}
-
-				// Two-pass matching for this subject's classes:
-				// Pass 1: Exact date and start time match
-				const classWithMinutes = groupClasses.map((cls) => ({
-					cls,
-					startMinutes: getPlannedClassStartMinutes(cls),
-				}));
-
-				for (const item of classWithMinutes) {
-					const pool = poolByDate.get(item.cls.dateKey) ?? [];
-					const exact = pool.find(
-						(l) =>
-							!l.consumed &&
-							item.startMinutes !== null &&
-							l.startMinutes === item.startMinutes,
+				try {
+					const resolution = resolveSubject(
+						sample.courseCode,
+						sample.courseCompName,
+						courses,
+						sample.courseName,
 					);
-					if (exact) {
-						exact.consumed = true;
-						matchedClassMap.set(item.cls.id, {
-							markedInErp: true,
-							erpAttendance: exact.attendance,
-						});
-					}
-				}
 
-				// Pass 2: Loose date match for remaining unmatched classes
-				for (const item of classWithMinutes) {
-					if (matchedClassMap.has(item.cls.id)) continue;
-					const pool = poolByDate.get(item.cls.dateKey) ?? [];
-					const loose = pool.find((l) => !l.consumed);
-					if (loose) {
-						loose.consumed = true;
-						matchedClassMap.set(item.cls.id, {
-							markedInErp: true,
-							erpAttendance: loose.attendance,
-						});
-					} else {
-						// Checked with ERP, but no lecture record exists yet (not marked yet)
-						matchedClassMap.set(item.cls.id, {
-							markedInErp: false,
-							erpAttendance: undefined,
-						});
+					if ("error" in resolution) {
+						// Cannot resolve subject in enrolled list; leave as is
+						return;
 					}
+
+					const result = await fetchSubjectLectures(token, {
+						courseCompId: resolution.courseComponentId,
+						courseId: resolution.courseId,
+						studentId,
+					});
+
+					if ("error" in result || !Array.isArray(result)) {
+						// Failed to fetch lectures for this subject
+						return;
+					}
+
+					// Normalize lectures and bucket by dateKey
+					const normalizedLectures = result
+						.map(normalizeLecture)
+						.filter((l) => l !== null);
+
+					const poolByDate = new Map<string, typeof normalizedLectures>();
+					for (const lec of normalizedLectures) {
+						const list = poolByDate.get(lec.dateKey) || [];
+						list.push(lec);
+						poolByDate.set(lec.dateKey, list);
+					}
+
+					// Two-pass matching for this subject's classes:
+					// Pass 1: Exact date and start time match
+					const classWithMinutes = groupClasses.map((cls) => ({
+						cls,
+						startMinutes: getPlannedClassStartMinutes(cls),
+					}));
+
+					for (const item of classWithMinutes) {
+						const pool = poolByDate.get(item.cls.dateKey) ?? [];
+						const exact = pool.find(
+							(l) =>
+								!l.consumed &&
+								item.startMinutes !== null &&
+								l.startMinutes === item.startMinutes,
+						);
+						if (exact) {
+							exact.consumed = true;
+							matchedClassMap.set(item.cls.id, {
+								markedInErp: true,
+								erpAttendance: exact.attendance,
+							});
+						}
+					}
+
+					// Pass 2: Loose date match for remaining unmatched classes
+					for (const item of classWithMinutes) {
+						if (matchedClassMap.has(item.cls.id)) continue;
+						const pool = poolByDate.get(item.cls.dateKey) ?? [];
+						const loose = pool.find((l) => !l.consumed);
+						if (loose) {
+							loose.consumed = true;
+							matchedClassMap.set(item.cls.id, {
+								markedInErp: true,
+								erpAttendance: loose.attendance,
+							});
+						} else {
+							// Checked with ERP, but no lecture record exists yet (not marked yet)
+							matchedClassMap.set(item.cls.id, {
+								markedInErp: false,
+								erpAttendance: undefined,
+							});
+						}
+					}
+				} finally {
+					completed += 1;
+					onProgress?.({
+						completed,
+						total,
+						currentSubject: sample.courseName || sample.courseCode,
+					});
 				}
 			}),
 		);
