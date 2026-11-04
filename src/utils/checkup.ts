@@ -501,11 +501,35 @@ export async function fetchSubjectLectures(
 				Cookies.remove(STUDENT_ID_COOKIE_NAME);
 			}
 
+			if (status === 401) {
+				return { error: "Session expired. Please log in again." };
+			}
+
+			// Transport failures and timeouts are the normal shape of a busy
+			// period. Keep raw service wording out of the report.
+			if (!status || status === 502 || status === 503 || status === 504) {
+				return {
+					error:
+						"CyberVidya didn't respond in time for this subject. Please try again in a moment.",
+				};
+			}
+
+			if (status >= 500) {
+				return {
+					error:
+						"CyberVidya couldn't return this subject's attendance. Please try again in a moment.",
+				};
+			}
+
+			if (serverMsg === "No data found") {
+				return {
+					error: "CyberVidya has no attendance records for this subject yet.",
+				};
+			}
+
 			return {
 				error:
-					status === 401
-						? "Session expired. Please log in again."
-						: (serverMsg ?? "Could not load attendance for this subject."),
+					serverMsg ?? "CyberVidya couldn't return this subject's attendance.",
 			};
 		}
 	}
@@ -520,6 +544,7 @@ export async function runCheckup({
 	studentId,
 	attendanceData,
 	now = new Date(),
+	onProgress,
 }: CheckupParams): Promise<CheckupReport> {
 	const dateKey = toDateKey(now);
 	const nowMinutes = now.getHours() * 60 + now.getMinutes();
@@ -559,6 +584,15 @@ export async function runCheckup({
 		attendanceData.attendanceCourseComponentInfoList ?? [];
 
 	const subjectGroups = Array.from(groupBySubject(todaysClasses).entries());
+	const totalSubjects = subjectGroups.length;
+	const emitProgress = (current: CheckupSubject[]) =>
+		onProgress?.({
+			completed: current.length,
+			total: totalSubjects,
+			subjects: [...current],
+		});
+
+	emitProgress([]);
 
 	// Four subjects at a time: the old value of 2 serialised 12 subjects into
 	// six waves, while 12 at once saturated the upstream. Four keeps the report
@@ -619,6 +653,7 @@ export async function runCheckup({
 			}),
 		);
 		subjects.push(...chunkResults);
+		emitProgress(subjects);
 	}
 
 	const summary = emptySummary();
@@ -630,6 +665,9 @@ export async function runCheckup({
 		unknown: "unknown",
 	};
 	for (const subject of subjects) {
+		// A subject that never loaded has no meaningful verdicts; report it as
+		// unavailable instead of inflating the unknown count.
+		if (subject.error) continue;
 		for (const entry of subject.entries) {
 			summary[countKey[entry.verdict]] += 1;
 		}

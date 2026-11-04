@@ -1,3 +1,4 @@
+import axios from "axios";
 import Cookies from "js-cookie";
 import {
 	AlertTriangle,
@@ -8,6 +9,7 @@ import {
 	ChevronRight,
 	ChevronUp,
 	Clock,
+	Loader2,
 	RefreshCw,
 	XCircle,
 } from "lucide-react";
@@ -15,6 +17,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAppContext } from "../contexts/AppContext";
 import type {
 	CheckupEntry,
+	CheckupProgress,
 	CheckupReport,
 	CheckupSubject,
 	CheckupVerdict,
@@ -85,6 +88,106 @@ function SkeletonRow() {
 	);
 }
 
+type WaitStage = "idle" | "loading" | "slow" | "stalled";
+
+interface CheckupFailure {
+	title: string;
+	message: string;
+	note?: string;
+}
+
+function WaitStatus({
+	stage,
+	progress,
+}: {
+	stage: WaitStage;
+	progress: CheckupProgress | null;
+}) {
+	const completed = progress?.completed ?? 0;
+	const total = progress?.total ?? 0;
+	const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+	if (stage === "slow" || stage === "stalled") {
+		const stalled = stage === "stalled";
+		return (
+			<output
+				aria-live="polite"
+				className={`block border p-3 mb-3 ${stalled ? "border-amber-300 bg-amber-50" : "border-amber-200 bg-[#fffbeb]"}`}
+			>
+				<div className="flex items-start gap-2.5">
+					<span
+						className={`mt-0.5 shrink-0 ${stalled ? "text-amber-700" : "text-amber-600"}`}
+					>
+						{stalled ? (
+							<AlertTriangle className="h-4 w-4" />
+						) : (
+							<Clock className="h-4 w-4 animate-pulse" />
+						)}
+					</span>
+					<div className="min-w-0 flex-1">
+						<p className="text-sm font-bold text-amber-900">
+							{stalled
+								? "CyberVidya is still not responding"
+								: "CyberVidya is taking longer than usual"}
+						</p>
+						<p className="text-xs text-amber-800 mt-1">
+							{stalled
+								? "Its attendance service is under heavy load right now. The checkup is still waiting and will show whatever CyberVidya returns."
+								: "Its attendance service is responding slowly right now. Results will appear here automatically as each subject is checked."}
+						</p>
+						<p className="text-[11px] font-semibold text-amber-700 mt-1.5">
+							This delay is on CyberVidya&apos;s side — nothing is wrong with
+							your account.
+						</p>
+						{total > 0 && (
+							<div className="mt-2">
+								<div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+									<span>
+										{completed} of {total} subjects checked
+									</span>
+									<span>{percent}%</span>
+								</div>
+								<div className="mt-1 h-1 w-full bg-amber-200">
+									<div
+										className="h-1 bg-amber-500 transition-all duration-500"
+										style={{ width: `${percent}%` }}
+									/>
+								</div>
+							</div>
+						)}
+					</div>
+				</div>
+			</output>
+		);
+	}
+
+	return (
+		<output aria-live="polite" className="block mb-3">
+			<div className="flex items-center justify-between gap-2">
+				<span className="flex items-center gap-2 text-xs text-gray-500">
+					<Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+					{completed > 0
+						? `${completed} of ${total} subjects checked · waiting on CyberVidya…`
+						: "Checking today's classes with CyberVidya…"}
+				</span>
+				{total > 0 && (
+					<span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+						{percent}%
+					</span>
+				)}
+			</div>
+			{total > 0 && (
+				<div className="mt-2 h-1 w-full bg-gray-100">
+					<div
+						className="h-1 bg-blue-600 transition-all duration-500"
+						style={{ width: `${percent}%` }}
+					/>
+				</div>
+			)}
+		</output>
+	);
+}
+
 function SubjectBlock({ subject }: { subject: CheckupSubject }) {
 	const unrecorded =
 		subject.completeness !== undefined
@@ -103,7 +206,10 @@ function SubjectBlock({ subject }: { subject: CheckupSubject }) {
 			</div>
 
 			{subject.error ? (
-				<p className="text-xs text-red-600">{subject.error}</p>
+				<div className="flex items-start gap-2 border border-amber-200 bg-[#fffbeb] p-2 mt-1">
+					<AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+					<p className="text-xs text-amber-800">{subject.error}</p>
+				</div>
 			) : (
 				<>
 					{unrecorded > 0 && (
@@ -131,13 +237,16 @@ function SubjectBlock({ subject }: { subject: CheckupSubject }) {
 
 function SummaryLine({ report }: { report: CheckupReport }) {
 	const { present, absent, notMarked, upcoming, unknown } = report.summary;
-	if (present + absent + notMarked + upcoming + unknown === 0) return null;
+	const unavailable = report.subjects.filter((subject) => subject.error).length;
+	if (present + absent + notMarked + upcoming + unknown + unavailable === 0)
+		return null;
 	const parts = [
 		present > 0 ? `${present} present` : null,
 		absent > 0 ? `${absent} absent` : null,
 		notMarked > 0 ? `${notMarked} not marked` : null,
 		upcoming > 0 ? `${upcoming} upcoming` : null,
 		unknown > 0 ? `${unknown} unknown` : null,
+		unavailable > 0 ? `${unavailable} unavailable` : null,
 	].filter(Boolean);
 	return <span className="text-xs text-gray-600">{parts.join(" · ")}</span>;
 }
@@ -152,7 +261,9 @@ export default function TodayCheckup({
 	const { attendanceData } = useAppContext();
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
-	const [error, setError] = useState("");
+	const [waitStage, setWaitStage] = useState<WaitStage>("idle");
+	const [progress, setProgress] = useState<CheckupProgress | null>(null);
+	const [error, setError] = useState<CheckupFailure | null>(null);
 	const [report, setReport] = useState<CheckupReport | null>(null);
 	const [selectedDate, setSelectedDate] = useState(() =>
 		startOfDay(new Date()),
@@ -174,12 +285,17 @@ export default function TodayCheckup({
 		}
 
 		if (!token || !attendanceData) {
-			setError("Please log in again to run the checkup.");
+			setError({
+				title: "Please log in again",
+				message: "Your session has ended, so the checkup can't run.",
+			});
 			return;
 		}
 
 		setIsLoading(true);
-		setError("");
+		setWaitStage("loading");
+		setProgress(null);
+		setError(null);
 
 		try {
 			if (!studentId || studentId <= 0) {
@@ -190,8 +306,12 @@ export default function TodayCheckup({
 						expires: COOKIE_EXPIRY,
 					});
 				} else {
-					setError("Could not retrieve student ID. Please try again.");
-					setIsLoading(false);
+					setError({
+						title: "CyberVidya didn't return your student details",
+						message:
+							"Its attendance service didn't respond in time. Please try again in a moment.",
+						note: "This is on CyberVidya's side — your account is fine.",
+					});
 					return;
 				}
 			}
@@ -215,15 +335,52 @@ export default function TodayCheckup({
 					studentId,
 					attendanceData,
 					now: effectiveNow,
+					onProgress: setProgress,
 				}),
 			);
 		} catch (err) {
 			console.error(err);
-			setError("Could not load the timetable for this day. Please try again.");
+			if (
+				axios.isAxiosError(err) &&
+				(err.response?.status === 401 || err.response?.status === 403)
+			) {
+				setError({
+					title: "Session expired",
+					message: "Please log in again to run the checkup.",
+				});
+			} else {
+				setError({
+					title: "CyberVidya didn't load the timetable",
+					message:
+						"Its attendance service didn't respond for this day. Please try again in a moment.",
+					note: "This is a CyberVidya service issue — your account is fine.",
+				});
+			}
 		} finally {
 			setIsLoading(false);
 		}
 	}, [attendanceData, selectedDate, isToday, propStudentId]);
+
+	// Stage the wait copy so a long request has visible feedback before it
+	// resolves.
+	useEffect(() => {
+		if (!isLoading) {
+			setWaitStage("idle");
+			return;
+		}
+
+		setWaitStage("loading");
+		const slowTimer = window.setTimeout(() => setWaitStage("slow"), 5000);
+		const stalledTimer = window.setTimeout(
+			() => setWaitStage("stalled"),
+			18000,
+		);
+
+		return () => {
+			window.clearTimeout(slowTimer);
+			window.clearTimeout(stalledTimer);
+		};
+	}, [isLoading]);
 
 	const toggle = () => {
 		const next = !isExpanded;
@@ -274,7 +431,19 @@ export default function TodayCheckup({
 						<span className="style-text text-md font-semibold text-black uppercase">
 							Today&apos;s Attendance
 						</span>
-						{report ? (
+						{isLoading ? (
+							<span
+								className={`text-xs ${waitStage === "slow" || waitStage === "stalled" ? "text-amber-600" : "text-gray-500"}`}
+							>
+								{waitStage === "stalled"
+									? "CyberVidya is not responding"
+									: waitStage === "slow"
+										? "CyberVidya is responding slowly"
+										: "Checking with CyberVidya…"}
+							</span>
+						) : error ? (
+							<span className="text-xs text-red-600">{error.title}</span>
+						) : report ? (
 							report.status === "no-classes" ? (
 								<span className="text-xs text-gray-500">
 									{isSelectedDateNonWorking
@@ -337,22 +506,60 @@ export default function TodayCheckup({
 
 					{isLoading && (
 						<div>
-							<SkeletonRow />
-							<SkeletonRow />
-							<SkeletonRow />
+							<WaitStatus stage={waitStage} progress={progress} />
+							{progress && progress.subjects.length > 0 ? (
+								<>
+									{progress.subjects.map((subject) => (
+										<SubjectBlock
+											key={`${subject.courseCode}-${subject.courseCompName}`}
+											subject={subject}
+										/>
+									))}
+									{progress.completed < progress.total && (
+										<div className="flex items-center gap-2 pt-3 mt-3 border-t border-gray-200 text-xs text-gray-500">
+											<Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+											Still checking{" "}
+											{progress.total - progress.completed === 1
+												? "1 more subject"
+												: `${progress.total - progress.completed} more subjects`}{" "}
+											with CyberVidya…
+										</div>
+									)}
+								</>
+							) : (
+								<div>
+									<SkeletonRow />
+									<SkeletonRow />
+									<SkeletonRow />
+								</div>
+							)}
 						</div>
 					)}
 
 					{!isLoading && error && (
-						<div className="flex items-center justify-between gap-2">
-							<p className="text-sm text-red-600">{error}</p>
-							<button
-								type="button"
-								onClick={handleCheck}
-								className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
-							>
-								Retry
-							</button>
+						<div role="alert" className="border border-red-200 bg-red-50 p-3">
+							<div className="flex flex-wrap items-start gap-2.5">
+								<AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+								<div className="min-w-[200px] flex-1">
+									<p className="text-sm font-bold text-red-800">
+										{error.title}
+									</p>
+									<p className="text-xs text-red-700 mt-1">{error.message}</p>
+									{error.note && (
+										<p className="text-[11px] text-red-700/80 mt-1.5">
+											{error.note}
+										</p>
+									)}
+								</div>
+								<button
+									type="button"
+									onClick={handleCheck}
+									className="style-border style-text shrink-0 py-1.5 px-2 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transition-colors uppercase"
+								>
+									<RefreshCw className="h-3.5 w-3.5" />
+									Try again
+								</button>
+							</div>
 						</div>
 					)}
 
