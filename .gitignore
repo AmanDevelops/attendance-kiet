@@ -28,3 +28,6 @@ extension/*/_metadata/
 
 # Local Netlify folder
 .netlify
+
+# Deno Deploy proxy is deployed separately and kept out of the app repo
+proxy-deno/

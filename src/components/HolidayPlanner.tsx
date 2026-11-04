@@ -21,9 +21,12 @@ import {
 	AUTH_COOKIE_NAME,
 	getBaseUrl,
 	NON_WORKING_DAYS,
+	STUDENT_ID_COOKIE_NAME,
 } from "../types/constants";
+import type { PlannedClass, SavedHoliday } from "../types/holiday";
 import type { ScheduleEntry, ScheduleResponse } from "../types/response";
 import {
+	fetchStudentId,
 	formatAuthHeader,
 	formatNonWorkingDay,
 	getWeekRange,
@@ -31,33 +34,14 @@ import {
 	parseScheduleDate,
 	toDateKey,
 } from "../types/utils";
+import {
+	calculateProjectedAbsenceCounts,
+	reconcileHolidayClasses,
+} from "../utils/holiday";
 
-// --------------- Types ---------------
+// --------------- Re-export Types ---------------
 
-export interface PlannedClass {
-	id: string;
-	dateKey: string; // YYYY-MM-DD
-	courseName: string;
-	courseCode: string;
-	courseCompName: string;
-	startTime: string; // Formatted e.g. "9:00 AM"
-	endTime: string; // Formatted e.g. "9:55 AM"
-	rawStart: string;
-	rawEnd: string;
-	dateLabel: string; // e.g. "Mon, Nov 4"
-	isAbsent: boolean;
-}
-
-export interface SavedHoliday {
-	id: string;
-	name: string;
-	startDate: string; // YYYY-MM-DD
-	endDate: string; // YYYY-MM-DD
-	applied: boolean;
-	appliedCounts: Record<string, number>; // courseCode -> count
-	classes: PlannedClass[];
-	isGeneratedFromWeeklyTemplate?: boolean;
-}
+export type { PlannedClass, SavedHoliday } from "../types/holiday";
 
 // --------------- Local Storage ---------------
 
@@ -290,11 +274,13 @@ async function fetchScheduleForHoliday(
 interface HolidayPlannerProps {
 	showPlanner: number;
 	setShowPlanner?: React.Dispatch<React.SetStateAction<number>>;
+	studentId?: number | null;
 }
 
 export default function HolidayPlanner({
 	showPlanner,
 	setShowPlanner,
+	studentId: propStudentId,
 }: HolidayPlannerProps) {
 	const { attendanceData, setAttendanceData } = useAppContext();
 	const [holidays, setHolidays] = useState<SavedHoliday[]>(loadHolidays);
@@ -317,42 +303,134 @@ export default function HolidayPlanner({
 		saveHolidays(holidays);
 	}, [holidays]);
 
-	// Auto-restore applied holiday projections if user refreshes page
-	const hasRestoredRef = useRef(false);
+	const getEffectiveStudentId = useCallback(async (): Promise<number> => {
+		if (propStudentId && propStudentId > 0) return propStudentId;
+		const raw = (Cookies.get(STUDENT_ID_COOKIE_NAME) || "")
+			.replace(/^"|"$/g, "")
+			.trim();
+		const parsed = Number(raw);
+		if (parsed && !Number.isNaN(parsed) && parsed > 0) return parsed;
+		const token = Cookies.get(AUTH_COOKIE_NAME) || "";
+		if (token) {
+			const fetched = await fetchStudentId(token);
+			if (fetched && fetched > 0) return fetched;
+		}
+		return 0;
+	}, [propStudentId]);
+
+	// Auto-reconcile applied holiday projections against ERP to avoid duplicate absences
+	const isReconcilingRef = useRef(false);
+	const lastReconciledKeyRef = useRef<string>("");
+
 	useEffect(() => {
-		if (!attendanceData || hasRestoredRef.current) return;
+		if (!attendanceData) return;
+		const token = Cookies.get(AUTH_COOKIE_NAME) || "";
+		if (!token) return;
 
 		const appliedHoliday = holidays.find((h) => h.applied);
 		if (!appliedHoliday) return;
 
-		const alreadyProjected =
-			attendanceData.attendanceCourseComponentInfoList.some(
-				(c) => c.attendanceCourseComponentNameInfoList[0]?.isProjected,
-			);
+		// Fingerprint course periods so newly marked attendance triggers reconciliation
+		const periodsFingerprint = attendanceData.attendanceCourseComponentInfoList
+			.map((c) => {
+				const comp = c.attendanceCourseComponentNameInfoList[0];
+				return `${c.courseCode}:${comp?.numberOfPeriods ?? 0}:${comp?.isProjected ?? false}`;
+			})
+			.join(",");
 
-		if (!alreadyProjected) {
-			hasRestoredRef.current = true;
-			const counts = appliedHoliday.appliedCounts;
-			setAttendanceData((prev) => {
-				if (!prev) return prev;
-				const updated = prev.attendanceCourseComponentInfoList.map((course) => {
-					const absentCount = counts[course.courseCode] || 0;
-					if (absentCount === 0) return course;
-					const updatedList = [...course.attendanceCourseComponentNameInfoList];
-					updatedList[0] = {
-						...updatedList[0],
-						numberOfPeriods: updatedList[0].numberOfPeriods + absentCount,
-						isProjected: true,
-					};
+		const reconcileKey = `${appliedHoliday.id}-${appliedHoliday.classes.length}-${periodsFingerprint}-${propStudentId}`;
+		if (
+			lastReconciledKeyRef.current === reconcileKey ||
+			isReconcilingRef.current
+		) {
+			return;
+		}
+
+		let isCancelled = false;
+
+		const runReconcile = async () => {
+			const effStudentId = await getEffectiveStudentId();
+			if (isCancelled || !effStudentId || effStudentId <= 0) return;
+
+			isReconcilingRef.current = true;
+			try {
+				const updatedClasses = await reconcileHolidayClasses({
+					classes: appliedHoliday.classes,
+					courses: attendanceData.attendanceCourseComponentInfoList,
+					token,
+					studentId: effStudentId,
+				});
+
+				if (isCancelled) return;
+
+				const newCounts = calculateProjectedAbsenceCounts(updatedClasses);
+				lastReconciledKeyRef.current = reconcileKey;
+
+				// Update holiday state and localStorage
+				setHolidays((prev) =>
+					prev.map((h) =>
+						h.id === appliedHoliday.id
+							? { ...h, classes: updatedClasses, appliedCounts: newCounts }
+							: h,
+					),
+				);
+
+				// Update attendanceData to project only the reconciled (unmarked) absences
+				setAttendanceData((prev) => {
+					if (!prev) return prev;
+					const oldCounts = appliedHoliday.appliedCounts || {};
+					const updatedList = prev.attendanceCourseComponentInfoList.map(
+						(course) => {
+							const oldCount = oldCounts[course.courseCode] || 0;
+							const newCount = newCounts[course.courseCode] || 0;
+
+							const compList = [
+								...course.attendanceCourseComponentNameInfoList,
+							];
+							const firstComp = compList[0];
+							if (!firstComp) return course;
+
+							// If isProjected is true, oldCount was part of numberOfPeriods
+							const basePeriods = firstComp.isProjected
+								? Math.max(0, firstComp.numberOfPeriods - oldCount)
+								: firstComp.numberOfPeriods;
+
+							const finalPeriods = basePeriods + newCount;
+							compList[0] = {
+								...firstComp,
+								numberOfPeriods: finalPeriods,
+								isProjected: newCount > 0,
+							};
+							return {
+								...course,
+								attendanceCourseComponentNameInfoList: compList,
+							};
+						},
+					);
 					return {
-						...course,
-						attendanceCourseComponentNameInfoList: updatedList,
+						...prev,
+						attendanceCourseComponentInfoList: updatedList,
 					};
 				});
-				return { ...prev, attendanceCourseComponentInfoList: updated };
-			});
-		}
-	}, [attendanceData, holidays, setAttendanceData]);
+			} catch (err) {
+				console.error("Auto-reconcile holiday with ERP failed:", err);
+			} finally {
+				isReconcilingRef.current = false;
+			}
+		};
+
+		runReconcile();
+
+		return () => {
+			isCancelled = true;
+		};
+	}, [
+		attendanceData,
+		holidays,
+		propStudentId,
+		getEffectiveStudentId,
+		setAttendanceData,
+	]);
 
 	// Preset button for Diwali
 	const handlePresetDiwali = () => {
@@ -387,7 +465,25 @@ export default function HolidayPlanner({
 				formStart,
 				formEnd,
 			);
-			setPreviewClasses(classes);
+
+			let finalClasses = classes;
+			const token = Cookies.get(AUTH_COOKIE_NAME) || "";
+			const effStudentId = await getEffectiveStudentId();
+
+			if (token && effStudentId > 0 && attendanceData) {
+				const reconciled = await reconcileHolidayClasses({
+					classes,
+					courses: attendanceData.attendanceCourseComponentInfoList,
+					token,
+					studentId: effStudentId,
+				});
+				finalClasses = reconciled.map((c) => ({
+					...c,
+					isAbsent: c.markedInErp ? false : c.isAbsent,
+				}));
+			}
+
+			setPreviewClasses(finalClasses);
 			setFromWeeklyTemplate(fromWeeklyTemplate);
 		} catch {
 			setFormError("Failed to fetch schedule for the given dates.");
@@ -396,26 +492,33 @@ export default function HolidayPlanner({
 		}
 	};
 
-	// Toggle individual class in preview
+	// Toggle individual class in preview (only if not already marked in ERP)
 	const togglePreviewClass = (classId: string) => {
 		setPreviewClasses((prev) =>
 			prev
 				? prev.map((c) =>
-						c.id === classId ? { ...c, isAbsent: !c.isAbsent } : c,
+						c.id === classId && !c.markedInErp
+							? { ...c, isAbsent: !c.isAbsent }
+							: c,
 					)
 				: null,
 		);
 	};
 
-	// Toggle all classes for a specific date in preview
+	// Toggle all classes for a specific date in preview (only unmarked)
 	const togglePreviewDate = (dateKey: string, forceAbsent?: boolean) => {
 		setPreviewClasses((prev) => {
 			if (!prev) return null;
-			const targetClasses = prev.filter((c) => c.dateKey === dateKey);
+			const targetClasses = prev.filter(
+				(c) => c.dateKey === dateKey && !c.markedInErp,
+			);
+			if (targetClasses.length === 0) return prev;
 			const allAbsent = targetClasses.every((c) => c.isAbsent);
 			const nextState = forceAbsent !== undefined ? forceAbsent : !allAbsent;
 			return prev.map((c) =>
-				c.dateKey === dateKey ? { ...c, isAbsent: nextState } : c,
+				c.dateKey === dateKey && !c.markedInErp
+					? { ...c, isAbsent: nextState }
+					: c,
 			);
 		});
 	};
@@ -445,7 +548,7 @@ export default function HolidayPlanner({
 		setFormError("");
 	};
 
-	// Toggle a class in an already saved holiday
+	// Toggle a class in an already saved holiday (only if not already marked in ERP)
 	const toggleSavedClass = (holidayId: string, classId: string) => {
 		setHolidays((prev) =>
 			prev.map((h) => {
@@ -454,64 +557,88 @@ export default function HolidayPlanner({
 				return {
 					...h,
 					classes: h.classes.map((c) =>
-						c.id === classId ? { ...c, isAbsent: !c.isAbsent } : c,
+						c.id === classId && !c.markedInErp
+							? { ...c, isAbsent: !c.isAbsent }
+							: c,
 					),
 				};
 			}),
 		);
 	};
 
-	// Apply holiday in one click
+	// Apply holiday in one click (reconciling with ERP to exclude already marked classes)
 	const handleApplyHoliday = useCallback(
-		(holidayId: string) => {
+		async (holidayId: string) => {
 			const holiday = holidays.find((h) => h.id === holidayId);
 			if (!holiday) return;
 
-			// Calculate absent count by courseCode
-			const counts: Record<string, number> = {};
-			for (const c of holiday.classes) {
-				if (c.isAbsent) {
-					counts[c.courseCode] = (counts[c.courseCode] || 0) + 1;
+			setIsFetchingSchedule(true);
+			try {
+				let classesToApply = holiday.classes;
+				const token = Cookies.get(AUTH_COOKIE_NAME) || "";
+				const effStudentId = await getEffectiveStudentId();
+
+				if (token && effStudentId > 0 && attendanceData) {
+					try {
+						classesToApply = await reconcileHolidayClasses({
+							classes: holiday.classes,
+							courses: attendanceData.attendanceCourseComponentInfoList,
+							token,
+							studentId: effStudentId,
+						});
+					} catch (err) {
+						console.warn("Reconciliation before apply failed:", err);
+					}
 				}
-			}
 
-			// Update attendance data
-			setAttendanceData((prevData) => {
-				if (!prevData) return prevData;
-				const updatedList = prevData.attendanceCourseComponentInfoList.map(
-					(course) => {
-						const absentCount = counts[course.courseCode] || 0;
-						if (absentCount === 0) return course;
+				// Calculate absent count by courseCode, strictly excluding already marked in ERP
+				const counts = calculateProjectedAbsenceCounts(classesToApply);
 
-						const updatedComp = [
-							...course.attendanceCourseComponentNameInfoList,
-						];
-						updatedComp[0] = {
-							...updatedComp[0],
-							numberOfPeriods: updatedComp[0].numberOfPeriods + absentCount,
-							isProjected: true,
-						};
-						return {
-							...course,
-							attendanceCourseComponentNameInfoList: updatedComp,
-						};
-					},
+				// Update attendance data
+				setAttendanceData((prevData) => {
+					if (!prevData) return prevData;
+					const updatedList = prevData.attendanceCourseComponentInfoList.map(
+						(course) => {
+							const absentCount = counts[course.courseCode] || 0;
+							if (absentCount === 0) return course;
+
+							const updatedComp = [
+								...course.attendanceCourseComponentNameInfoList,
+							];
+							updatedComp[0] = {
+								...updatedComp[0],
+								numberOfPeriods: updatedComp[0].numberOfPeriods + absentCount,
+								isProjected: true,
+							};
+							return {
+								...course,
+								attendanceCourseComponentNameInfoList: updatedComp,
+							};
+						},
+					);
+					return {
+						...prevData,
+						attendanceCourseComponentInfoList: updatedList,
+					};
+				});
+
+				setHolidays((prev) =>
+					prev.map((h) =>
+						h.id === holidayId
+							? {
+									...h,
+									classes: classesToApply,
+									applied: true,
+									appliedCounts: counts,
+								}
+							: h,
+					),
 				);
-				return {
-					...prevData,
-					attendanceCourseComponentInfoList: updatedList,
-				};
-			});
-
-			setHolidays((prev) =>
-				prev.map((h) =>
-					h.id === holidayId
-						? { ...h, applied: true, appliedCounts: counts }
-						: h,
-				),
-			);
+			} finally {
+				setIsFetchingSchedule(false);
+			}
 		},
-		[holidays, setAttendanceData],
+		[holidays, attendanceData, getEffectiveStudentId, setAttendanceData],
 	);
 
 	// Undo / unapply holiday
@@ -574,10 +701,10 @@ export default function HolidayPlanner({
 		}
 	};
 
-	// Refresh/re-sync holiday schedule from ERP
+	// Refresh/re-sync holiday schedule & marked attendance from ERP
 	const handleRefreshHolidaySchedule = async (holidayId: string) => {
 		const holiday = holidays.find((h) => h.id === holidayId);
-		if (!holiday || holiday.applied) return;
+		if (!holiday) return;
 
 		setIsFetchingSchedule(true);
 		try {
@@ -585,19 +712,83 @@ export default function HolidayPlanner({
 				holiday.startDate,
 				holiday.endDate,
 			);
-			if (classes.length > 0) {
-				setHolidays((prev) =>
-					prev.map((h) =>
-						h.id === holidayId
-							? {
-									...h,
-									classes,
-									isGeneratedFromWeeklyTemplate: fromWeeklyTemplate,
-								}
-							: h,
-					),
-				);
+
+			let processedClasses = classes;
+			const token = Cookies.get(AUTH_COOKIE_NAME) || "";
+			const effStudentId = await getEffectiveStudentId();
+
+			if (token && effStudentId > 0 && attendanceData) {
+				processedClasses = await reconcileHolidayClasses({
+					classes,
+					courses: attendanceData.attendanceCourseComponentInfoList,
+					token,
+					studentId: effStudentId,
+				});
 			}
+
+			// Preserve existing user customization for unmarked classes
+			const prevAbsentMap = new Map(
+				holiday.classes.map((c) => [c.id, c.isAbsent]),
+			);
+			processedClasses = processedClasses.map((c) => {
+				if (c.markedInErp) {
+					return { ...c, isAbsent: false };
+				}
+				const prevVal = prevAbsentMap.get(c.id);
+				return prevVal !== undefined ? { ...c, isAbsent: prevVal } : c;
+			});
+
+			const newCounts = calculateProjectedAbsenceCounts(processedClasses);
+
+			if (holiday.applied && attendanceData) {
+				const oldCounts = holiday.appliedCounts;
+				setAttendanceData((prev) => {
+					if (!prev) return prev;
+					const updatedList = prev.attendanceCourseComponentInfoList.map(
+						(course) => {
+							const oldCount = oldCounts[course.courseCode] || 0;
+							const newCount = newCounts[course.courseCode] || 0;
+							const updatedComp = [
+								...course.attendanceCourseComponentNameInfoList,
+							];
+							const firstComp = updatedComp[0];
+							if (!firstComp) return course;
+
+							const basePeriods = firstComp.isProjected
+								? Math.max(0, firstComp.numberOfPeriods - oldCount)
+								: firstComp.numberOfPeriods;
+							const finalPeriods = basePeriods + newCount;
+
+							updatedComp[0] = {
+								...firstComp,
+								numberOfPeriods: finalPeriods,
+								isProjected: newCount > 0,
+							};
+							return {
+								...course,
+								attendanceCourseComponentNameInfoList: updatedComp,
+							};
+						},
+					);
+					return {
+						...prev,
+						attendanceCourseComponentInfoList: updatedList,
+					};
+				});
+			}
+
+			setHolidays((prev) =>
+				prev.map((h) =>
+					h.id === holidayId
+						? {
+								...h,
+								classes: processedClasses,
+								appliedCounts: holiday.applied ? newCounts : h.appliedCounts,
+								isGeneratedFromWeeklyTemplate: fromWeeklyTemplate,
+							}
+						: h,
+				),
+			);
 		} finally {
 			setIsFetchingSchedule(false);
 		}
@@ -614,49 +805,63 @@ export default function HolidayPlanner({
 	return (
 		<div>
 			{/* Persistent Active Holiday Notification Banner */}
-			{appliedHoliday && (
-				<div className="bg-amber-100 border-2 border-amber-600 rounded-lg p-3 mb-4 style-fade-in flex flex-wrap items-center justify-between gap-3 shadow-sm">
-					<div className="flex items-center gap-2">
-						<Palmtree className="h-5 w-5 text-amber-700 shrink-0" />
-						<div>
-							<span className="font-bold text-xs text-amber-950 uppercase tracking-wide">
-								Holiday Plan Active: {appliedHoliday.name}
-							</span>
-							<p className="text-xs text-amber-800">
-								{Object.values(appliedHoliday.appliedCounts).reduce(
-									(a, b) => a + b,
-									0,
-								)}{" "}
-								classes marked absent (
-								{formatReadableRange(
-									appliedHoliday.startDate,
-									appliedHoliday.endDate,
+			{appliedHoliday &&
+				(() => {
+					const appliedProjectedCount = Object.values(
+						appliedHoliday.appliedCounts,
+					).reduce((a, b) => a + b, 0);
+					const appliedMarkedCount = appliedHoliday.classes.filter(
+						(c) => c.markedInErp,
+					).length;
+
+					return (
+						<div className="bg-amber-100 border-2 border-amber-600 rounded-lg p-3 mb-4 style-fade-in flex flex-wrap items-center justify-between gap-3 shadow-sm">
+							<div className="flex items-center gap-2">
+								<Palmtree className="h-5 w-5 text-amber-700 shrink-0" />
+								<div>
+									<span className="font-bold text-xs text-amber-950 uppercase tracking-wide">
+										Holiday Plan Active: {appliedHoliday.name}
+									</span>
+									<p className="text-xs text-amber-800">
+										{appliedProjectedCount} classes marked absent (projected)
+										{appliedMarkedCount > 0 && (
+											<span className="font-semibold text-amber-900">
+												{" "}
+												· {appliedMarkedCount} already marked in college
+												(excluded)
+											</span>
+										)}{" "}
+										(
+										{formatReadableRange(
+											appliedHoliday.startDate,
+											appliedHoliday.endDate,
+										)}
+										). Projections are active below.
+									</p>
+								</div>
+							</div>
+							<div className="flex items-center gap-2">
+								{setShowPlanner && !isVisible && (
+									<button
+										type="button"
+										onClick={() => setShowPlanner((prev) => prev + 1)}
+										className="text-xs font-bold text-amber-900 bg-amber-200/80 hover:bg-amber-300 px-2.5 py-1 rounded cursor-pointer transition-colors"
+									>
+										View Plan
+									</button>
 								)}
-								). Projections are active below.
-							</p>
+								<button
+									type="button"
+									onClick={() => handleUnapplyHoliday(appliedHoliday.id)}
+									className="text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded cursor-pointer transition-colors flex items-center gap-1"
+								>
+									<Undo2 className="h-3 w-3" />
+									Undo Holiday
+								</button>
+							</div>
 						</div>
-					</div>
-					<div className="flex items-center gap-2">
-						{setShowPlanner && !isVisible && (
-							<button
-								type="button"
-								onClick={() => setShowPlanner((prev) => prev + 1)}
-								className="text-xs font-bold text-amber-900 bg-amber-200/80 hover:bg-amber-300 px-2.5 py-1 rounded cursor-pointer transition-colors"
-							>
-								View Plan
-							</button>
-						)}
-						<button
-							type="button"
-							onClick={() => handleUnapplyHoliday(appliedHoliday.id)}
-							className="text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded cursor-pointer transition-colors flex items-center gap-1"
-						>
-							<Undo2 className="h-3 w-3" />
-							Undo Holiday
-						</button>
-					</div>
-				</div>
-			)}
+					);
+				})()}
 
 			{/* Main Holiday Planner Card */}
 			<div className={`${isVisible ? "block" : "hidden"}`}>
@@ -816,11 +1021,29 @@ export default function HolidayPlanner({
 												Schedule for {formName} (
 												{formatReadableRange(formStart, formEnd)})
 											</span>
-											<p className="text-[11px] text-gray-500">
-												{previewClasses.length} total classes found.{" "}
-												{previewClasses.filter((c) => c.isAbsent).length} marked
-												absent. Click any class to toggle.
-											</p>
+											{(() => {
+												const previewAbsentCount = previewClasses.filter(
+													(c) => c.isAbsent && !c.markedInErp,
+												).length;
+												const previewMarkedCount = previewClasses.filter(
+													(c) => c.markedInErp,
+												).length;
+
+												return (
+													<p className="text-[11px] text-gray-500">
+														{previewClasses.length} total classes found.{" "}
+														{previewAbsentCount} marked absent (projected).
+														{previewMarkedCount > 0 && (
+															<span className="text-amber-800 font-semibold">
+																{" "}
+																· {previewMarkedCount} already marked in college
+																(excluded from projection).
+															</span>
+														)}{" "}
+														Click any class to toggle.
+													</p>
+												);
+											})()}
 										</div>
 										{fromWeeklyTemplate && (
 											<span className="text-[10px] bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded border border-blue-200">
@@ -882,7 +1105,10 @@ export default function HolidayPlanner({
 							{holidays.map((holiday) => {
 								const isExpanded = expandedId === holiday.id;
 								const absentClassesCount = holiday.classes.filter(
-									(c) => c.isAbsent,
+									(c) => c.isAbsent && !c.markedInErp,
+								).length;
+								const markedClassesCount = holiday.classes.filter(
+									(c) => c.markedInErp,
 								).length;
 
 								return (
@@ -931,7 +1157,14 @@ export default function HolidayPlanner({
 														{" · "}
 														<span className="font-semibold text-gray-700">
 															{absentClassesCount} of {holiday.classes.length}{" "}
-															classes absent
+															classes absent (projected)
+															{markedClassesCount > 0 && (
+																<span className="text-amber-800">
+																	{" "}
+																	· {markedClassesCount} already marked in ERP
+																	(excluded)
+																</span>
+															)}
 														</span>
 													</div>
 												</div>
@@ -957,7 +1190,9 @@ export default function HolidayPlanner({
 													<button
 														type="button"
 														onClick={() => handleApplyHoliday(holiday.id)}
-														disabled={absentClassesCount === 0}
+														disabled={
+															absentClassesCount === 0 || isFetchingSchedule
+														}
 														className="style-border style-text py-1.5 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-40"
 													>
 														<Play className="h-3.5 w-3.5" />
@@ -989,21 +1224,20 @@ export default function HolidayPlanner({
 																From weekly timetable
 															</span>
 														)}
-														{!holiday.applied && (
-															<button
-																type="button"
-																onClick={() =>
-																	handleRefreshHolidaySchedule(holiday.id)
-																}
-																disabled={isFetchingSchedule}
-																className="text-[11px] font-semibold text-gray-600 hover:text-black flex items-center gap-1 cursor-pointer"
-															>
-																<RefreshCw
-																	className={`h-3 w-3 ${isFetchingSchedule ? "animate-spin" : ""}`}
-																/>
-																Refresh
-															</button>
-														)}
+														<button
+															type="button"
+															onClick={() =>
+																handleRefreshHolidaySchedule(holiday.id)
+															}
+															disabled={isFetchingSchedule}
+															className="text-[11px] font-semibold text-gray-600 hover:text-black flex items-center gap-1 cursor-pointer disabled:opacity-50"
+															title="Re-check timetable and ERP marked attendance"
+														>
+															<RefreshCw
+																className={`h-3 w-3 ${isFetchingSchedule ? "animate-spin" : ""}`}
+															/>
+															Re-sync with ERP
+														</button>
 													</div>
 												</div>
 
@@ -1036,12 +1270,16 @@ export default function HolidayPlanner({
 														<button
 															type="button"
 															onClick={() => handleApplyHoliday(holiday.id)}
-															disabled={absentClassesCount === 0}
+															disabled={
+																absentClassesCount === 0 || isFetchingSchedule
+															}
 															className="style-border style-text w-full py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-40"
 														>
 															<Play className="h-4 w-4" />
-															Apply Holiday — Mark {absentClassesCount} Classes
-															Absent in 1-Click
+															{absentClassesCount === 0 &&
+															markedClassesCount > 0
+																? "All Holiday Classes Already Marked in ERP"
+																: `Apply Holiday — Mark ${absentClassesCount} Classes Absent in 1-Click`}
 														</button>
 													)}
 												</div>
@@ -1098,23 +1336,37 @@ function ScheduleTableView({
 						<th className="p-2 text-center w-28 border-r border-gray-200 text-[10px]">
 							Time
 						</th>
-						<th className="p-2 text-center w-24 text-[10px]">Attendance</th>
+						<th className="p-2 text-center w-28 text-[10px]">Attendance</th>
 					</tr>
 				</thead>
 				<tbody>
-					{Array.from(grouped.entries()).map(([dateKey, dayClasses]) =>
-						dayClasses.map((cls, idx) => {
+					{Array.from(grouped.entries()).map(([dateKey, dayClasses]) => {
+						const hasToggleableClasses = dayClasses.some((c) => !c.markedInErp);
+
+						return dayClasses.map((cls, idx) => {
 							const isAbsent = cls.isAbsent;
+							const isMarkedInErp = cls.markedInErp;
+							const isRowClickable = !disabled && !isMarkedInErp;
 
 							return (
 								<tr
 									key={cls.id}
-									onClick={() => !disabled && onToggleClass(cls.id)}
+									onClick={() => isRowClickable && onToggleClass(cls.id)}
 									className={`transition-colors ${
-										disabled
+										!isRowClickable
 											? "cursor-default"
 											: "cursor-pointer hover:bg-amber-50/40"
-									} ${isAbsent ? "bg-red-50/20" : "bg-gray-50/30"}`}
+									} ${
+										isMarkedInErp
+											? cls.erpAttendance === "ABSENT"
+												? "bg-amber-50/50"
+												: cls.erpAttendance === "PRESENT"
+													? "bg-emerald-50/40"
+													: "bg-gray-50/60"
+											: isAbsent
+												? "bg-red-50/20"
+												: "bg-gray-50/30"
+									}`}
 								>
 									{idx === 0 && (
 										<td
@@ -1124,7 +1376,7 @@ function ScheduleTableView({
 											<div className="font-bold text-xs text-black">
 												{cls.dateLabel}
 											</div>
-											{onToggleDate && !disabled && (
+											{onToggleDate && !disabled && hasToggleableClasses && (
 												<button
 													type="button"
 													onClick={(e) => {
@@ -1150,20 +1402,42 @@ function ScheduleTableView({
 										{cls.startTime} – {cls.endTime}
 									</td>
 									<td className="p-2 py-2.5 border-b border-gray-100 text-center align-middle">
-										<span
-											className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${
-												isAbsent
-													? "text-red-700 bg-red-100 border border-red-200"
-													: "text-gray-500 bg-gray-100 border border-gray-200"
-											}`}
-										>
-											{isAbsent ? "ABSENT" : "ATTEND"}
-										</span>
+										{isMarkedInErp ? (
+											<div className="flex flex-col items-center gap-0.5">
+												<span
+													className={`text-[9px] font-bold px-2 py-0.5 rounded-full inline-block ${
+														cls.erpAttendance === "ABSENT"
+															? "text-red-700 bg-red-100 border border-red-200"
+															: cls.erpAttendance === "PRESENT"
+																? "text-emerald-700 bg-emerald-100 border border-emerald-200"
+																: "text-amber-800 bg-amber-100 border border-amber-300"
+													}`}
+													title="Already marked in college ERP (excluded from holiday projection)"
+												>
+													{cls.erpAttendance
+														? `MARKED: ${cls.erpAttendance}`
+														: "MARKED IN ERP"}
+												</span>
+												<span className="text-[9px] text-gray-500 font-medium">
+													(Excluded)
+												</span>
+											</div>
+										) : (
+											<span
+												className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${
+													isAbsent
+														? "text-red-700 bg-red-100 border border-red-200"
+														: "text-gray-500 bg-gray-100 border border-gray-200"
+												}`}
+											>
+												{isAbsent ? "ABSENT" : "ATTEND"}
+											</span>
+										)}
 									</td>
 								</tr>
 							);
-						}),
-					)}
+						});
+					})}
 				</tbody>
 			</table>
 		</div>

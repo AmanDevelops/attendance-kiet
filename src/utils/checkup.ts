@@ -412,7 +412,7 @@ function lectureCacheKey(payload: {
  * One daywise call per subject. Failures are per-subject: the subject carries
  * an error and the rest of the report still renders.
  */
-async function fetchSubjectLectures(
+export async function fetchSubjectLectures(
 	token: string,
 	payload: { courseCompId: number; courseId: number; studentId: number },
 ): Promise<LectureListProps[] | { error: string }> {

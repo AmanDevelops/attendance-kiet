@@ -107,6 +107,7 @@ function Attendance() {
 				<HolidayPlanner
 					showPlanner={showHolidayPlanner}
 					setShowPlanner={setShowHolidayPlanner}
+					studentId={studentId}
 				/>
 				<TodayCheckup studentId={studentId} />
 				<OverallAtt />
