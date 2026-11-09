@@ -347,25 +347,25 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 
 	return (
 		<div className="flex flex-col mb-20 mt-20 items-center justify-center p-4">
-			<div className="style-panel style-border w-full max-w-md bg-white p-8 style-fade-in">
+			<div className="style-panel style-border w-full max-w-md bg-white dark:bg-gray-800 p-8 style-fade-in">
 				<div className="flex items-center justify-center mb-8">
-					<BookOpen className="h-16 w-16 text-black transform -rotate-12" />
-					<Sparkles className="h-8 w-8 text-black absolute translate-x-8 -translate-y-8" />
+					<BookOpen className="h-16 w-16 text-black dark:text-white transform -rotate-12" />
+					<Sparkles className="h-8 w-8 text-black dark:text-white absolute translate-x-8 -translate-y-8" />
 				</div>
-				<h2 className="anga-text text-3xl font-black text-center text-black mb-6 transform -rotate-2">
+				<h2 className="anga-text text-3xl font-black text-center text-black dark:text-white mb-6 transform -rotate-2">
 					CyberVidya Attendance
 				</h2>
 
 				{/* Minimal connection toggle */}
 				<div className="mb-6 flex flex-col items-center gap-1.5">
-					<div className="relative grid grid-cols-2 w-64 bg-gray-200 border-2 border-black p-0.5 select-none">
+					<div className="relative grid grid-cols-2 w-64 bg-gray-200 dark:bg-gray-600 border-2 border-black dark:border-gray-400 p-0.5 select-none">
 						<button
 							type="button"
 							onClick={() => handleModeToggle("proxy")}
 							className={`relative z-10 py-1.5 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer text-center ${
 								apiMode === "proxy"
-									? "text-white"
-									: "text-black hover:text-gray-700"
+									? "text-white dark:text-black"
+									: "text-black dark:text-white hover:text-gray-700 dark:hover:text-gray-300"
 							}`}
 							aria-pressed={apiMode === "proxy"}
 						>
@@ -376,8 +376,8 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 							onClick={() => handleModeToggle("live")}
 							className={`relative z-10 py-1.5 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer text-center ${
 								apiMode === "live"
-									? "text-white"
-									: "text-black hover:text-gray-700"
+									? "text-white dark:text-black"
+									: "text-black dark:text-white hover:text-gray-700 dark:hover:text-gray-300"
 							}`}
 							aria-pressed={apiMode === "live"}
 						>
@@ -386,13 +386,13 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 
 						{/* Sliding indicator */}
 						<div
-							className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] bg-black transition-all duration-200 ease-in-out ${
+							className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] bg-black dark:bg-white transition-all duration-200 ease-in-out ${
 								apiMode === "proxy" ? "left-0.5" : "left-[calc(50%+1px)]"
 							}`}
 						/>
 					</div>
 
-					<p className="text-[11px] text-gray-600 font-bold uppercase tracking-wider text-center">
+					<p className="text-[11px] text-gray-600 dark:text-gray-300 font-bold uppercase tracking-wider text-center">
 						{apiMode === "proxy"
 							? "No extension required"
 							: "Extension required"}
@@ -404,7 +404,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 						<div>
 							<label
 								htmlFor="username"
-								className="style-text block text-sm font-bold text-black"
+								className="style-text block text-sm font-bold text-black dark:text-white"
 							>
 								University Roll Number
 							</label>
@@ -414,14 +414,14 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 								ref={usernameRef}
 								defaultValue={username}
 								placeholder="20240XXXXXXXXXX"
-								className="mt-1 block w-full style-border rounded-none px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+								className="mt-1 block w-full style-border rounded-none px-3 py-2 bg-white dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
 								required
 							/>
 						</div>
 						<div>
 							<label
 								htmlFor="password"
-								className="style-text block text-sm font-bold text-black"
+								className="style-text block text-sm font-bold text-black dark:text-white"
 							>
 								CyberVidya Password
 							</label>
@@ -437,7 +437,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 							/>
 							<label
 								htmlFor="remember-me"
-								className="ml-2 block style-text-sm font-bold text-black"
+								className="ml-2 block style-text-sm font-bold text-black dark:text-white"
 							>
 								Remember me
 							</label>
@@ -447,16 +447,16 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 							<button
 								type="button"
 								onClick={() => setIsTnCVisible((prev) => !prev)}
-								className="text-gray-500 bg-none border-none p-0 cursor-pointer  hover:text-gray-700"
+								className="text-gray-500 dark:text-gray-400 bg-none border-none p-0 cursor-pointer  hover:text-gray-700 dark:hover:text-gray-200"
 							>
 								Terms of Service and Privacy Policy
 							</button>
 						</div>
 
 						{error && (
-							<div className="relative style-text text-yellow-950 text-sm bg-yellow-100 p-2 style-border">
+							<div className="relative style-text text-yellow-950 dark:text-yellow-100 text-sm bg-yellow-100 dark:bg-yellow-900 p-2 style-border">
 								{isExtensionError && (
-									<span className="absolute -top-3 -right-3 bg-red-600 text-white text-xs font-black px-2.5 py-0.5 rounded-full border-2 border-black shadow-[2px_2px_0_#000] uppercase tracking-wider">
+									<span className="absolute -top-3 -right-3 bg-red-600 text-white text-xs font-black px-2.5 py-0.5 rounded-full border-2 border-black dark:border-white shadow-[2px_2px_0_#000] dark:shadow-[2px_2px_0_#fff] uppercase tracking-wider">
 										New
 									</span>
 								)}
@@ -465,7 +465,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 									<button
 										type="button"
 										onClick={() => setShowInstallPage(true)}
-										className="mt-2 font-bold underline cursor-pointer hover:text-red-800"
+										className="mt-2 font-bold underline cursor-pointer hover:text-red-800 dark:hover:text-red-300"
 									>
 										View extension installation guide →
 									</button>
@@ -475,21 +475,21 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 						<button
 							type="submit"
 							disabled={loading}
-							className="w-full style-border style-text py-3 px-4 text-sm font-black text-white bg-black hover:bg-gray-800 focus:outline-none disabled:opacity-50 transform hover:-translate-y-1 transition-transform cursor-pointer"
+							className="w-full style-border style-text py-3 px-4 text-sm font-black text-white dark:text-black bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-200 focus:outline-none disabled:opacity-50 transform hover:-translate-y-1 transition-transform cursor-pointer"
 						>
 							{loading ? "Loading..." : "View Attendance"}
 						</button>
 					</form>
 				) : (
 					<form onSubmit={handleOtpSubmit} className="space-y-6">
-						<div className="text-center text-gray-600">
+						<div className="text-center text-gray-600 dark:text-gray-300">
 							An OTP has been sent to your registered email address. Enter it
 							below to continue.
 						</div>
 						<div>
 							<label
 								htmlFor="otp"
-								className="style-text block text-sm font-bold text-black"
+								className="style-text block text-sm font-bold text-black dark:text-white"
 							>
 								One-Time Password (OTP)
 							</label>
@@ -501,15 +501,15 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 								maxLength={6}
 								ref={otpRef}
 								placeholder="XXXXXX"
-								className="mt-1 block w-full style-border rounded-none px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+								className="mt-1 block w-full style-border rounded-none px-3 py-2 bg-white dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
 								required
 							/>
 						</div>
 
 						{error && (
-							<div className="relative style-text text-red-600 text-sm bg-red-100 p-2 style-border">
+							<div className="relative style-text text-red-600 dark:text-red-300 text-sm bg-red-100 dark:bg-red-900 p-2 style-border">
 								{isExtensionError && (
-									<span className="absolute -top-3 -right-3 bg-red-600 text-white text-xs font-black px-2.5 py-0.5 rounded-full border-2 border-black shadow-[2px_2px_0_#000] uppercase tracking-wider">
+									<span className="absolute -top-3 -right-3 bg-red-600 text-white text-xs font-black px-2.5 py-0.5 rounded-full border-2 border-black dark:border-white shadow-[2px_2px_0_#000] dark:shadow-[2px_2px_0_#fff] uppercase tracking-wider">
 										New
 									</span>
 								)}
@@ -518,7 +518,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 									<button
 										type="button"
 										onClick={() => setShowInstallPage(true)}
-										className="mt-2 font-bold underline cursor-pointer hover:text-red-800"
+										className="mt-2 font-bold underline cursor-pointer hover:text-red-800 dark:hover:text-red-300"
 									>
 										View extension installation guide →
 									</button>
@@ -528,7 +528,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 						<button
 							type="submit"
 							disabled={loading}
-							className="w-full style-border style-text py-3 px-4 text-sm font-black text-white bg-black hover:bg-gray-800 focus:outline-none disabled:opacity-50 transform hover:-translate-y-1 transition-transform cursor-pointer"
+							className="w-full style-border style-text py-3 px-4 text-sm font-black text-white dark:text-black bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-200 focus:outline-none disabled:opacity-50 transform hover:-translate-y-1 transition-transform cursor-pointer"
 						>
 							{loading ? "Verifying..." : "Verify OTP"}
 						</button>
@@ -539,7 +539,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 								setError("");
 								setIsExtensionError(false);
 							}}
-							className="w-full text-center text-sm text-gray-500 bg-none border-none p-0 cursor-pointer hover:text-gray-700 underline"
+							className="w-full text-center text-sm text-gray-500 dark:text-gray-400 bg-none border-none p-0 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 underline"
 						>
 							Back to login
 						</button>

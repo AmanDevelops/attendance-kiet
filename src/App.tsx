@@ -13,6 +13,12 @@ import {
 	setAuthCookie,
 } from "./utils/jwt";
 import { fetchAttendanceData } from "./utils/LoginUtils";
+import {
+	applyTheme,
+	getInitialTheme,
+	saveTheme,
+	type Theme,
+} from "./utils/theme";
 
 // setTimeout stores its delay in a signed 32-bit int, so anything past this
 // fires immediately instead of waiting. We cap each wait to this and re-check.
@@ -41,6 +47,19 @@ function App() {
 		} catch {
 			// Ignore storage errors
 		}
+	};
+
+	const [theme, setTheme] = useState<Theme>(getInitialTheme);
+
+	// Keep the <html> class in sync with state. This does not write to storage.
+	useEffect(() => {
+		applyTheme(theme);
+	}, [theme]);
+
+	const toggleTheme = () => {
+		const next: Theme = theme === "dark" ? "light" : "dark";
+		setTheme(next);
+		saveTheme(next); // only an explicit click is saved
 	};
 
 	const [isTnCVisible, setIsTnCVisible] = useState<boolean>(false);
@@ -135,15 +154,15 @@ function App() {
 	}, [isLoggedIn]);
 
 	return (
-		<div className="min-h-screen bg-gray-100 flex flex-col">
+		<div className="min-h-screen bg-gray-100 text-black dark:bg-gray-950 dark:text-gray-100 flex flex-col">
 			{showGreenBanner && (
-				<div className="overflow-hidden m-auto bg-green-100 w-full">
-					<div className="py-2 text-center text-sm font-medium text-green-600">
+				<div className="overflow-hidden m-auto bg-green-100 dark:bg-green-900 w-full">
+					<div className="py-2 text-center text-sm font-medium text-green-600 dark:text-green-300">
 						YOUR CREDENTIALS ARE NEVER SHARED WITH US. THEY ARE SENT DIRECTLY TO
 						CYBERVIDYA AND STORED LOCALLY.
 						<a
 							href="https://github.com/AmanDevelops/attendance-kiet"
-							className="text-blue-400"
+							className="text-blue-400 dark:text-blue-300"
 							target="_blank"
 							rel="noopener"
 						>
@@ -178,7 +197,7 @@ function App() {
 				</AttendanceDataContext.Provider>
 			</div>
 
-			<Footer />
+			<Footer theme={theme} onToggleTheme={toggleTheme} />
 		</div>
 	);
 }

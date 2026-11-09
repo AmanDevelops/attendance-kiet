@@ -1,6 +1,255 @@
 @import "tailwindcss";
 
-/*hide text for small screens*/
+/* Dark mode is controlled by the `dark` class on <html> (set by App.tsx and
+   by the inline script in index.html), not by the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Design tokens ─────────────────────────────────────────── */
+
+:root {
+	--color-bg:            oklch(1 0 0);
+	--color-surface:       oklch(1 0 0);
+	--color-panel:         oklch(1 0 0);
+	--color-fg:            oklch(0.14 0.01 265);
+	--color-muted:         oklch(0.46 0.01 265);
+	--color-border:        oklch(0.14 0.01 265);
+	--color-border-inner:  oklch(0.14 0.01 265);
+	--color-shadow:        rgba(0, 0, 0, 0.9);
+
+	--color-safe:          oklch(0.52 0.17 155);
+	--color-warn:          oklch(0.56 0.16 85);
+	--color-danger:        oklch(0.52 0.21 25);
+
+	--progress-track:      #e0e0de;
+}
+
+html.dark {
+	/* Elevation ramp — higher surfaces are lighter */
+	--elev-0:              oklch(0.11 0.008 265);
+	--elev-1:              oklch(0.16 0.008 265);
+	--elev-2:              oklch(0.20 0.008 265);
+	--elev-3:              oklch(0.24 0.008 265);
+
+	--color-bg:            var(--elev-0);
+	--color-surface:       var(--elev-1);
+	--color-panel:         var(--elev-1);
+	--color-fg:            oklch(0.93 0.004 265);
+	--color-muted:         oklch(0.68 0.006 265);
+	--color-border:        oklch(0.60 0.008 265);
+	--color-border-inner:  oklch(0.28 0.008 265);
+	--color-shadow:        rgba(0, 0, 0, 0.55);
+
+	--color-safe:          oklch(0.74 0.13 155);
+	--color-safe-bg:       oklch(0.15 0.025 155);
+	--color-safe-border:   oklch(0.26 0.04 155);
+
+	--color-warn:          oklch(0.76 0.11 75);
+	--color-warn-bg:       oklch(0.15 0.025 75);
+	--color-warn-border:   oklch(0.27 0.04 75);
+
+	--color-danger:        oklch(0.70 0.15 25);
+	--color-danger-bg:     oklch(0.14 0.025 25);
+	--color-danger-border: oklch(0.28 0.055 25);
+
+	--color-info:          oklch(0.72 0.11 255);
+	--color-info-bg:       oklch(0.14 0.025 255);
+	--color-info-border:   oklch(0.27 0.04 255);
+
+	--color-caution:       oklch(0.74 0.11 48);
+	--color-caution-bg:    oklch(0.14 0.025 48);
+	--color-caution-border:oklch(0.27 0.04 48);
+
+	--progress-track:      oklch(0.24 0.008 265);
+
+	color-scheme: dark;
+}
+
+/* ── Dark mode overrides ───────────────────────────────────── */
+/* Tailwind's dark:* utilities use :where() (zero specificity),
+   so html.dark + class overrides them without touching components. */
+
+html.dark {
+	background-color: var(--color-bg);
+}
+
+/* Surfaces */
+html.dark .dark\:bg-gray-800 {
+	background-color: var(--color-surface) !important;
+}
+html.dark .dark\:bg-gray-900 {
+	background-color: var(--elev-2) !important;
+}
+html.dark .dark\:bg-gray-950 {
+	background-color: var(--color-bg) !important;
+}
+html.dark .dark\:bg-gray-700,
+html.dark .dark\:hover\:bg-gray-700:hover {
+	background-color: var(--elev-3) !important;
+}
+html.dark .dark\:bg-gray-600 {
+	background-color: var(--elev-3) !important;
+}
+
+/* Text */
+html.dark .dark\:text-gray-100 {
+	color: var(--color-fg) !important;
+}
+html.dark .dark\:text-gray-200,
+html.dark .dark\:text-gray-300 {
+	color: var(--color-muted) !important;
+}
+html.dark .dark\:text-gray-400 {
+	color: oklch(0.54 0.006 265) !important;
+}
+html.dark .dark\:text-white {
+	color: var(--color-fg) !important;
+}
+
+/* Borders */
+html.dark .dark\:border-gray-400 {
+	border-color: var(--color-border) !important;
+}
+html.dark .dark\:border-gray-600,
+html.dark .dark\:border-gray-700 {
+	border-color: var(--color-border-inner) !important;
+}
+html.dark .dark\:ring-gray-800 {
+	--tw-ring-color: var(--color-surface) !important;
+}
+
+/* Inline offset shadows */
+html.dark .dark\:shadow-\[2px_2px_0_\#fff\] {
+	--tw-shadow: 2px 2px 0 oklch(0.08 0.008 265) !important;
+	box-shadow: var(--tw-shadow) !important;
+}
+html.dark .dark\:shadow-\[2px_2px_0px_0px_rgba\(255\,255\,255\,1\)\] {
+	--tw-shadow: 2px 2px 0 oklch(0.08 0.008 265) !important;
+	box-shadow: var(--tw-shadow) !important;
+}
+
+/* Green / safe */
+html.dark .dark\:text-emerald-400,
+html.dark .dark\:text-green-400 {
+	color: var(--color-safe) !important;
+}
+html.dark .dark\:text-green-200 {
+	color: oklch(0.86 0.09 155) !important;
+}
+html.dark .dark\:text-green-300 {
+	color: oklch(0.78 0.11 155) !important;
+}
+html.dark .dark\:bg-green-900 {
+	background-color: var(--color-safe-bg) !important;
+}
+
+/* Amber / warn */
+html.dark .dark\:text-amber-300 {
+	color: var(--color-warn) !important;
+}
+html.dark .dark\:text-amber-400 {
+	color: oklch(0.72 0.12 75) !important;
+}
+html.dark .dark\:text-amber-200 {
+	color: oklch(0.84 0.09 75) !important;
+}
+html.dark .dark\:bg-amber-950 {
+	background-color: var(--color-warn-bg) !important;
+}
+html.dark .dark\:border-amber-700 {
+	border-color: oklch(0.34 0.06 75) !important;
+}
+html.dark .dark\:border-amber-800 {
+	border-color: var(--color-warn-border) !important;
+}
+html.dark .dark\:border-amber-900 {
+	border-color: oklch(0.24 0.04 75) !important;
+}
+html.dark .dark\:hover\:bg-amber-900:hover {
+	background-color: oklch(0.19 0.035 75) !important;
+}
+
+/* Yellow */
+html.dark .dark\:bg-yellow-900 {
+	background-color: oklch(0.16 0.025 78) !important;
+}
+html.dark .dark\:bg-yellow-950 {
+	background-color: oklch(0.14 0.02 78) !important;
+}
+html.dark .dark\:text-yellow-100 {
+	color: oklch(0.90 0.07 82) !important;
+}
+html.dark .dark\:text-yellow-200 {
+	color: oklch(0.84 0.08 82) !important;
+}
+
+/* Red / danger */
+html.dark .dark\:text-red-400 {
+	color: var(--color-danger) !important;
+}
+html.dark .dark\:text-red-200 {
+	color: oklch(0.84 0.09 25) !important;
+}
+html.dark .dark\:text-red-300 {
+	color: oklch(0.77 0.11 25) !important;
+}
+html.dark .dark\:bg-red-950 {
+	background-color: var(--color-danger-bg) !important;
+}
+html.dark .dark\:border-red-800 {
+	border-color: var(--color-danger-border) !important;
+}
+
+/* Blue / info */
+html.dark .dark\:text-blue-400 {
+	color: var(--color-info) !important;
+}
+html.dark .dark\:text-blue-200 {
+	color: oklch(0.84 0.09 255) !important;
+}
+html.dark .dark\:text-blue-300 {
+	color: oklch(0.78 0.10 255) !important;
+}
+html.dark .dark\:bg-blue-950 {
+	background-color: var(--color-info-bg) !important;
+}
+html.dark .dark\:bg-blue-900 {
+	background-color: oklch(0.17 0.03 255) !important;
+}
+html.dark .dark\:hover\:bg-blue-900:hover {
+	background-color: oklch(0.19 0.04 255) !important;
+}
+html.dark .dark\:border-blue-800 {
+	border-color: var(--color-info-border) !important;
+}
+
+/* Orange / caution */
+html.dark .dark\:bg-orange-950 {
+	background-color: var(--color-caution-bg) !important;
+}
+html.dark .dark\:bg-orange-900 {
+	background-color: oklch(0.17 0.03 48) !important;
+}
+html.dark .dark\:text-orange-100 {
+	color: oklch(0.91 0.07 48) !important;
+}
+html.dark .dark\:text-orange-200 {
+	color: oklch(0.84 0.09 48) !important;
+}
+html.dark .dark\:text-orange-300 {
+	color: oklch(0.77 0.11 48) !important;
+}
+html.dark .dark\:border-orange-800 {
+	border-color: var(--color-caution-border) !important;
+}
+
+/* Focus rings */
+html.dark .dark\:focus\:ring-white:focus {
+	--tw-ring-color: oklch(0.65 0.008 265) !important;
+}
+
+/* ── Utilities ─────────────────────────────────────────────── */
+
+/* Hide button text on small screens */
 .btn-text {
 	display: none;
 }
@@ -66,19 +315,19 @@
 	}
 
 	.gap-responsive {
-		gap: 0.125rem; /* gap-0.5 */
+		gap: 0.125rem;
 	}
 }
 
 @media (min-width: 347px) {
 	.gap-responsive {
-		gap: 0.5rem; /* gap-2 */
+		gap: 0.5rem;
 	}
 }
 
 @media (min-width: 640px) {
 	.gap-responsive {
-		gap: 1rem; /* gap-4 */
+		gap: 1rem;
 	}
 }
 
@@ -105,4 +354,37 @@
 
 .custom-table-scroll::-webkit-scrollbar-thumb:hover {
 	background: #94a3b8;
+}
+
+/* ── Dark mode overrides for non-Tailwind classes ──────────── */
+
+.dark .style-panel {
+	background: var(--color-surface);
+}
+
+.dark .style-panel::before {
+	background: linear-gradient(
+		45deg,
+		transparent 65%,
+		rgba(255, 255, 255, 0.03) 100%
+	);
+}
+
+.dark .style-border {
+	border-color: var(--color-border);
+	box-shadow: 4px 4px 0 var(--color-shadow);
+}
+
+.dark .custom-table-scroll::-webkit-scrollbar-track {
+	background: var(--color-surface);
+	border-radius: 9999px;
+}
+
+.dark .custom-table-scroll::-webkit-scrollbar-thumb {
+	background: oklch(0.32 0.008 265);
+	border-radius: 9999px;
+}
+
+.dark .custom-table-scroll::-webkit-scrollbar-thumb:hover {
+	background: oklch(0.42 0.008 265);
 }

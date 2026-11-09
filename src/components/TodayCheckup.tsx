@@ -54,11 +54,20 @@ const VERDICT_STYLE: Record<
 	CheckupVerdict,
 	{ label: string; className: string }
 > = {
-	present: { label: "Present", className: "text-emerald-600" },
-	absent: { label: "Absent", className: "text-red-600" },
-	"not-marked": { label: "Not marked", className: "text-amber-600" },
-	upcoming: { label: "Upcoming", className: "text-blue-600" },
-	unknown: { label: "Unknown", className: "text-gray-500" },
+	present: {
+		label: "Present",
+		className: "text-emerald-600 dark:text-emerald-400",
+	},
+	absent: { label: "Absent", className: "text-red-600 dark:text-red-400" },
+	"not-marked": {
+		label: "Not marked",
+		className: "text-amber-600 dark:text-amber-400",
+	},
+	upcoming: {
+		label: "Upcoming",
+		className: "text-blue-600 dark:text-blue-400",
+	},
+	unknown: { label: "Unknown", className: "text-gray-500 dark:text-gray-400" },
 };
 
 function VerdictBadge({ verdict }: { verdict: CheckupVerdict }) {
@@ -82,8 +91,8 @@ function VerdictBadge({ verdict }: { verdict: CheckupVerdict }) {
 function SkeletonRow() {
 	return (
 		<div className="animate-pulse flex items-center gap-3 py-2">
-			<div className="h-4 w-20 bg-gray-200" />
-			<div className="h-4 w-32 bg-gray-200" />
+			<div className="h-4 w-20 bg-gray-200 dark:bg-gray-600" />
+			<div className="h-4 w-32 bg-gray-200 dark:bg-gray-600" />
 		</div>
 	);
 }
@@ -112,11 +121,11 @@ function WaitStatus({
 		return (
 			<output
 				aria-live="polite"
-				className={`block border p-3 mb-3 ${stalled ? "border-amber-300 bg-amber-50" : "border-amber-200 bg-[#fffbeb]"}`}
+				className={`block border p-3 mb-3 ${stalled ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950" : "border-amber-200 dark:border-amber-800 bg-[#fffbeb] dark:bg-amber-950"}`}
 			>
 				<div className="flex items-start gap-2.5">
 					<span
-						className={`mt-0.5 shrink-0 ${stalled ? "text-amber-700" : "text-amber-600"}`}
+						className={`mt-0.5 shrink-0 ${stalled ? "text-amber-700 dark:text-amber-300" : "text-amber-600 dark:text-amber-400"}`}
 					>
 						{stalled ? (
 							<AlertTriangle className="h-4 w-4" />
@@ -125,29 +134,29 @@ function WaitStatus({
 						)}
 					</span>
 					<div className="min-w-0 flex-1">
-						<p className="text-sm font-bold text-amber-900">
+						<p className="text-sm font-bold text-amber-900 dark:text-amber-100">
 							{stalled
 								? "CyberVidya is still not responding"
 								: "CyberVidya is taking longer than usual"}
 						</p>
-						<p className="text-xs text-amber-800 mt-1">
+						<p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
 							{stalled
 								? "Its attendance service is under heavy load right now. The checkup is still waiting and will show whatever CyberVidya returns."
 								: "Its attendance service is responding slowly right now. Results will appear here automatically as each subject is checked."}
 						</p>
-						<p className="text-[11px] font-semibold text-amber-700 mt-1.5">
+						<p className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 mt-1.5">
 							This delay is on CyberVidya&apos;s side — nothing is wrong with
 							your account.
 						</p>
 						{total > 0 && (
 							<div className="mt-2">
-								<div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+								<div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
 									<span>
 										{completed} of {total} subjects checked
 									</span>
 									<span>{percent}%</span>
 								</div>
-								<div className="mt-1 h-1 w-full bg-amber-200">
+								<div className="mt-1 h-1 w-full bg-amber-200 dark:bg-amber-800">
 									<div
 										className="h-1 bg-amber-500 transition-all duration-500"
 										style={{ width: `${percent}%` }}
@@ -164,20 +173,20 @@ function WaitStatus({
 	return (
 		<output aria-live="polite" className="block mb-3">
 			<div className="flex items-center justify-between gap-2">
-				<span className="flex items-center gap-2 text-xs text-gray-500">
-					<Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+				<span className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+					<Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600 dark:text-blue-400" />
 					{completed > 0
 						? `${completed} of ${total} subjects checked · waiting on CyberVidya…`
 						: "Checking today's classes with CyberVidya…"}
 				</span>
 				{total > 0 && (
-					<span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+					<span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
 						{percent}%
 					</span>
 				)}
 			</div>
 			{total > 0 && (
-				<div className="mt-2 h-1 w-full bg-gray-100">
+				<div className="mt-2 h-1 w-full bg-gray-100 dark:bg-gray-700">
 					<div
 						className="h-1 bg-blue-600 transition-all duration-500"
 						style={{ width: `${percent}%` }}
@@ -195,25 +204,27 @@ function SubjectBlock({ subject }: { subject: CheckupSubject }) {
 			: 0;
 
 	return (
-		<div className="border-t-2 border-black pt-3 mt-3 first:border-t-0 first:mt-0 first:pt-0">
+		<div className="border-t-2 border-black dark:border-gray-400 pt-3 mt-3 first:border-t-0 first:mt-0 first:pt-0">
 			<div className="flex flex-wrap justify-between items-center gap-2 mb-1">
-				<span className="text-sm font-bold text-gray-800 style-text uppercase">
+				<span className="text-sm font-bold text-gray-800 dark:text-gray-100 style-text uppercase">
 					{subject.courseName}
 				</span>
-				<span className="text-xs text-gray-500 uppercase">
+				<span className="text-xs text-gray-500 dark:text-gray-400 uppercase">
 					{subject.courseCompName}
 				</span>
 			</div>
 
 			{subject.error ? (
-				<div className="flex items-start gap-2 border border-amber-200 bg-[#fffbeb] p-2 mt-1">
-					<AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-					<p className="text-xs text-amber-800">{subject.error}</p>
+				<div className="flex items-start gap-2 border border-amber-200 dark:border-amber-800 bg-[#fffbeb] dark:bg-amber-950 p-2 mt-1">
+					<AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+					<p className="text-xs text-amber-800 dark:text-amber-200">
+						{subject.error}
+					</p>
 				</div>
 			) : (
 				<>
 					{unrecorded > 0 && (
-						<p className="text-xs text-amber-600 font-semibold mb-1">
+						<p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mb-1">
 							{unrecorded} of {subject.completeness?.expected} lectures not yet
 							recorded in ERP
 						</p>
@@ -221,9 +232,9 @@ function SubjectBlock({ subject }: { subject: CheckupSubject }) {
 					{subject.entries.map((entry: CheckupEntry) => (
 						<div
 							key={`${subject.courseCode}-${entry.startTime}-${entry.courseCompName}`}
-							className="flex flex-wrap justify-between items-center gap-2 py-1.5 border-b border-gray-100 last:border-b-0"
+							className="flex flex-wrap justify-between items-center gap-2 py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
 						>
-							<span className="text-xs text-gray-700">
+							<span className="text-xs text-gray-700 dark:text-gray-200">
 								{entry.startTime} – {entry.endTime}
 							</span>
 							<VerdictBadge verdict={entry.verdict} />
@@ -248,7 +259,11 @@ function SummaryLine({ report }: { report: CheckupReport }) {
 		unknown > 0 ? `${unknown} unknown` : null,
 		unavailable > 0 ? `${unavailable} unavailable` : null,
 	].filter(Boolean);
-	return <span className="text-xs text-gray-600">{parts.join(" · ")}</span>;
+	return (
+		<span className="text-xs text-gray-600 dark:text-gray-300">
+			{parts.join(" · ")}
+		</span>
+	);
 }
 
 interface TodayCheckupProps {
@@ -418,7 +433,7 @@ export default function TodayCheckup({
 	};
 
 	return (
-		<div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
+		<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
 			<div className="flex items-center justify-between gap-2">
 				<button
 					type="button"
@@ -426,14 +441,14 @@ export default function TodayCheckup({
 					className="flex items-center gap-2 text-left cursor-pointer bg-transparent border-none p-0"
 					aria-expanded={isExpanded}
 				>
-					<CalendarCheck className="h-6 w-6 text-blue-600 shrink-0" />
+					<CalendarCheck className="h-6 w-6 text-blue-600 dark:text-blue-400 shrink-0" />
 					<span className="flex flex-col items-start">
-						<span className="style-text text-md font-semibold text-black uppercase">
+						<span className="style-text text-md font-semibold text-black dark:text-white uppercase">
 							Today&apos;s Attendance
 						</span>
 						{isLoading ? (
 							<span
-								className={`text-xs ${waitStage === "slow" || waitStage === "stalled" ? "text-amber-600" : "text-gray-500"}`}
+								className={`text-xs ${waitStage === "slow" || waitStage === "stalled" ? "text-amber-600 dark:text-amber-400" : "text-gray-500 dark:text-gray-400"}`}
 							>
 								{waitStage === "stalled"
 									? "CyberVidya is not responding"
@@ -442,10 +457,12 @@ export default function TodayCheckup({
 										: "Checking with CyberVidya…"}
 							</span>
 						) : error ? (
-							<span className="text-xs text-red-600">{error.title}</span>
+							<span className="text-xs text-red-600 dark:text-red-400">
+								{error.title}
+							</span>
 						) : report ? (
 							report.status === "no-classes" ? (
-								<span className="text-xs text-gray-500">
+								<span className="text-xs text-gray-500 dark:text-gray-400">
 									{isSelectedDateNonWorking
 										? "Non-working day"
 										: `No classes scheduled${isToday ? " today" : ""}`}
@@ -454,15 +471,15 @@ export default function TodayCheckup({
 								<SummaryLine report={report} />
 							)
 						) : (
-							<span className="text-xs text-gray-500">
+							<span className="text-xs text-gray-500 dark:text-gray-400">
 								Tap to check which classes were marked
 							</span>
 						)}
 					</span>
 					{isExpanded ? (
-						<ChevronUp className="h-5 w-5 text-gray-500" />
+						<ChevronUp className="h-5 w-5 text-gray-500 dark:text-gray-400" />
 					) : (
-						<ChevronDown className="h-5 w-5 text-gray-500" />
+						<ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
 					)}
 				</button>
 
@@ -470,7 +487,7 @@ export default function TodayCheckup({
 					<button
 						type="button"
 						onClick={handleCheck}
-						className="style-border style-text py-1.5 px-2 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transition-colors uppercase"
+						className="style-border style-text py-1.5 px-2 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black dark:hover:text-black dark:hover:bg-white transition-colors uppercase"
 					>
 						<RefreshCw className="h-3.5 w-3.5" />
 						REFRESH
@@ -480,17 +497,17 @@ export default function TodayCheckup({
 
 			{isExpanded && (
 				<div className="mt-4">
-					<div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-gray-200">
+					<div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
 						<button
 							type="button"
 							onClick={goToPreviousDay}
 							disabled={isLoading}
 							aria-label="Previous day"
-							className="style-border p-1.5 cursor-pointer hover:bg-black hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+							className="style-border p-1.5 cursor-pointer hover:bg-black dark:hover:bg-white hover:text-white dark:hover:text-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
 						>
 							<ChevronLeft className="h-4 w-4" />
 						</button>
-						<span className="style-text text-sm font-bold text-black uppercase">
+						<span className="style-text text-sm font-bold text-black dark:text-white uppercase">
 							{formatDateLabel(selectedDate, isToday)}
 						</span>
 						<button
@@ -498,7 +515,7 @@ export default function TodayCheckup({
 							onClick={goToNextDay}
 							disabled={isToday || isLoading}
 							aria-label="Next day"
-							className="style-border p-1.5 cursor-pointer hover:bg-black hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+							className="style-border p-1.5 cursor-pointer hover:bg-black dark:hover:bg-white hover:text-white dark:hover:text-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
 						>
 							<ChevronRight className="h-4 w-4" />
 						</button>
@@ -516,8 +533,8 @@ export default function TodayCheckup({
 										/>
 									))}
 									{progress.completed < progress.total && (
-										<div className="flex items-center gap-2 pt-3 mt-3 border-t border-gray-200 text-xs text-gray-500">
-											<Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+										<div className="flex items-center gap-2 pt-3 mt-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+											<Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600 dark:text-blue-400" />
 											Still checking{" "}
 											{progress.total - progress.completed === 1
 												? "1 more subject"
@@ -537,16 +554,21 @@ export default function TodayCheckup({
 					)}
 
 					{!isLoading && error && (
-						<div role="alert" className="border border-red-200 bg-red-50 p-3">
+						<div
+							role="alert"
+							className="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 p-3"
+						>
 							<div className="flex flex-wrap items-start gap-2.5">
-								<AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+								<AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
 								<div className="min-w-[200px] flex-1">
-									<p className="text-sm font-bold text-red-800">
+									<p className="text-sm font-bold text-red-800 dark:text-red-200">
 										{error.title}
 									</p>
-									<p className="text-xs text-red-700 mt-1">{error.message}</p>
+									<p className="text-xs text-red-700 dark:text-red-300 mt-1">
+										{error.message}
+									</p>
 									{error.note && (
-										<p className="text-[11px] text-red-700/80 mt-1.5">
+										<p className="text-[11px] text-red-700/80 dark:text-red-300/80 mt-1.5">
 											{error.note}
 										</p>
 									)}
@@ -554,7 +576,7 @@ export default function TodayCheckup({
 								<button
 									type="button"
 									onClick={handleCheck}
-									className="style-border style-text shrink-0 py-1.5 px-2 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transition-colors uppercase"
+									className="style-border style-text shrink-0 py-1.5 px-2 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black dark:hover:text-black dark:hover:bg-white transition-colors uppercase"
 								>
 									<RefreshCw className="h-3.5 w-3.5" />
 									Try again
@@ -564,7 +586,7 @@ export default function TodayCheckup({
 					)}
 
 					{!isLoading && !error && report?.status === "no-classes" && (
-						<p className="text-sm text-gray-500">
+						<p className="text-sm text-gray-500 dark:text-gray-400">
 							{isSelectedDateNonWorking
 								? "This date is marked as a non-working day."
 								: `No classes scheduled${isToday ? " today" : ""}.`}
@@ -574,7 +596,7 @@ export default function TodayCheckup({
 					{!isLoading && !error && report?.status === "ok" && (
 						<>
 							{report.summary.notMarked > 0 && (
-								<p className="text-xs text-amber-800 bg-[#fffbeb] border border-[#fef3c7] p-2.5 mb-3">
+								<p className="text-xs text-amber-800 dark:text-amber-200 bg-[#fffbeb] dark:bg-amber-950 border border-[#fef3c7] dark:border-amber-900 p-2.5 mb-3">
 									&quot;Not marked&quot; means no record exists yet. Faculty may
 									simply not have marked it at the time you checked.
 								</p>

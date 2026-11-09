@@ -55,12 +55,12 @@ function CourseCard({ onViewDaywiseAttendance, course }: CourseCardProps) {
 	return (
 		<div
 			key={course.courseCode}
-			className="bg-white rounded-lg shadow-md p-6 style-border style-fade-in"
+			className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 style-border style-fade-in"
 		>
-			<h3 className="text-sm font-bold text-gray-800 mb-2 style-text">
+			<h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-2 style-text">
 				{course.courseName}
 			</h3>
-			<p className="text-sm text-gray-600 mb-4 style-text">
+			<p className="text-sm text-gray-600 dark:text-gray-300 mb-4 style-text">
 				Code: {course.courseCode}
 			</p>
 			<div className="space-y-4">
@@ -83,23 +83,23 @@ function CourseCard({ onViewDaywiseAttendance, course }: CourseCardProps) {
 						return (
 							<div
 								key={component.componentName}
-								className="border-t-2 pt-4 border-black"
+								className="border-t-2 pt-4 border-black dark:border-gray-400"
 							>
 								<div className="flex justify-between items-center mb-2">
-									<span className="text-sm font-medium text-gray-700 style-text">
+									<span className="text-sm font-medium text-gray-700 dark:text-gray-200 style-text">
 										{component.componentName}
 									</span>
 									<span
 										className={`text-sm font-semibold ${
 											projectedSubjectPercent >= targetPercentage
-												? "text-emerald-600"
-												: "text-red-600"
+												? "text-emerald-600 dark:text-emerald-400"
+												: "text-red-600 dark:text-red-400"
 										}`}
 									>
 										{`${projectedSubjectPercent.toFixed(1)}% ${component.isProjected ? "(Projected)" : ""}`}
 									</span>
 								</div>
-								<div className="text-sm text-gray-600 mb-2">
+								<div className="text-sm text-gray-600 dark:text-gray-300 mb-2">
 									Present:{" "}
 									{component.numberOfPresent +
 										component.numberOfExtraAttendance}
@@ -110,8 +110,8 @@ function CourseCard({ onViewDaywiseAttendance, course }: CourseCardProps) {
 										<div
 											className={`flex items-center gap-2 text-sm ${
 												currentSubjectProjection.status === "safe"
-													? "text-emerald-600"
-													: "text-amber-600"
+													? "text-emerald-600 dark:text-emerald-400"
+													: "text-amber-600 dark:text-amber-400"
 											}`}
 										>
 											{currentSubjectProjection.status === "safe" ? (
@@ -127,7 +127,7 @@ function CourseCard({ onViewDaywiseAttendance, course }: CourseCardProps) {
 												onClick={() =>
 													onViewDaywiseAttendance(course, component)
 												}
-												className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300"
+												className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black dark:hover:text-black dark:hover:bg-white transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300"
 											>
 												See Daywise Attendance
 											</button>

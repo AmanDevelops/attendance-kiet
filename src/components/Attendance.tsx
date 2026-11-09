@@ -90,7 +90,7 @@ function Attendance() {
 
 	return (
 		<div className="container mx-auto px-4 py-8 grow">
-			<div className="bg-white rounded-lg shadow-md p-4 mb-8 style-border style-fade-in">
+			<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-8 style-border style-fade-in">
 				<div className="flex flex-col  gap-4">
 					<Profile
 						setShowProjection={setShowProjection}
@@ -125,8 +125,8 @@ function Attendance() {
 
 			{/*  Modal to Show Daywise Attendance */}
 			{isDaywiseModalOpen && selectedComponent && (
-				<div className="fixed inset-0 bg-transparent backdrop-blur-[3px]  flex items-center justify-center z-50 px-4">
-					<div className="relative bg-white bg-opacity-90 backdrop-blur-md p-4 rounded-lg shadow-lg max-w-3xl w-full style-border">
+				<div className="fixed inset-0 bg-transparent dark:bg-black/60 backdrop-blur-[3px]  flex items-center justify-center z-50 px-4">
+					<div className="relative bg-white dark:bg-gray-800 bg-opacity-90 backdrop-blur-md p-4 rounded-lg shadow-lg max-w-3xl w-full style-border">
 						<div className="flex justify-between items-center mb-4 ">
 							<h2 className="text-lg">
 								Daywise Attendance for{" "}
@@ -156,7 +156,7 @@ function Attendance() {
 								}}
 							/>
 						) : (
-							<p className="text-gray-500 text-sm">
+							<p className="text-gray-500 dark:text-gray-400 text-sm">
 								Loading student attendance data...
 							</p>
 						)}
