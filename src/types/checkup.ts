@@ -69,6 +69,12 @@ export interface CheckupSummary {
 	unknown: number;
 }
 
+export interface CheckupProgress {
+	completed: number;
+	total: number;
+	subjects: CheckupSubject[];
+}
+
 export interface CheckupReport {
 	date: string;
 	status: CheckupStatus;
@@ -81,4 +87,5 @@ export interface CheckupParams {
 	studentId: number;
 	attendanceData: StudentDetails;
 	now?: Date;
+	onProgress?: (progress: CheckupProgress) => void;
 }

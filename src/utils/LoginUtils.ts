@@ -22,17 +22,14 @@ export const fetchAttendanceData = async (
 		return attendanceResponse.data.data;
 	} catch (err: unknown) {
 		if (axios.isAxiosError(err)) {
-			if (err.response?.status === 401) {
+			const status = err.response?.status;
+			if (status === 401 || status === 403) {
 				throw new Error("Session expired. Please login again.");
 			}
 		}
-		const errorMessage =
-			err instanceof Error
-				? err.message
-				: typeof err === "string"
-					? err
-					: JSON.stringify(err);
-		throw new Error(`Failed to fetch attendance data: ${errorMessage}`);
+		throw new Error(
+			"CyberVidya didn't return your attendance data. Please try again in a moment.",
+		);
 	}
 };
 

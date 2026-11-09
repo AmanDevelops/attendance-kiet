@@ -47,10 +47,10 @@ function ExtensionUpdateNotice() {
 	};
 
 	return (
-		<div className="w-full bg-amber-100 border-b-2 border-amber-400">
+		<div className="w-full bg-amber-100 dark:bg-amber-900 border-b-2 border-amber-400">
 			<div className="max-w-3xl mx-auto py-3 px-4 flex items-start gap-3">
-				<AlertTriangle className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
-				<div className="text-sm text-amber-900">
+				<AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+				<div className="text-sm text-amber-900 dark:text-amber-100">
 					<p className="font-bold">
 						Extension update required
 						{installedVersion ? ` (you have v${installedVersion})` : ""}
@@ -72,13 +72,13 @@ function ExtensionUpdateNotice() {
 					<div className="flex flex-wrap gap-2 mt-2">
 						<a
 							href="https://github.com/AmanDevelops/attendance-kiet/releases/latest/download/chrome.zip"
-							className="style-border bg-white px-3 py-1 font-bold text-black hover:bg-black hover:text-white transition-colors"
+							className="style-border bg-white dark:bg-gray-800 px-3 py-1 font-bold text-black dark:text-white hover:bg-black dark:hover:bg-white hover:text-white dark:hover:text-black transition-colors"
 						>
 							Chrome / Edge / Brave
 						</a>
 						<a
 							href="https://github.com/AmanDevelops/attendance-kiet/releases/latest/download/firefox.xpi"
-							className="style-border bg-white px-3 py-1 font-bold text-black hover:bg-black hover:text-white transition-colors"
+							className="style-border bg-white dark:bg-gray-800 px-3 py-1 font-bold text-black dark:text-white hover:bg-black dark:hover:bg-white hover:text-white dark:hover:text-black transition-colors"
 						>
 							Firefox
 						</a>
@@ -87,7 +87,7 @@ function ExtensionUpdateNotice() {
 				<button
 					type="button"
 					onClick={handleDismiss}
-					className="ml-auto shrink-0 text-amber-600 hover:text-amber-900 cursor-pointer"
+					className="ml-auto shrink-0 text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-100 cursor-pointer"
 					aria-label="Dismiss extension update notice"
 				>
 					<X className="h-5 w-5" />

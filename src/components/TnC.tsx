@@ -10,7 +10,7 @@ export default function TnC({
 		window.scrollTo({ top: 0, behavior: "instant" });
 	}, []);
 	return (
-		<article className="m-2 sm:m-10 style-border p-6 font-sans text-gray-800 leading-relaxed bg-white">
+		<article className="m-2 sm:m-10 style-border p-6 font-sans text-gray-800 dark:text-gray-100 leading-relaxed bg-white dark:bg-gray-800">
 			<button
 				type="button"
 				className="style-border flex items-center justify-center h-10 p-5 gap-1 cursor-pointer hover:-translate-y-1 transition-transform"
@@ -20,28 +20,30 @@ export default function TnC({
 				Back
 			</button>
 			<br />
-			<header className="mb-8 border-b border-gray-200 pb-6">
-				<h1 className="text-3xl font-bold mb-2 text-gray-900">
+			<header className="mb-8 border-b border-gray-200 dark:border-gray-700 pb-6">
+				<h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-gray-100">
 					Terms of Service & Privacy Policy
 				</h1>
-				<p className="text-gray-500 text-sm">Last Updated: 31-01-2026</p>
+				<p className="text-gray-500 dark:text-gray-400 text-sm">
+					Last Updated: 31-01-2026
+				</p>
 			</header>
 
 			<div className="space-y-6">
 				{/* CRITICAL DISCLAIMER */}
-				<section className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
-					<h3 className="text-xl font-black text-red-800 mb-2 uppercase tracking-wide">
+				<section className="bg-red-50 dark:bg-red-950 border-l-4 border-red-500 p-4 rounded">
+					<h3 className="text-xl font-black text-red-800 dark:text-red-200 mb-2 uppercase tracking-wide">
 						Strictly Personal Project - Disclaimer
 					</h3>
-					<p className="mb-2 font-bold text-red-900">
+					<p className="mb-2 font-bold text-red-900 dark:text-red-200">
 						PLEASE READ THIS CAREFULLY BEFORE PROCEEDING.
 					</p>
-					<p className="mb-3 text-red-800">
+					<p className="mb-3 text-red-800 dark:text-red-200">
 						This Application is a <strong>personal project</strong> created
 						solely for the private use of its developer/creator. It is{" "}
 						<strong>NOT</strong> an official product of CyberVidya.
 					</p>
-					<p className="mb-3 text-red-800">
+					<p className="mb-3 text-red-800 dark:text-red-200">
 						While the source code is hosted publicly (e.g., on GitHub) for
 						educational and portfolio purposes,{" "}
 						<strong>
@@ -49,7 +51,7 @@ export default function TnC({
 							or modification by any third party.
 						</strong>
 					</p>
-					<p className="mb-0 text-red-800 italic">
+					<p className="mb-0 text-red-800 dark:text-red-200 italic">
 						If you are not the creator and you choose to use this Application,
 						you do so entirely at your own risk. The creator expressly disclaims
 						any liability for any consequences resulting from your use of this
@@ -59,7 +61,7 @@ export default function TnC({
 
 				{/* Section 1 */}
 				<section>
-					<h3 className="text-xl font-bold mb-4 text-gray-900">
+					<h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
 						1. Nature of the Application
 					</h3>
 					<p className="mb-4">
@@ -85,7 +87,7 @@ export default function TnC({
 
 				{/* Section 2 */}
 				<section>
-					<h3 className="text-xl font-bold mb-4 text-gray-900">
+					<h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
 						2. Limitation of Liability & Indemnification
 					</h3>
 					<p className="mb-4">
@@ -115,7 +117,7 @@ export default function TnC({
 
 				{/* Section 3 */}
 				<section>
-					<h3 className="text-xl font-bold mb-4 text-gray-900">
+					<h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
 						3. Compliance with Indian Laws
 					</h3>
 					<p className="mb-4">
@@ -126,7 +128,7 @@ export default function TnC({
 					<p className="mb-4">
 						<strong>Notice to CyberVidya:</strong>
 					</p>
-					<p className="mb-4 bg-gray-50 p-3 rounded text-sm border border-gray-200">
+					<p className="mb-4 bg-gray-50 dark:bg-gray-900 p-3 rounded text-sm border border-gray-200 dark:border-gray-700">
 						"This software acts as a user-agent (browser extension/interface)
 						that automates the retrieval of data that the user is already
 						authorized to access via their official credentials. It does not
@@ -141,7 +143,7 @@ export default function TnC({
 
 				{/* Section 4 */}
 				<section>
-					<h3 className="text-xl font-bold mb-4 text-gray-900">
+					<h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
 						4. Data Privacy
 					</h3>
 					<p className="mb-4">
@@ -162,7 +164,7 @@ export default function TnC({
 
 				{/* Section 5 */}
 				<section>
-					<h3 className="text-xl font-bold mb-4 text-gray-900">
+					<h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
 						5. Third-Party Services
 					</h3>
 					<p className="mb-4">
@@ -173,9 +175,9 @@ export default function TnC({
 					</p>
 				</section>
 
-				<hr className="my-8 border-gray-300" />
+				<hr className="my-8 border-gray-300 dark:border-gray-600" />
 
-				<footer className="text-sm text-gray-500 italic text-center">
+				<footer className="text-sm text-gray-500 dark:text-gray-400 italic text-center">
 					By using this software, you confirm that you have read, understood,
 					and agreed to these terms. If you do not agree, you must stop using
 					this Application immediately.

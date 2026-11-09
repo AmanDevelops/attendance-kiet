@@ -49,27 +49,18 @@ function calculateAttendanceProjection(
 }
 
 function CourseCard({ onViewDaywiseAttendance, course }: CourseCardProps) {
-	const { targetPercentage, theme } = useAppContext();
+	const { targetPercentage } = useAppContext();
 	const subjectMissed = 0;
 
 	return (
 		<div
 			key={course.courseCode}
-			className="rounded-lg shadow-md p-6 style-border style-fade-in transition-colors duration-200"
-			style={{
-				backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
-				color: theme === "dark" ? "#ffffff" : "#000000",
-				borderColor: theme === "dark" ? "#ffffff" : "#000000",
-			}}
+			className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 style-border style-fade-in"
 		>
-			<h3
-				className={`text-sm font-bold mb-2 style-text ${theme === "dark" ? "text-white" : "text-gray-900"}`}
-			>
+			<h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-2 style-text">
 				{course.courseName}
 			</h3>
-			<p
-				className={`text-sm mb-4 style-text ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}
-			>
+			<p className="text-sm text-gray-600 dark:text-gray-300 mb-4 style-text">
 				Code: {course.courseCode}
 			</p>
 			<div className="space-y-4">
@@ -92,12 +83,10 @@ function CourseCard({ onViewDaywiseAttendance, course }: CourseCardProps) {
 						return (
 							<div
 								key={component.componentName}
-								className={`border-t-2 pt-4 ${theme === "dark" ? "border-gray-600" : "border-black"}`}
+								className="border-t-2 pt-4 border-black dark:border-gray-400"
 							>
 								<div className="flex justify-between items-center mb-2">
-									<span
-										className={`text-sm font-medium style-text ${theme === "dark" ? "text-gray-200" : "text-gray-700"}`}
-									>
+									<span className="text-sm font-medium text-gray-700 dark:text-gray-200 style-text">
 										{component.componentName}
 									</span>
 									<span
@@ -110,9 +99,7 @@ function CourseCard({ onViewDaywiseAttendance, course }: CourseCardProps) {
 										{`${projectedSubjectPercent.toFixed(1)}% ${component.isProjected ? "(Projected)" : ""}`}
 									</span>
 								</div>
-								<div
-									className={`text-sm mb-2 ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}
-								>
+								<div className="text-sm text-gray-600 dark:text-gray-300 mb-2">
 									Present:{" "}
 									{component.numberOfPresent +
 										component.numberOfExtraAttendance}
@@ -134,13 +121,13 @@ function CourseCard({ onViewDaywiseAttendance, course }: CourseCardProps) {
 											)}
 											{currentSubjectProjection.message}
 										</div>
-										<div className="pt-2">
+										<div className="pt-2 ">
 											<button
 												type="button"
 												onClick={() =>
 													onViewDaywiseAttendance(course, component)
 												}
-												className="style-border style-text py-2 px-3 text-xs font-black flex items-center gap-1 cursor-pointer bg-black text-white dark:text-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-200 transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none"
+												className="style-border style-text py-2 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer hover:text-white hover:bg-black dark:hover:text-black dark:hover:bg-white transform transition-transform duration-300 hover:-translate-y-1 focus:outline-none hover:transition-all hover:duration-300"
 											>
 												See Daywise Attendance
 											</button>

@@ -219,7 +219,7 @@ export default function Projections() {
 					return (
 						<td
 							key={slot.label}
-							className="p-1.5 py-3 border-b border-r border-gray-100 text-center text-gray-300 text-xs align-middle"
+							className="p-1.5 py-3 border-b border-r border-gray-100 dark:border-gray-700 text-center text-gray-300 dark:text-gray-500 text-xs align-middle"
 						>
 							-
 						</td>
@@ -231,10 +231,10 @@ export default function Projections() {
 				return (
 					<td
 						key={classItem.start}
-						className={`p-0 border-b border-r border-gray-100 align-middle transition-colors ${
+						className={`p-0 border-b border-r border-gray-100 dark:border-gray-700 align-middle transition-colors ${
 							isMissed
-								? "bg-red-100 text-red-800 font-semibold"
-								: "bg-transparent hover:bg-gray-100 text-gray-800"
+								? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 font-semibold"
+								: "bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-100"
 						}`}
 					>
 						<button
@@ -258,45 +258,45 @@ export default function Projections() {
 	const dayEntries = Array.from(groupedSchedule.entries());
 
 	return (
-		<div className="bg-white rounded-lg shadow-md p-6 mb-4 style-border style-fade-in">
+		<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-4 style-border style-fade-in">
 			<div className="flex items-center gap-2 mb-1">
-				<CalendarDays className="h-6 w-6 text-blue-600" />
-				<h3 className="style-text text-md font-semibold text-black">
+				<CalendarDays className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+				<h3 className="style-text text-md font-semibold text-black dark:text-white">
 					Weekly Projection (Today Onwards)
 				</h3>
 			</div>
 			<div className="flex items-center justify-between gap-2 mb-4">
-				<p className="style-text text-xs text-gray-600">
+				<p className="style-text text-xs text-gray-600 dark:text-gray-300">
 					Click on any class block to mark it as planned to miss:
 				</p>
-				<span className="md:hidden text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full whitespace-nowrap select-none">
+				<span className="md:hidden text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full whitespace-nowrap select-none">
 					Scroll &rarr;
 				</span>
 			</div>
 
 			{dayEntries.length === 0 ? (
-				<p className="style-text text-gray-500">
+				<p className="style-text text-gray-500 dark:text-gray-400">
 					No upcoming classes found for the rest of the week.
 				</p>
 			) : (
-				<div className="w-full border border-gray-200 rounded-lg overflow-x-auto custom-table-scroll bg-white">
-					<table className="w-full min-w-[960px] md:min-w-full table-fixed border-collapse bg-white text-xs">
+				<div className="w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto custom-table-scroll bg-white dark:bg-gray-800">
+					<table className="w-full min-w-[960px] md:min-w-full table-fixed border-collapse bg-white dark:bg-gray-800 text-xs">
 						<thead>
-							<tr className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
-								<th className="p-2 text-center w-16 border-r border-gray-200 text-[10px]">
+							<tr className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-200 font-semibold border-b border-gray-200 dark:border-gray-700">
+								<th className="p-2 text-center w-16 border-r border-gray-200 dark:border-gray-700 text-[10px]">
 									Day / Date
 								</th>
 								{morningSlots.map((slot) => (
 									<th
 										key={slot.label}
-										className="p-2 text-center font-medium whitespace-nowrap text-[10px] border-r border-gray-200"
+										className="p-2 text-center font-medium whitespace-nowrap text-[10px] border-r border-gray-200 dark:border-gray-700"
 									>
 										{slot.label}
 									</th>
 								))}
 
 								{hasLunchBreak && (
-									<th className="p-2 text-center font-bold text-[10px] text-gray-500 tracking-wider uppercase bg-gray-100/80 border-r border-gray-200">
+									<th className="p-2 text-center font-bold text-[10px] text-gray-500 dark:text-gray-400 tracking-wider uppercase bg-gray-100/80 dark:bg-gray-700/80 border-r border-gray-200 dark:border-gray-700">
 										LUNCH
 									</th>
 								)}
@@ -304,7 +304,7 @@ export default function Projections() {
 								{afternoonSlots.map((slot) => (
 									<th
 										key={slot.label}
-										className="p-2 text-center font-medium whitespace-nowrap text-[10px] border-r border-gray-200 last:border-r-0"
+										className="p-2 text-center font-medium whitespace-nowrap text-[10px] border-r border-gray-200 dark:border-gray-700 last:border-r-0"
 									>
 										{slot.label}
 									</th>
@@ -319,13 +319,13 @@ export default function Projections() {
 								return (
 									<tr
 										key={dayKey}
-										className="hover:bg-gray-50/30 transition-colors"
+										className="hover:bg-gray-50/30 dark:hover:bg-gray-700/30 transition-colors"
 									>
-										<td className="p-2 py-3 border-b border-r border-gray-200 bg-gray-100/80 text-center align-middle">
-											<div className="font-bold text-xs text-black">
+										<td className="p-2 py-3 border-b border-r border-gray-200 dark:border-gray-700 bg-gray-100/80 dark:bg-gray-700/80 text-center align-middle">
+											<div className="font-bold text-xs text-black dark:text-white">
 												{weekday}
 											</div>
-											<div className="text-[10px] text-gray-600 font-medium mt-0.5">
+											<div className="text-[10px] text-gray-600 dark:text-gray-300 font-medium mt-0.5">
 												{dateStr}
 											</div>
 										</td>
@@ -333,7 +333,7 @@ export default function Projections() {
 										{renderSlotCells(classes, morningSlots)}
 
 										{hasLunchBreak && (
-											<td className="p-2 py-3 text-center bg-gray-100/50 border-b border-r border-gray-200 font-bold text-[11px] text-gray-400 tracking-wider select-none align-middle">
+											<td className="p-2 py-3 text-center bg-gray-100/50 dark:bg-gray-700/50 border-b border-r border-gray-200 dark:border-gray-700 font-bold text-[11px] text-gray-400 dark:text-gray-500 tracking-wider select-none align-middle">
 												LUNCH
 											</td>
 										)}

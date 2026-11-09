@@ -389,10 +389,30 @@ async function fetchTodaysClasses(token: string, now: Date) {
 }
 
 /**
+ * Short-lived cache for one subject's lecture list. A 12-subject checkup
+ * otherwise re-downloads roughly 2 MB and repeats the upstream's heaviest
+ * query on every open. Attendance changes at most a few times a day, so two
+ * minutes of staleness is a safe trade.
+ */
+const LECTURE_CACHE_TTL_MS = 2 * 60 * 1000;
+const lectureCache = new Map<
+	string,
+	{ expiresAt: number; lectures: LectureListProps[] }
+>();
+
+function lectureCacheKey(payload: {
+	courseCompId: number;
+	courseId: number;
+	studentId: number;
+}): string {
+	return `${payload.studentId}:${payload.courseCompId}:${payload.courseId}`;
+}
+
+/**
  * One daywise call per subject. Failures are per-subject: the subject carries
  * an error and the rest of the report still renders.
  */
-async function fetchSubjectLectures(
+export async function fetchSubjectLectures(
 	token: string,
 	payload: { courseCompId: number; courseId: number; studentId: number },
 ): Promise<LectureListProps[] | { error: string }> {
@@ -409,8 +429,16 @@ async function fetchSubjectLectures(
 		return { error: "Missing or invalid subject/student identifier." };
 	}
 
+	const cacheKey = lectureCacheKey(payload);
+	const cached = lectureCache.get(cacheKey);
+	if (cached && cached.expiresAt > Date.now()) {
+		return cached.lectures;
+	}
+
 	const authHeader = formatAuthHeader(token);
-	const maxAttempts = 3;
+	// One retry only: during an upstream slowdown, extra attempts multiply
+	// load and make the queue worse.
+	const maxAttempts = 2;
 	for (let attempt = 0; attempt < maxAttempts; attempt++) {
 		try {
 			const response = await axios.post<AttendanceApiResponse>(
@@ -430,17 +458,25 @@ async function fetchSubjectLectures(
 				},
 			);
 			const buckets = response.data.data;
-			if (!buckets || buckets.length === 0) return [];
-			return buckets[0].lectureList ?? [];
+			const lectures =
+				!buckets || buckets.length === 0 ? [] : (buckets[0].lectureList ?? []);
+			lectureCache.set(cacheKey, {
+				expiresAt: Date.now() + LECTURE_CACHE_TTL_MS,
+				lectures,
+			});
+			return lectures;
 		} catch (err) {
 			const status = axios.isAxiosError(err) ? err.response?.status : undefined;
-			// Only retry on network drops/timeouts or 5xx server errors. Never retry 4xx client errors (400, 401, 403, 404).
+			// Retry only transport failures and proxy/gateway timeouts. Spring
+			// 500s and all 4xx responses are not transient, and retrying them
+			// just adds load while the upstream is struggling.
 			const shouldRetry =
-				attempt < maxAttempts - 1 && (!status || status >= 500);
+				attempt < maxAttempts - 1 &&
+				(!status || status === 502 || status === 503 || status === 504);
 
 			if (shouldRetry) {
 				await new Promise((resolve) =>
-					setTimeout(resolve, 400 * (attempt + 1)),
+					setTimeout(resolve, 400 + Math.random() * 300),
 				);
 				continue;
 			}
@@ -465,11 +501,35 @@ async function fetchSubjectLectures(
 				Cookies.remove(STUDENT_ID_COOKIE_NAME);
 			}
 
+			if (status === 401) {
+				return { error: "Session expired. Please log in again." };
+			}
+
+			// Transport failures and timeouts are the normal shape of a busy
+			// period. Keep raw service wording out of the report.
+			if (!status || status === 502 || status === 503 || status === 504) {
+				return {
+					error:
+						"CyberVidya didn't respond in time for this subject. Please try again in a moment.",
+				};
+			}
+
+			if (status >= 500) {
+				return {
+					error:
+						"CyberVidya couldn't return this subject's attendance. Please try again in a moment.",
+				};
+			}
+
+			if (serverMsg === "No data found") {
+				return {
+					error: "CyberVidya has no attendance records for this subject yet.",
+				};
+			}
+
 			return {
 				error:
-					status === 401
-						? "Session expired. Please log in again."
-						: (serverMsg ?? "Could not load attendance for this subject."),
+					serverMsg ?? "CyberVidya couldn't return this subject's attendance.",
 			};
 		}
 	}
@@ -484,6 +544,7 @@ export async function runCheckup({
 	studentId,
 	attendanceData,
 	now = new Date(),
+	onProgress,
 }: CheckupParams): Promise<CheckupReport> {
 	const dateKey = toDateKey(now);
 	const nowMinutes = now.getHours() * 60 + now.getMinutes();
@@ -523,11 +584,21 @@ export async function runCheckup({
 		attendanceData.attendanceCourseComponentInfoList ?? [];
 
 	const subjectGroups = Array.from(groupBySubject(todaysClasses).entries());
+	const totalSubjects = subjectGroups.length;
+	const emitProgress = (current: CheckupSubject[]) =>
+		onProgress?.({
+			completed: current.length,
+			total: totalSubjects,
+			subjects: [...current],
+		});
 
-	// Process subject groups with controlled concurrency (2 at a time) to prevent
-	// network dropped packets or rate limits from the proxy.
+	emitProgress([]);
+
+	// Four subjects at a time: the old value of 2 serialised 12 subjects into
+	// six waves, while 12 at once saturated the upstream. Four keeps the report
+	// moving without the pile-up.
 	const subjects: CheckupSubject[] = [];
-	const chunkSize = 2;
+	const chunkSize = 4;
 	for (let i = 0; i < subjectGroups.length; i += chunkSize) {
 		const chunk = subjectGroups.slice(i, i + chunkSize);
 		const chunkResults = await Promise.all(
@@ -582,6 +653,7 @@ export async function runCheckup({
 			}),
 		);
 		subjects.push(...chunkResults);
+		emitProgress(subjects);
 	}
 
 	const summary = emptySummary();
@@ -593,6 +665,9 @@ export async function runCheckup({
 		unknown: "unknown",
 	};
 	for (const subject of subjects) {
+		// A subject that never loaded has no meaningful verdicts; report it as
+		// unavailable instead of inflating the unknown count.
+		if (subject.error) continue;
 		for (const entry of subject.entries) {
 			summary[countKey[entry.verdict]] += 1;
 		}

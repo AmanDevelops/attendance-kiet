@@ -26,7 +26,7 @@ export interface SelectedComponentType {
 }
 
 function Attendance() {
-	const { attendanceData, theme } = useAppContext();
+	const { attendanceData } = useAppContext();
 	const [studentId, setStudentId] = useState<number | null>(() => {
 		const cookieStudentId = (Cookies.get(STUDENT_ID_COOKIE_NAME) || "")
 			.replace(/^"|"$/g, "")
@@ -90,15 +90,8 @@ function Attendance() {
 
 	return (
 		<div className="container mx-auto px-4 py-8 grow">
-			<div
-				className="rounded-lg shadow-md p-4 mb-8 style-border style-fade-in transition-colors duration-200"
-				style={{
-					backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
-					color: theme === "dark" ? "#ffffff" : "#000000",
-					borderColor: theme === "dark" ? "#ffffff" : "#000000",
-				}}
-			>
-				<div className="flex flex-col gap-4">
+			<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-8 style-border style-fade-in">
+				<div className="flex flex-col  gap-4">
 					<Profile
 						setShowProjection={setShowProjection}
 						showProjection={showProjection}
@@ -114,6 +107,7 @@ function Attendance() {
 				<HolidayPlanner
 					showPlanner={showHolidayPlanner}
 					setShowPlanner={setShowHolidayPlanner}
+					studentId={studentId}
 				/>
 				<TodayCheckup studentId={studentId} />
 				<OverallAtt />
@@ -131,16 +125,9 @@ function Attendance() {
 
 			{/*  Modal to Show Daywise Attendance */}
 			{isDaywiseModalOpen && selectedComponent && (
-				<div className="fixed inset-0 bg-black/50 backdrop-blur-[3px] flex items-center justify-center z-50 px-4">
-					<div
-						className="relative p-4 rounded-lg shadow-lg max-w-3xl w-full style-border transition-colors duration-200"
-						style={{
-							backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff",
-							color: theme === "dark" ? "#ffffff" : "#000000",
-							borderColor: theme === "dark" ? "#ffffff" : "#000000",
-						}}
-					>
-						<div className="flex justify-between items-center mb-4">
+				<div className="fixed inset-0 bg-transparent dark:bg-black/60 backdrop-blur-[3px]  flex items-center justify-center z-50 px-4">
+					<div className="relative bg-white dark:bg-gray-800 bg-opacity-90 backdrop-blur-md p-4 rounded-lg shadow-lg max-w-3xl w-full style-border">
+						<div className="flex justify-between items-center mb-4 ">
 							<h2 className="text-lg">
 								Daywise Attendance for{" "}
 								<span className="font-bold">

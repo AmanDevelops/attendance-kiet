@@ -2,10 +2,13 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import {
 	AlertCircle,
+	AlertTriangle,
 	CalendarPlus,
 	Check,
 	ChevronDown,
 	ChevronUp,
+	Clock,
+	Loader2,
 	Palmtree,
 	Play,
 	Plus,
@@ -21,9 +24,12 @@ import {
 	AUTH_COOKIE_NAME,
 	getBaseUrl,
 	NON_WORKING_DAYS,
+	STUDENT_ID_COOKIE_NAME,
 } from "../types/constants";
+import type { PlannedClass, SavedHoliday } from "../types/holiday";
 import type { ScheduleEntry, ScheduleResponse } from "../types/response";
 import {
+	fetchStudentId,
 	formatAuthHeader,
 	formatNonWorkingDay,
 	getWeekRange,
@@ -31,33 +37,14 @@ import {
 	parseScheduleDate,
 	toDateKey,
 } from "../types/utils";
+import {
+	calculateProjectedAbsenceCounts,
+	reconcileHolidayClasses,
+} from "../utils/holiday";
 
-// --------------- Types ---------------
+// --------------- Re-export Types ---------------
 
-export interface PlannedClass {
-	id: string;
-	dateKey: string; // YYYY-MM-DD
-	courseName: string;
-	courseCode: string;
-	courseCompName: string;
-	startTime: string; // Formatted e.g. "9:00 AM"
-	endTime: string; // Formatted e.g. "9:55 AM"
-	rawStart: string;
-	rawEnd: string;
-	dateLabel: string; // e.g. "Mon, Nov 4"
-	isAbsent: boolean;
-}
-
-export interface SavedHoliday {
-	id: string;
-	name: string;
-	startDate: string; // YYYY-MM-DD
-	endDate: string; // YYYY-MM-DD
-	applied: boolean;
-	appliedCounts: Record<string, number>; // courseCode -> count
-	classes: PlannedClass[];
-	isGeneratedFromWeeklyTemplate?: boolean;
-}
+export type { PlannedClass, SavedHoliday } from "../types/holiday";
 
 // --------------- Local Storage ---------------
 
@@ -285,21 +272,153 @@ async function fetchScheduleForHoliday(
 	}
 }
 
+// --------------- Loading & Progress Feedback ---------------
+
+export type HolidayWaitStage = "loading" | "slow" | "stalled";
+
+export interface HolidayActionStatus {
+	type: "apply" | "refresh" | "preview";
+	holidayId?: string;
+	completed: number;
+	total: number;
+	currentSubject?: string;
+}
+
+function HolidayProgressIndicator({
+	status,
+	waitStage = "loading",
+}: {
+	status: HolidayActionStatus;
+	waitStage?: HolidayWaitStage;
+}) {
+	const completed = status.completed;
+	const total = status.total;
+	const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+	const isSlow = waitStage === "slow";
+	const isStalled = waitStage === "stalled";
+
+	if (isSlow || isStalled) {
+		return (
+			<output
+				aria-live="polite"
+				className={`block border p-3 rounded-lg mb-3 ${
+					isStalled
+						? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950"
+						: "border-amber-200 dark:border-amber-800 bg-[#fffbeb] dark:bg-amber-950"
+				}`}
+			>
+				<div className="flex items-start gap-2.5">
+					<span
+						className={`mt-0.5 shrink-0 ${
+							isStalled
+								? "text-amber-700 dark:text-amber-300"
+								: "text-amber-600 dark:text-amber-400"
+						}`}
+					>
+						{isStalled ? (
+							<AlertTriangle className="h-4 w-4" />
+						) : (
+							<Clock className="h-4 w-4 animate-pulse" />
+						)}
+					</span>
+					<div className="min-w-0 flex-1">
+						<p className="text-xs font-bold text-amber-900 dark:text-amber-100">
+							{isStalled
+								? "CyberVidya is still not responding"
+								: "CyberVidya is taking longer than usual"}
+						</p>
+						<p className="text-[11px] text-amber-800 dark:text-amber-200 mt-0.5">
+							{isStalled
+								? "CyberVidya attendance service is under heavy load right now. Reconciling past attendance and will complete as soon as CyberVidya responds."
+								: "CyberVidya attendance service is responding slowly right now. Results will appear automatically as each subject is verified."}
+						</p>
+						<p className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 mt-1">
+							This delay is on CyberVidya&apos;s side — your account is fine.
+						</p>
+						<div className="mt-2">
+							<div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+								<span>
+									{total > 0
+										? `${completed} of ${total} subjects checked${
+												status.currentSubject
+													? ` · ${status.currentSubject}`
+													: ""
+											}`
+										: "Checking timetable and marked attendance…"}
+								</span>
+								<span>{percent}%</span>
+							</div>
+							<div className="mt-1 h-1.5 w-full bg-amber-200/80 dark:bg-amber-800/80 rounded-full overflow-hidden">
+								<div
+									className="h-full bg-amber-600 transition-all duration-300 rounded-full"
+									style={{ width: `${percent}%` }}
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
+			</output>
+		);
+	}
+
+	return (
+		<output
+			aria-live="polite"
+			className="block border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/70 p-3 rounded-lg mb-3"
+		>
+			<div className="flex items-center justify-between gap-2">
+				<span className="flex items-center gap-2 text-xs font-medium text-amber-950 dark:text-amber-100">
+					<Loader2 className="h-4 w-4 animate-spin text-amber-600 dark:text-amber-400 shrink-0" />
+					<span className="truncate">
+						{total > 0
+							? `${completed} of ${total} subjects checked${
+									status.currentSubject ? ` · ${status.currentSubject}` : ""
+								}`
+							: "Checking schedule & marked attendance with CyberVidya…"}
+					</span>
+				</span>
+				{total > 0 && (
+					<span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 shrink-0">
+						{percent}%
+					</span>
+				)}
+			</div>
+			{total > 0 && (
+				<div className="mt-2 h-1.5 w-full bg-amber-100 dark:bg-amber-900 rounded-full overflow-hidden">
+					<div
+						className="h-full bg-amber-500 transition-all duration-300 rounded-full"
+						style={{ width: `${percent}%` }}
+					/>
+				</div>
+			)}
+		</output>
+	);
+}
+
 // --------------- Component ---------------
 
 interface HolidayPlannerProps {
 	showPlanner: number;
 	setShowPlanner?: React.Dispatch<React.SetStateAction<number>>;
+	studentId?: number | null;
 }
 
 export default function HolidayPlanner({
 	showPlanner,
 	setShowPlanner,
+	studentId: propStudentId,
 }: HolidayPlannerProps) {
 	const { attendanceData, setAttendanceData } = useAppContext();
 	const [holidays, setHolidays] = useState<SavedHoliday[]>(loadHolidays);
 	const [isCreating, setIsCreating] = useState(false);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
+
+	// Action & UX progress state
+	const [actionStatus, setActionStatus] = useState<HolidayActionStatus | null>(
+		null,
+	);
+	const [waitStage, setWaitStage] = useState<HolidayWaitStage>("loading");
+	const [isAutoReconciling, setIsAutoReconciling] = useState(false);
 
 	// Form state
 	const [formName, setFormName] = useState("");
@@ -317,42 +436,156 @@ export default function HolidayPlanner({
 		saveHolidays(holidays);
 	}, [holidays]);
 
-	// Auto-restore applied holiday projections if user refreshes page
-	const hasRestoredRef = useRef(false);
+	// Transition slow/stalled wait stages for live feedback during slow network
 	useEffect(() => {
-		if (!attendanceData || hasRestoredRef.current) return;
+		if (!isFetchingSchedule) {
+			setWaitStage("loading");
+			return;
+		}
+
+		setWaitStage("loading");
+		const slowTimer = window.setTimeout(() => setWaitStage("slow"), 4000);
+		const stalledTimer = window.setTimeout(
+			() => setWaitStage("stalled"),
+			14000,
+		);
+
+		return () => {
+			window.clearTimeout(slowTimer);
+			window.clearTimeout(stalledTimer);
+		};
+	}, [isFetchingSchedule]);
+
+	const getEffectiveStudentId = useCallback(async (): Promise<number> => {
+		if (propStudentId && propStudentId > 0) return propStudentId;
+		const raw = (Cookies.get(STUDENT_ID_COOKIE_NAME) || "")
+			.replace(/^"|"$/g, "")
+			.trim();
+		const parsed = Number(raw);
+		if (parsed && !Number.isNaN(parsed) && parsed > 0) return parsed;
+		const token = Cookies.get(AUTH_COOKIE_NAME) || "";
+		if (token) {
+			const fetched = await fetchStudentId(token);
+			if (fetched && fetched > 0) return fetched;
+		}
+		return 0;
+	}, [propStudentId]);
+
+	// Auto-reconcile applied holiday projections against ERP to avoid duplicate absences
+	const isReconcilingRef = useRef(false);
+	const lastReconciledKeyRef = useRef<string>("");
+
+	useEffect(() => {
+		if (!attendanceData) return;
+		const token = Cookies.get(AUTH_COOKIE_NAME) || "";
+		if (!token) return;
 
 		const appliedHoliday = holidays.find((h) => h.applied);
 		if (!appliedHoliday) return;
 
-		const alreadyProjected =
-			attendanceData.attendanceCourseComponentInfoList.some(
-				(c) => c.attendanceCourseComponentNameInfoList[0]?.isProjected,
-			);
+		// Fingerprint course periods so newly marked attendance triggers reconciliation
+		const periodsFingerprint = attendanceData.attendanceCourseComponentInfoList
+			.map((c) => {
+				const comp = c.attendanceCourseComponentNameInfoList[0];
+				return `${c.courseCode}:${comp?.numberOfPeriods ?? 0}:${comp?.isProjected ?? false}`;
+			})
+			.join(",");
 
-		if (!alreadyProjected) {
-			hasRestoredRef.current = true;
-			const counts = appliedHoliday.appliedCounts;
-			setAttendanceData((prev) => {
-				if (!prev) return prev;
-				const updated = prev.attendanceCourseComponentInfoList.map((course) => {
-					const absentCount = counts[course.courseCode] || 0;
-					if (absentCount === 0) return course;
-					const updatedList = [...course.attendanceCourseComponentNameInfoList];
-					updatedList[0] = {
-						...updatedList[0],
-						numberOfPeriods: updatedList[0].numberOfPeriods + absentCount,
-						isProjected: true,
-					};
+		const reconcileKey = `${appliedHoliday.id}-${appliedHoliday.classes.length}-${periodsFingerprint}-${propStudentId}`;
+		if (
+			lastReconciledKeyRef.current === reconcileKey ||
+			isReconcilingRef.current
+		) {
+			return;
+		}
+
+		let isCancelled = false;
+
+		const runReconcile = async () => {
+			const effStudentId = await getEffectiveStudentId();
+			if (isCancelled || !effStudentId || effStudentId <= 0) return;
+
+			isReconcilingRef.current = true;
+			setIsAutoReconciling(true);
+			try {
+				const updatedClasses = await reconcileHolidayClasses({
+					classes: appliedHoliday.classes,
+					courses: attendanceData.attendanceCourseComponentInfoList,
+					token,
+					studentId: effStudentId,
+				});
+
+				if (isCancelled) return;
+
+				const newCounts = calculateProjectedAbsenceCounts(updatedClasses);
+				lastReconciledKeyRef.current = reconcileKey;
+
+				// Update holiday state and localStorage
+				setHolidays((prev) =>
+					prev.map((h) =>
+						h.id === appliedHoliday.id
+							? { ...h, classes: updatedClasses, appliedCounts: newCounts }
+							: h,
+					),
+				);
+
+				// Update attendanceData to project only the reconciled (unmarked) absences
+				setAttendanceData((prev) => {
+					if (!prev) return prev;
+					const oldCounts = appliedHoliday.appliedCounts || {};
+					const updatedList = prev.attendanceCourseComponentInfoList.map(
+						(course) => {
+							const oldCount = oldCounts[course.courseCode] || 0;
+							const newCount = newCounts[course.courseCode] || 0;
+
+							const compList = [
+								...course.attendanceCourseComponentNameInfoList,
+							];
+							const firstComp = compList[0];
+							if (!firstComp) return course;
+
+							// If isProjected is true, oldCount was part of numberOfPeriods
+							const basePeriods = firstComp.isProjected
+								? Math.max(0, firstComp.numberOfPeriods - oldCount)
+								: firstComp.numberOfPeriods;
+
+							const finalPeriods = basePeriods + newCount;
+							compList[0] = {
+								...firstComp,
+								numberOfPeriods: finalPeriods,
+								isProjected: newCount > 0,
+							};
+							return {
+								...course,
+								attendanceCourseComponentNameInfoList: compList,
+							};
+						},
+					);
 					return {
-						...course,
-						attendanceCourseComponentNameInfoList: updatedList,
+						...prev,
+						attendanceCourseComponentInfoList: updatedList,
 					};
 				});
-				return { ...prev, attendanceCourseComponentInfoList: updated };
-			});
-		}
-	}, [attendanceData, holidays, setAttendanceData]);
+			} catch (err) {
+				console.error("Auto-reconcile holiday with ERP failed:", err);
+			} finally {
+				isReconcilingRef.current = false;
+				setIsAutoReconciling(false);
+			}
+		};
+
+		runReconcile();
+
+		return () => {
+			isCancelled = true;
+		};
+	}, [
+		attendanceData,
+		holidays,
+		propStudentId,
+		getEffectiveStudentId,
+		setAttendanceData,
+	]);
 
 	// Preset button for Diwali
 	const handlePresetDiwali = () => {
@@ -382,40 +615,84 @@ export default function HolidayPlanner({
 
 		setFormError("");
 		setIsFetchingSchedule(true);
+		setActionStatus({
+			type: "preview",
+			completed: 0,
+			total: 0,
+		});
+
 		try {
 			const { classes, fromWeeklyTemplate } = await fetchScheduleForHoliday(
 				formStart,
 				formEnd,
 			);
-			setPreviewClasses(classes);
+
+			let finalClasses = classes;
+			const token = Cookies.get(AUTH_COOKIE_NAME) || "";
+			const effStudentId = await getEffectiveStudentId();
+
+			if (token && effStudentId > 0 && attendanceData) {
+				const reconciled = await reconcileHolidayClasses({
+					classes,
+					courses: attendanceData.attendanceCourseComponentInfoList,
+					token,
+					studentId: effStudentId,
+					onProgress: (p) => {
+						setActionStatus((prev) =>
+							prev && prev.type === "preview"
+								? {
+										...prev,
+										completed: p.completed,
+										total: p.total,
+										currentSubject: p.currentSubject,
+									}
+								: prev,
+						);
+					},
+				});
+				finalClasses = reconciled.map((c) => ({
+					...c,
+					isAbsent: c.markedInErp ? false : c.isAbsent,
+				}));
+			}
+
+			setPreviewClasses(finalClasses);
 			setFromWeeklyTemplate(fromWeeklyTemplate);
 		} catch {
 			setFormError("Failed to fetch schedule for the given dates.");
 		} finally {
 			setIsFetchingSchedule(false);
+			setActionStatus(null);
 		}
 	};
 
-	// Toggle individual class in preview
+	// Toggle individual class in preview (only if not already marked in ERP)
 	const togglePreviewClass = (classId: string) => {
 		setPreviewClasses((prev) =>
 			prev
 				? prev.map((c) =>
-						c.id === classId ? { ...c, isAbsent: !c.isAbsent } : c,
+						c.id === classId && !c.markedInErp
+							? { ...c, isAbsent: !c.isAbsent }
+							: c,
 					)
 				: null,
 		);
 	};
 
-	// Toggle all classes for a specific date in preview
+	// Toggle all classes for a specific date in preview (only unmarked)
 	const togglePreviewDate = (dateKey: string, forceAbsent?: boolean) => {
 		setPreviewClasses((prev) => {
 			if (!prev) return null;
-			const targetClasses = prev.filter((c) => c.dateKey === dateKey);
+			const targetClasses = prev.filter(
+				(c) => c.dateKey === dateKey && !c.markedInErp,
+			);
+			if (targetClasses.length === 0) return prev;
 			const allAbsent = targetClasses.every((c) => c.isAbsent);
 			const nextState = forceAbsent !== undefined ? forceAbsent : !allAbsent;
 			return prev.map((c) =>
-				c.dateKey === dateKey ? { ...c, isAbsent: nextState } : c,
+				c.dateKey === dateKey && !c.markedInErp
+					? { ...c, isAbsent: nextState }
+					: c,
 			);
 		});
 	};
@@ -445,7 +722,7 @@ export default function HolidayPlanner({
 		setFormError("");
 	};
 
-	// Toggle a class in an already saved holiday
+	// Toggle a class in an already saved holiday (only if not already marked in ERP)
 	const toggleSavedClass = (holidayId: string, classId: string) => {
 		setHolidays((prev) =>
 			prev.map((h) => {
@@ -454,64 +731,109 @@ export default function HolidayPlanner({
 				return {
 					...h,
 					classes: h.classes.map((c) =>
-						c.id === classId ? { ...c, isAbsent: !c.isAbsent } : c,
+						c.id === classId && !c.markedInErp
+							? { ...c, isAbsent: !c.isAbsent }
+							: c,
 					),
 				};
 			}),
 		);
 	};
 
-	// Apply holiday in one click
+	// Apply holiday in one click (reconciling with ERP to exclude already marked classes)
 	const handleApplyHoliday = useCallback(
-		(holidayId: string) => {
+		async (holidayId: string) => {
 			const holiday = holidays.find((h) => h.id === holidayId);
 			if (!holiday) return;
 
-			// Calculate absent count by courseCode
-			const counts: Record<string, number> = {};
-			for (const c of holiday.classes) {
-				if (c.isAbsent) {
-					counts[c.courseCode] = (counts[c.courseCode] || 0) + 1;
-				}
-			}
-
-			// Update attendance data
-			setAttendanceData((prevData) => {
-				if (!prevData) return prevData;
-				const updatedList = prevData.attendanceCourseComponentInfoList.map(
-					(course) => {
-						const absentCount = counts[course.courseCode] || 0;
-						if (absentCount === 0) return course;
-
-						const updatedComp = [
-							...course.attendanceCourseComponentNameInfoList,
-						];
-						updatedComp[0] = {
-							...updatedComp[0],
-							numberOfPeriods: updatedComp[0].numberOfPeriods + absentCount,
-							isProjected: true,
-						};
-						return {
-							...course,
-							attendanceCourseComponentNameInfoList: updatedComp,
-						};
-					},
-				);
-				return {
-					...prevData,
-					attendanceCourseComponentInfoList: updatedList,
-				};
+			setExpandedId(holidayId);
+			setIsFetchingSchedule(true);
+			setActionStatus({
+				type: "apply",
+				holidayId,
+				completed: 0,
+				total: 0,
 			});
 
-			setHolidays((prev) =>
-				prev.map((h) =>
-					h.id === holidayId
-						? { ...h, applied: true, appliedCounts: counts }
-						: h,
-				),
-			);
+			try {
+				let classesToApply = holiday.classes;
+				const token = Cookies.get(AUTH_COOKIE_NAME) || "";
+				const effStudentId = await getEffectiveStudentId();
+
+				if (token && effStudentId > 0 && attendanceData) {
+					try {
+						classesToApply = await reconcileHolidayClasses({
+							classes: holiday.classes,
+							courses: attendanceData.attendanceCourseComponentInfoList,
+							token,
+							studentId: effStudentId,
+							onProgress: (p) => {
+								setActionStatus((prev) =>
+									prev && prev.holidayId === holidayId
+										? {
+												...prev,
+												completed: p.completed,
+												total: p.total,
+												currentSubject: p.currentSubject,
+											}
+										: prev,
+								);
+							},
+						});
+					} catch (err) {
+						console.warn("Reconciliation before apply failed:", err);
+					}
+				}
+
+				// Calculate absent count by courseCode, strictly excluding already marked in ERP
+				const counts = calculateProjectedAbsenceCounts(classesToApply);
+
+				// Update attendance data
+				setAttendanceData((prevData) => {
+					if (!prevData) return prevData;
+					const updatedList = prevData.attendanceCourseComponentInfoList.map(
+						(course) => {
+							const absentCount = counts[course.courseCode] || 0;
+							if (absentCount === 0) return course;
+
+							const updatedComp = [
+								...course.attendanceCourseComponentNameInfoList,
+							];
+							updatedComp[0] = {
+								...updatedComp[0],
+								numberOfPeriods: updatedComp[0].numberOfPeriods + absentCount,
+								isProjected: true,
+							};
+							return {
+								...course,
+								attendanceCourseComponentNameInfoList: updatedComp,
+							};
+						},
+					);
+					return {
+						...prevData,
+						attendanceCourseComponentInfoList: updatedList,
+					};
+				});
+
+				setHolidays((prev) =>
+					prev.map((h) =>
+						h.id === holidayId
+							? {
+									...h,
+									classes: classesToApply,
+									applied: true,
+									appliedCounts: counts,
+								}
+							: h,
+					),
+				);
+			} finally {
+				setIsFetchingSchedule(false);
+				setActionStatus(null);
+			}
 		},
-		[holidays, setAttendanceData],
+		[holidays, attendanceData, getEffectiveStudentId, setAttendanceData],
 	);
 
 	// Undo / unapply holiday
@@ -574,32 +896,117 @@ export default function HolidayPlanner({
 		}
 	};
 
-	// Refresh/re-sync holiday schedule from ERP
+	// Refresh/re-sync holiday schedule & marked attendance from ERP
 	const handleRefreshHolidaySchedule = async (holidayId: string) => {
 		const holiday = holidays.find((h) => h.id === holidayId);
-		if (!holiday || holiday.applied) return;
+		if (!holiday) return;
 
+		setExpandedId(holidayId);
 		setIsFetchingSchedule(true);
+		setActionStatus({
+			type: "refresh",
+			holidayId,
+			completed: 0,
+			total: 0,
+		});
+
 		try {
 			const { classes, fromWeeklyTemplate } = await fetchScheduleForHoliday(
 				holiday.startDate,
 				holiday.endDate,
 			);
-			if (classes.length > 0) {
-				setHolidays((prev) =>
-					prev.map((h) =>
-						h.id === holidayId
-							? {
-									...h,
-									classes,
-									isGeneratedFromWeeklyTemplate: fromWeeklyTemplate,
-								}
-							: h,
-					),
-				);
+
+			let processedClasses = classes;
+			const token = Cookies.get(AUTH_COOKIE_NAME) || "";
+			const effStudentId = await getEffectiveStudentId();
+
+			if (token && effStudentId > 0 && attendanceData) {
+				processedClasses = await reconcileHolidayClasses({
+					classes,
+					courses: attendanceData.attendanceCourseComponentInfoList,
+					token,
+					studentId: effStudentId,
+					onProgress: (p) => {
+						setActionStatus((prev) =>
+							prev && prev.holidayId === holidayId
+								? {
+										...prev,
+										completed: p.completed,
+										total: p.total,
+										currentSubject: p.currentSubject,
+									}
+								: prev,
+						);
+					},
+				});
 			}
+
+			// Preserve existing user customization for unmarked classes
+			const prevAbsentMap = new Map(
+				holiday.classes.map((c) => [c.id, c.isAbsent]),
+			);
+			processedClasses = processedClasses.map((c) => {
+				if (c.markedInErp) {
+					return { ...c, isAbsent: false };
+				}
+				const prevVal = prevAbsentMap.get(c.id);
+				return prevVal !== undefined ? { ...c, isAbsent: prevVal } : c;
+			});
+
+			const newCounts = calculateProjectedAbsenceCounts(processedClasses);
+
+			if (holiday.applied && attendanceData) {
+				const oldCounts = holiday.appliedCounts;
+				setAttendanceData((prev) => {
+					if (!prev) return prev;
+					const updatedList = prev.attendanceCourseComponentInfoList.map(
+						(course) => {
+							const oldCount = oldCounts[course.courseCode] || 0;
+							const newCount = newCounts[course.courseCode] || 0;
+							const updatedComp = [
+								...course.attendanceCourseComponentNameInfoList,
+							];
+							const firstComp = updatedComp[0];
+							if (!firstComp) return course;
+
+							const basePeriods = firstComp.isProjected
+								? Math.max(0, firstComp.numberOfPeriods - oldCount)
+								: firstComp.numberOfPeriods;
+							const finalPeriods = basePeriods + newCount;
+
+							updatedComp[0] = {
+								...firstComp,
+								numberOfPeriods: finalPeriods,
+								isProjected: newCount > 0,
+							};
+							return {
+								...course,
+								attendanceCourseComponentNameInfoList: updatedComp,
+							};
+						},
+					);
+					return {
+						...prev,
+						attendanceCourseComponentInfoList: updatedList,
+					};
+				});
+			}
+
+			setHolidays((prev) =>
+				prev.map((h) =>
+					h.id === holidayId
+						? {
+								...h,
+								classes: processedClasses,
+								appliedCounts: holiday.applied ? newCounts : h.appliedCounts,
+								isGeneratedFromWeeklyTemplate: fromWeeklyTemplate,
+							}
+						: h,
+				),
+			);
 		} finally {
 			setIsFetchingSchedule(false);
+			setActionStatus(null);
 		}
 	};
 
@@ -614,75 +1021,95 @@ export default function HolidayPlanner({
 	return (
 		<div>
 			{/* Persistent Active Holiday Notification Banner */}
-			{appliedHoliday && (
-				<div className="bg-amber-100 border-2 border-amber-600 rounded-lg p-3 mb-4 style-fade-in flex flex-wrap items-center justify-between gap-3 shadow-sm">
-					<div className="flex items-center gap-2">
-						<Palmtree className="h-5 w-5 text-amber-700 shrink-0" />
-						<div>
-							<span className="font-bold text-xs text-amber-950 uppercase tracking-wide">
-								Holiday Plan Active: {appliedHoliday.name}
-							</span>
-							<p className="text-xs text-amber-800">
-								{Object.values(appliedHoliday.appliedCounts).reduce(
-									(a, b) => a + b,
-									0,
-								)}{" "}
-								classes marked absent (
-								{formatReadableRange(
-									appliedHoliday.startDate,
-									appliedHoliday.endDate,
+			{appliedHoliday &&
+				(() => {
+					const appliedProjectedCount = Object.values(
+						appliedHoliday.appliedCounts,
+					).reduce((a, b) => a + b, 0);
+					const appliedMarkedCount = appliedHoliday.classes.filter(
+						(c) => c.markedInErp,
+					).length;
+
+					return (
+						<div className="bg-amber-100 dark:bg-amber-900 border-2 border-amber-600 rounded-lg p-3 mb-4 style-fade-in flex flex-wrap items-center justify-between gap-3 shadow-sm">
+							<div className="flex items-center gap-2">
+								<Palmtree className="h-5 w-5 text-amber-700 dark:text-amber-300 shrink-0" />
+								<div>
+									<span className="font-bold text-xs text-amber-950 dark:text-amber-100 uppercase tracking-wide">
+										Holiday Plan Active: {appliedHoliday.name}
+									</span>
+									<p className="text-xs text-amber-800 dark:text-amber-200">
+										{appliedProjectedCount} classes marked absent (projected)
+										{appliedMarkedCount > 0 && (
+											<span className="font-semibold text-amber-900 dark:text-amber-100">
+												{" "}
+												· {appliedMarkedCount} already marked in college
+												(excluded)
+											</span>
+										)}{" "}
+										(
+										{formatReadableRange(
+											appliedHoliday.startDate,
+											appliedHoliday.endDate,
+										)}
+										). Projections are active below.
+									</p>
+									{isAutoReconciling && (
+										<div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-amber-900 dark:text-amber-100">
+											<Loader2 className="h-3.5 w-3.5 animate-spin text-amber-700 dark:text-amber-300 shrink-0" />
+											<span>Syncing attendance updates with CyberVidya…</span>
+										</div>
+									)}
+								</div>
+							</div>
+							<div className="flex items-center gap-2">
+								{setShowPlanner && !isVisible && (
+									<button
+										type="button"
+										onClick={() => setShowPlanner((prev) => prev + 1)}
+										className="text-xs font-bold text-amber-900 dark:text-amber-100 bg-amber-200/80 dark:bg-amber-800/80 hover:bg-amber-300 dark:hover:bg-amber-700 px-2.5 py-1 rounded cursor-pointer transition-colors"
+									>
+										View Plan
+									</button>
 								)}
-								). Projections are active below.
-							</p>
+								<button
+									type="button"
+									onClick={() => handleUnapplyHoliday(appliedHoliday.id)}
+									className="text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded cursor-pointer transition-colors flex items-center gap-1"
+								>
+									<Undo2 className="h-3 w-3" />
+									Undo Holiday
+								</button>
+							</div>
 						</div>
-					</div>
-					<div className="flex items-center gap-2">
-						{setShowPlanner && !isVisible && (
-							<button
-								type="button"
-								onClick={() => setShowPlanner((prev) => prev + 1)}
-								className="text-xs font-bold text-amber-900 bg-amber-200/80 hover:bg-amber-300 px-2.5 py-1 rounded cursor-pointer transition-colors"
-							>
-								View Plan
-							</button>
-						)}
-						<button
-							type="button"
-							onClick={() => handleUnapplyHoliday(appliedHoliday.id)}
-							className="text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded cursor-pointer transition-colors flex items-center gap-1"
-						>
-							<Undo2 className="h-3 w-3" />
-							Undo Holiday
-						</button>
-					</div>
-				</div>
-			)}
+					);
+				})()}
 
 			{/* Main Holiday Planner Card */}
 			<div className={`${isVisible ? "block" : "hidden"}`}>
-				<div className="bg-white rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
+				<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 style-border style-fade-in">
 					{/* Header */}
 					<div className="flex flex-wrap items-center justify-between gap-3 mb-4">
 						<div className="flex items-center gap-2">
-							<Palmtree className="h-6 w-6 text-amber-600" />
+							<Palmtree className="h-6 w-6 text-amber-600 dark:text-amber-400" />
 							<div>
-								<h3 className="style-text text-md font-semibold text-black">
+								<h3 className="style-text text-md font-semibold text-black dark:text-white">
 									Pre-Plan Holidays
 								</h3>
-								<p className="text-xs text-gray-500">
+								<p className="text-xs text-gray-500 dark:text-gray-400">
 									Plan holidays like Diwali in advance, see all classes, and
 									apply absences in one click.
 								</p>
 								{NON_WORKING_DAYS.length > 0 && (
 									<div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-										<span className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
+										<span className="text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
 											Non-working day
 											{NON_WORKING_DAYS.length > 1 ? "s" : ""}:
 										</span>
 										{NON_WORKING_DAYS.map((dateKey) => (
 											<span
 												key={dateKey}
-												className="text-[10px] font-semibold text-amber-800 bg-amber-100 border border-amber-300 rounded px-1.5 py-0.5"
+												className="text-[10px] font-semibold text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900 border border-amber-300 dark:border-amber-700 rounded px-1.5 py-0.5"
 											>
 												{formatNonWorkingDay(dateKey)}
 											</span>
@@ -698,7 +1125,7 @@ export default function HolidayPlanner({
 								setPreviewClasses(null);
 								setFormError("");
 							}}
-							className="style-border style-text py-1.5 px-3 text-xs font-bold flex items-center gap-1.5 cursor-pointer text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
+							className="style-border style-text py-1.5 px-3 text-xs font-bold flex items-center gap-1.5 cursor-pointer text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
 						>
 							{isCreating ? (
 								<X className="h-3.5 w-3.5" />
@@ -711,16 +1138,16 @@ export default function HolidayPlanner({
 
 					{/* Create Holiday Menu */}
 					{isCreating && (
-						<div className="border-2 border-black rounded-lg p-4 mb-6 bg-amber-50/40 style-fade-in">
+						<div className="border-2 border-black dark:border-gray-400 rounded-lg p-4 mb-6 bg-amber-50/40 dark:bg-gray-900/60 style-fade-in">
 							<div className="flex items-center justify-between mb-3">
-								<span className="style-text text-xs font-bold text-black flex items-center gap-1.5">
-									<Sparkles className="h-4 w-4 text-amber-600" />
+								<span className="style-text text-xs font-bold text-black dark:text-white flex items-center gap-1.5">
+									<Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" />
 									Configure Holiday Schedule
 								</span>
 								<button
 									type="button"
 									onClick={handlePresetDiwali}
-									className="text-xs font-bold text-amber-800 bg-amber-200/70 hover:bg-amber-200 px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1"
+									className="text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-200/70 dark:bg-amber-800/70 hover:bg-amber-200 dark:hover:bg-amber-800 px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1"
 								>
 									✨ Use Diwali Preset (4 Nov – 17 Nov)
 								</button>
@@ -730,7 +1157,7 @@ export default function HolidayPlanner({
 								<div>
 									<label
 										htmlFor="holiday-name"
-										className="style-text text-[11px] font-bold text-gray-700 block mb-1"
+										className="style-text text-[11px] font-bold text-gray-700 dark:text-gray-200 block mb-1"
 									>
 										Holiday Name
 									</label>
@@ -740,13 +1167,13 @@ export default function HolidayPlanner({
 										value={formName}
 										onChange={(e) => setFormName(e.target.value)}
 										placeholder="e.g. Diwali Break"
-										className="w-full px-3 py-2 text-sm border-2 border-black rounded bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+										className="w-full px-3 py-2 text-sm border-2 border-black dark:border-gray-400 rounded bg-white dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
 									/>
 								</div>
 								<div>
 									<label
 										htmlFor="holiday-start"
-										className="style-text text-[11px] font-bold text-gray-700 block mb-1"
+										className="style-text text-[11px] font-bold text-gray-700 dark:text-gray-200 block mb-1"
 									>
 										Start Date
 									</label>
@@ -755,13 +1182,13 @@ export default function HolidayPlanner({
 										type="date"
 										value={formStart}
 										onChange={(e) => setFormStart(e.target.value)}
-										className="w-full px-3 py-2 text-sm border-2 border-black rounded bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+										className="w-full px-3 py-2 text-sm border-2 border-black dark:border-gray-400 rounded bg-white dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
 									/>
 								</div>
 								<div>
 									<label
 										htmlFor="holiday-end"
-										className="style-text text-[11px] font-bold text-gray-700 block mb-1"
+										className="style-text text-[11px] font-bold text-gray-700 dark:text-gray-200 block mb-1"
 									>
 										End Date
 									</label>
@@ -771,13 +1198,13 @@ export default function HolidayPlanner({
 										value={formEnd}
 										min={formStart || undefined}
 										onChange={(e) => setFormEnd(e.target.value)}
-										className="w-full px-3 py-2 text-sm border-2 border-black rounded bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+										className="w-full px-3 py-2 text-sm border-2 border-black dark:border-gray-400 rounded bg-white dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
 									/>
 								</div>
 							</div>
 
 							{formError && (
-								<p className="text-xs text-red-600 font-semibold mb-3 flex items-center gap-1">
+								<p className="text-xs text-red-600 dark:text-red-400 font-semibold mb-3 flex items-center gap-1">
 									<AlertCircle className="h-3.5 w-3.5" />
 									{formError}
 								</p>
@@ -785,52 +1212,80 @@ export default function HolidayPlanner({
 
 							{/* Fetch schedule button */}
 							{!previewClasses && (
-								<button
-									type="button"
-									onClick={handleFetchPreview}
-									disabled={
-										isFetchingSchedule ||
-										!formName.trim() ||
-										!formStart ||
-										!formEnd
-									}
-									className="style-border style-text w-full py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-								>
-									{isFetchingSchedule ? (
-										<RefreshCw className="h-4 w-4 animate-spin" />
-									) : (
-										<CalendarPlus className="h-4 w-4" />
+								<>
+									{actionStatus?.type === "preview" && (
+										<HolidayProgressIndicator
+											status={actionStatus}
+											waitStage={waitStage}
+										/>
 									)}
-									{isFetchingSchedule
-										? "Building Holiday Schedule..."
-										: "Load Schedule For These Dates"}
-								</button>
+									<button
+										type="button"
+										onClick={handleFetchPreview}
+										disabled={
+											isFetchingSchedule ||
+											!formName.trim() ||
+											!formStart ||
+											!formEnd
+										}
+										className="style-border style-text w-full py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed dark:disabled:bg-gray-700 dark:disabled:text-gray-400 dark:disabled:opacity-100"
+									>
+										{isFetchingSchedule ? (
+											<Loader2 className="h-4 w-4 animate-spin" />
+										) : (
+											<CalendarPlus className="h-4 w-4" />
+										)}
+										{isFetchingSchedule
+											? actionStatus?.total && actionStatus.total > 0
+												? `Checking CyberVidya (${actionStatus.completed}/${actionStatus.total})…`
+												: "Building Holiday Schedule…"
+											: "Load Schedule For These Dates"}
+									</button>
+								</>
 							)}
 
 							{/* Preview of schedule for given dates and all in between */}
 							{previewClasses && (
-								<div className="mt-4 pt-4 border-t-2 border-black/10">
+								<div className="mt-4 pt-4 border-t-2 border-black/10 dark:border-white/10">
 									<div className="flex flex-wrap items-center justify-between gap-2 mb-3">
 										<div>
-											<span className="font-bold text-xs text-black uppercase">
+											<span className="font-bold text-xs text-black dark:text-white uppercase">
 												Schedule for {formName} (
 												{formatReadableRange(formStart, formEnd)})
 											</span>
-											<p className="text-[11px] text-gray-500">
-												{previewClasses.length} total classes found.{" "}
-												{previewClasses.filter((c) => c.isAbsent).length} marked
-												absent. Click any class to toggle.
-											</p>
+											{(() => {
+												const previewAbsentCount = previewClasses.filter(
+													(c) => c.isAbsent && !c.markedInErp,
+												).length;
+												const previewMarkedCount = previewClasses.filter(
+													(c) => c.markedInErp,
+												).length;
+
+												return (
+													<p className="text-[11px] text-gray-500 dark:text-gray-400">
+														{previewClasses.length} total classes found.{" "}
+														{previewAbsentCount} marked absent (projected).
+														{previewMarkedCount > 0 && (
+															<span className="text-amber-800 dark:text-amber-200 font-semibold">
+																{" "}
+																· {previewMarkedCount} already marked in college
+																(excluded from projection).
+															</span>
+														)}{" "}
+														Click any class to toggle.
+													</p>
+												);
+											})()}
 										</div>
 										{fromWeeklyTemplate && (
-											<span className="text-[10px] bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded border border-blue-200">
+											<span className="text-[10px] bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 font-semibold px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
 												Based on regular timetable template
 											</span>
 										)}
 									</div>
 
 									{previewClasses.length === 0 ? (
-										<p className="text-xs text-gray-500 py-3 text-center">
+										<p className="text-xs text-gray-500 dark:text-gray-400 py-3 text-center">
 											No classes scheduled on these dates (e.g. weekend or
 											holidays).
 										</p>
@@ -855,7 +1310,7 @@ export default function HolidayPlanner({
 										<button
 											type="button"
 											onClick={() => setPreviewClasses(null)}
-											className="style-border style-text py-2 px-3 text-xs font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+											className="style-border style-text py-2 px-3 text-xs font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
 										>
 											Back
 										</button>
@@ -867,10 +1322,10 @@ export default function HolidayPlanner({
 
 					{/* Saved Holidays List */}
 					{holidays.length === 0 && !isCreating && (
-						<div className="text-center py-8 text-gray-400">
-							<Palmtree className="h-10 w-10 mx-auto mb-2 opacity-30 text-amber-600" />
+						<div className="text-center py-8 text-gray-400 dark:text-gray-500">
+							<Palmtree className="h-10 w-10 mx-auto mb-2 opacity-30 text-amber-600 dark:text-amber-400" />
 							<p className="style-text text-sm">No holidays planned yet</p>
-							<p className="text-xs mt-1 text-gray-500">
+							<p className="text-xs mt-1 text-gray-500 dark:text-gray-400">
 								Click &quot;New Holiday&quot; or use the Diwali preset to
 								pre-plan your holidays.
 							</p>
@@ -882,16 +1337,26 @@ export default function HolidayPlanner({
 							{holidays.map((holiday) => {
 								const isExpanded = expandedId === holiday.id;
 								const absentClassesCount = holiday.classes.filter(
-									(c) => c.isAbsent,
+									(c) => c.isAbsent && !c.markedInErp,
 								).length;
+								const markedClassesCount = holiday.classes.filter(
+									(c) => c.markedInErp,
+								).length;
+
+								const isThisHolidayBusy =
+									isFetchingSchedule && actionStatus?.holidayId === holiday.id;
+								const isThisHolidayApplying =
+									isThisHolidayBusy && actionStatus?.type === "apply";
+								const isThisHolidayRefreshing =
+									isThisHolidayBusy && actionStatus?.type === "refresh";
 
 								return (
 									<div
 										key={holiday.id}
 										className={`border-2 rounded-lg overflow-hidden transition-colors ${
 											holiday.applied
-												? "border-amber-600 bg-amber-50/30"
-												: "border-black bg-white"
+												? "border-amber-600 bg-amber-50/30 dark:bg-amber-950/30"
+												: "border-black dark:border-gray-400 bg-white dark:bg-gray-800"
 										}`}
 									>
 										{/* Row Header */}
@@ -905,12 +1370,14 @@ export default function HolidayPlanner({
 											>
 												<Palmtree
 													className={`h-6 w-6 shrink-0 ${
-														holiday.applied ? "text-amber-600" : "text-gray-400"
+														holiday.applied
+															? "text-amber-600 dark:text-amber-400"
+															: "text-gray-400 dark:text-gray-500"
 													}`}
 												/>
 												<div className="min-w-0">
 													<div className="flex items-center gap-2">
-														<span className="style-text text-sm font-bold text-black truncate">
+														<span className="style-text text-sm font-bold text-black dark:text-white truncate">
 															{holiday.name}
 														</span>
 														{holiday.applied ? (
@@ -918,27 +1385,34 @@ export default function HolidayPlanner({
 																Applied ✓
 															</span>
 														) : (
-															<span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+															<span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
 																Saved locally
 															</span>
 														)}
 													</div>
-													<div className="text-xs text-gray-500 mt-0.5">
+													<div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
 														{formatReadableRange(
 															holiday.startDate,
 															holiday.endDate,
 														)}
 														{" · "}
-														<span className="font-semibold text-gray-700">
+														<span className="font-semibold text-gray-700 dark:text-gray-200">
 															{absentClassesCount} of {holiday.classes.length}{" "}
-															classes absent
+															classes absent (projected)
+															{markedClassesCount > 0 && (
+																<span className="text-amber-800 dark:text-amber-200">
+																	{" "}
+																	· {markedClassesCount} already marked in ERP
+																	(excluded)
+																</span>
+															)}
 														</span>
 													</div>
 												</div>
 												{isExpanded ? (
-													<ChevronUp className="h-5 w-5 text-gray-400 shrink-0" />
+													<ChevronUp className="h-5 w-5 text-gray-400 dark:text-gray-500 shrink-0" />
 												) : (
-													<ChevronDown className="h-5 w-5 text-gray-400 shrink-0" />
+													<ChevronDown className="h-5 w-5 text-gray-400 dark:text-gray-500 shrink-0" />
 												)}
 											</button>
 
@@ -957,18 +1431,38 @@ export default function HolidayPlanner({
 													<button
 														type="button"
 														onClick={() => handleApplyHoliday(holiday.id)}
-														disabled={absentClassesCount === 0}
-														className="style-border style-text py-1.5 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-40"
+														disabled={
+															absentClassesCount === 0 || isFetchingSchedule
+														}
+														className={`style-border style-text py-1.5 px-3 text-xs font-bold flex items-center gap-1.5 cursor-pointer text-white transition-colors disabled:opacity-40 ${
+															isThisHolidayApplying
+																? "bg-amber-600 cursor-wait"
+																: "bg-amber-500 hover:bg-amber-600"
+														}`}
 													>
-														<Play className="h-3.5 w-3.5" />
-														<span>Apply</span>
+														{isThisHolidayApplying ? (
+															<>
+																<Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+																<span>
+																	Applying
+																	{actionStatus.total > 0
+																		? ` (${Math.round((actionStatus.completed / actionStatus.total) * 100)}%)`
+																		: "…"}
+																</span>
+															</>
+														) : (
+															<>
+																<Play className="h-3.5 w-3.5 shrink-0" />
+																<span>Apply</span>
+															</>
+														)}
 													</button>
 												)}
 
 												<button
 													type="button"
 													onClick={() => handleDeleteHoliday(holiday.id)}
-													className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors cursor-pointer"
+													className="p-1.5 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-950 rounded transition-colors cursor-pointer"
 													title="Delete holiday"
 												>
 													<Trash2 className="h-4 w-4" />
@@ -978,37 +1472,47 @@ export default function HolidayPlanner({
 
 										{/* Expanded Schedule for this holiday */}
 										{isExpanded && (
-											<div className="border-t-2 border-black/10 bg-gray-50/70 p-4 style-fade-in">
+											<div className="border-t-2 border-black/10 dark:border-white/10 bg-gray-50/70 dark:bg-gray-900/70 p-4 style-fade-in">
+												{isThisHolidayBusy && (
+													<HolidayProgressIndicator
+														status={actionStatus}
+														waitStage={waitStage}
+													/>
+												)}
+
 												<div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-													<p className="text-xs text-gray-700 font-semibold">
+													<p className="text-xs text-gray-700 dark:text-gray-200 font-semibold">
 														Schedule for all dates in {holiday.name}:
 													</p>
 													<div className="flex items-center gap-2">
 														{holiday.isGeneratedFromWeeklyTemplate && (
-															<span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
+															<span className="text-[10px] bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
 																From weekly timetable
 															</span>
 														)}
-														{!holiday.applied && (
-															<button
-																type="button"
-																onClick={() =>
-																	handleRefreshHolidaySchedule(holiday.id)
-																}
-																disabled={isFetchingSchedule}
-																className="text-[11px] font-semibold text-gray-600 hover:text-black flex items-center gap-1 cursor-pointer"
-															>
-																<RefreshCw
-																	className={`h-3 w-3 ${isFetchingSchedule ? "animate-spin" : ""}`}
-																/>
-																Refresh
-															</button>
-														)}
+														<button
+															type="button"
+															onClick={() =>
+																handleRefreshHolidaySchedule(holiday.id)
+															}
+															disabled={isFetchingSchedule}
+															className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white flex items-center gap-1 cursor-pointer disabled:opacity-50"
+															title="Re-check timetable and ERP marked attendance"
+														>
+															<RefreshCw
+																className={`h-3 w-3 ${isThisHolidayRefreshing ? "animate-spin text-amber-600 dark:text-amber-400" : ""}`}
+															/>
+															{isThisHolidayRefreshing
+																? actionStatus.total > 0
+																	? `Checking CyberVidya (${actionStatus.completed}/${actionStatus.total})…`
+																	: "Checking CyberVidya…"
+																: "Re-sync with ERP"}
+														</button>
 													</div>
 												</div>
 
 												{holiday.classes.length === 0 ? (
-													<p className="text-xs text-gray-500 py-2">
+													<p className="text-xs text-gray-500 dark:text-gray-400 py-2">
 														No classes found for these dates.
 													</p>
 												) : (
@@ -1036,12 +1540,34 @@ export default function HolidayPlanner({
 														<button
 															type="button"
 															onClick={() => handleApplyHoliday(holiday.id)}
-															disabled={absentClassesCount === 0}
-															className="style-border style-text w-full py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-40"
+															disabled={
+																absentClassesCount === 0 || isFetchingSchedule
+															}
+															className={`style-border style-text w-full py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer text-white transition-colors disabled:opacity-40 ${
+																isThisHolidayApplying
+																	? "bg-amber-600 cursor-wait"
+																	: "bg-amber-500 hover:bg-amber-600"
+															}`}
 														>
-															<Play className="h-4 w-4" />
-															Apply Holiday — Mark {absentClassesCount} Classes
-															Absent in 1-Click
+															{isThisHolidayApplying ? (
+																<>
+																	<Loader2 className="h-4 w-4 animate-spin shrink-0" />
+																	<span>
+																		Checking CyberVidya & Applying Holiday…
+																		{actionStatus.total > 0
+																			? ` (${actionStatus.completed}/${actionStatus.total} · ${Math.round((actionStatus.completed / actionStatus.total) * 100)}%)`
+																			: ""}
+																	</span>
+																</>
+															) : (
+																<>
+																	<Play className="h-4 w-4 shrink-0" />
+																	{absentClassesCount === 0 &&
+																	markedClassesCount > 0
+																		? "All Holiday Classes Already Marked in ERP"
+																		: `Apply Holiday — Mark ${absentClassesCount} Classes Absent in 1-Click`}
+																</>
+															)}
 														</button>
 													)}
 												</div>
@@ -1085,85 +1611,121 @@ function ScheduleTableView({
 	}, [classes]);
 
 	return (
-		<div className="w-full border border-gray-200 rounded-lg overflow-x-auto custom-table-scroll bg-white">
-			<table className="w-full min-w-[500px] table-fixed border-collapse bg-white text-xs">
+		<div className="w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto custom-table-scroll bg-white dark:bg-gray-800">
+			<table className="w-full min-w-[500px] table-fixed border-collapse bg-white dark:bg-gray-800 text-xs">
 				<thead>
-					<tr className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
-						<th className="p-2 text-left w-32 border-r border-gray-200 text-[10px]">
+					<tr className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-200 font-semibold border-b border-gray-200 dark:border-gray-700">
+						<th className="p-2 text-left w-32 border-r border-gray-200 dark:border-gray-700 text-[10px]">
 							Date
 						</th>
-						<th className="p-2 text-left border-r border-gray-200 text-[10px]">
+						<th className="p-2 text-left border-r border-gray-200 dark:border-gray-700 text-[10px]">
 							Class / Component
 						</th>
-						<th className="p-2 text-center w-28 border-r border-gray-200 text-[10px]">
+						<th className="p-2 text-center w-28 border-r border-gray-200 dark:border-gray-700 text-[10px]">
 							Time
 						</th>
-						<th className="p-2 text-center w-24 text-[10px]">Attendance</th>
+						<th className="p-2 text-center w-28 text-[10px]">Attendance</th>
 					</tr>
 				</thead>
 				<tbody>
-					{Array.from(grouped.entries()).map(([dateKey, dayClasses]) =>
-						dayClasses.map((cls, idx) => {
+					{Array.from(grouped.entries()).map(([dateKey, dayClasses]) => {
+						const hasToggleableClasses = dayClasses.some((c) => !c.markedInErp);
+
+						return dayClasses.map((cls, idx) => {
 							const isAbsent = cls.isAbsent;
+							const isMarkedInErp = cls.markedInErp;
+							const isRowClickable = !disabled && !isMarkedInErp;
 
 							return (
 								<tr
 									key={cls.id}
-									onClick={() => !disabled && onToggleClass(cls.id)}
+									onClick={() => isRowClickable && onToggleClass(cls.id)}
 									className={`transition-colors ${
-										disabled
+										!isRowClickable
 											? "cursor-default"
-											: "cursor-pointer hover:bg-amber-50/40"
-									} ${isAbsent ? "bg-red-50/20" : "bg-gray-50/30"}`}
+											: "cursor-pointer hover:bg-amber-50/40 dark:hover:bg-amber-950/40"
+									} ${
+										isMarkedInErp
+											? cls.erpAttendance === "ABSENT"
+												? "bg-amber-50/50 dark:bg-amber-950/50"
+												: cls.erpAttendance === "PRESENT"
+													? "bg-emerald-50/40 dark:bg-emerald-950/40"
+													: "bg-gray-50/60 dark:bg-gray-900/60"
+											: isAbsent
+												? "bg-red-50/20 dark:bg-red-950/20"
+												: "bg-gray-50/30 dark:bg-gray-900/30"
+									}`}
 								>
 									{idx === 0 && (
 										<td
-											className="p-2 py-3 border-b border-r border-gray-200 bg-gray-100/70 text-left align-middle"
+											className="p-2 py-3 border-b border-r border-gray-200 dark:border-gray-700 bg-gray-100/70 dark:bg-gray-700/70 text-left align-middle"
 											rowSpan={dayClasses.length}
 										>
-											<div className="font-bold text-xs text-black">
+											<div className="font-bold text-xs text-black dark:text-white">
 												{cls.dateLabel}
 											</div>
-											{onToggleDate && !disabled && (
+											{onToggleDate && !disabled && hasToggleableClasses && (
 												<button
 													type="button"
 													onClick={(e) => {
 														e.stopPropagation();
 														onToggleDate(dateKey);
 													}}
-													className="text-[10px] text-amber-700 underline font-semibold mt-1 block"
+													className="text-[10px] text-amber-700 dark:text-amber-300 underline font-semibold mt-1 block"
 												>
 													Toggle all
 												</button>
 											)}
 										</td>
 									)}
-									<td className="p-2 py-2.5 border-b border-r border-gray-100 align-middle">
-										<div className="font-bold text-xs text-gray-900 leading-snug line-clamp-2">
+									<td className="p-2 py-2.5 border-b border-r border-gray-100 dark:border-gray-700 align-middle">
+										<div className="font-bold text-xs text-gray-900 dark:text-gray-100 leading-snug line-clamp-2">
 											{cls.courseName}
 										</div>
-										<div className="text-[10px] text-gray-500 font-medium">
+										<div className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
 											{cls.courseCode} · {cls.courseCompName}
 										</div>
 									</td>
-									<td className="p-2 py-2.5 border-b border-r border-gray-100 text-center align-middle text-[11px] text-gray-600 font-medium">
+									<td className="p-2 py-2.5 border-b border-r border-gray-100 dark:border-gray-700 text-center align-middle text-[11px] text-gray-600 dark:text-gray-300 font-medium">
 										{cls.startTime} – {cls.endTime}
 									</td>
-									<td className="p-2 py-2.5 border-b border-gray-100 text-center align-middle">
-										<span
-											className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${
-												isAbsent
-													? "text-red-700 bg-red-100 border border-red-200"
-													: "text-gray-500 bg-gray-100 border border-gray-200"
-											}`}
-										>
-											{isAbsent ? "ABSENT" : "ATTEND"}
-										</span>
+									<td className="p-2 py-2.5 border-b border-gray-100 dark:border-gray-700 text-center align-middle">
+										{isMarkedInErp ? (
+											<div className="flex flex-col items-center gap-0.5">
+												<span
+													className={`text-[9px] font-bold px-2 py-0.5 rounded-full inline-block ${
+														cls.erpAttendance === "ABSENT"
+															? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900 border border-red-200 dark:border-red-800"
+															: cls.erpAttendance === "PRESENT"
+																? "text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900 border border-emerald-200 dark:border-emerald-800"
+																: "text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-900 border border-amber-300 dark:border-amber-700"
+													}`}
+													title="Already marked in college ERP (excluded from holiday projection)"
+												>
+													{cls.erpAttendance
+														? `MARKED: ${cls.erpAttendance}`
+														: "MARKED IN ERP"}
+												</span>
+												<span className="text-[9px] text-gray-500 dark:text-gray-400 font-medium">
+													(Excluded)
+												</span>
+											</div>
+										) : (
+											<span
+												className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${
+													isAbsent
+														? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900 border border-red-200 dark:border-red-800"
+														: "text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-700"
+												}`}
+											>
+												{isAbsent ? "ABSENT" : "ATTEND"}
+											</span>
+										)}
 									</td>
 								</tr>
 							);
-						}),
-					)}
+						});
+					})}
 				</tbody>
 			</table>
 		</div>
