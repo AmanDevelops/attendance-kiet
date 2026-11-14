@@ -6,6 +6,7 @@ import type {
 	StudentDetails,
 } from "../types/response";
 import { formatAuthHeader } from "../types/utils";
+import { reconcileAttendanceFromRows } from "./attendance";
 
 export const fetchAttendanceData = async (
 	token: string,
@@ -19,7 +20,10 @@ export const fetchAttendanceData = async (
 				},
 			},
 		);
-		return attendanceResponse.data.data;
+		return await reconcileAttendanceFromRows(
+			token,
+			attendanceResponse.data.data,
+		);
 	} catch (err: unknown) {
 		if (axios.isAxiosError(err)) {
 			const status = err.response?.status;
