@@ -399,42 +399,50 @@ const lectureCache = new Map<
 	string,
 	{ expiresAt: number; lectures: LectureListProps[] }
 >();
+const lectureRequests = new Map<
+	string,
+	Promise<LectureListProps[] | { error: string }>
+>();
 
 function lectureCacheKey(payload: {
 	courseCompId: number;
 	courseId: number;
 	studentId: number;
 }): string {
-	return `${payload.studentId}:${payload.courseCompId}:${payload.courseId}`;
+	// Include the API origin so switching proxy/live cannot reuse rows from the
+	// other backend.
+	return `${getBaseUrl()}|${payload.studentId}:${payload.courseCompId}:${payload.courseId}`;
 }
 
-/**
- * One daywise call per subject. Failures are per-subject: the subject carries
- * an error and the rest of the report still renders.
- */
-export async function fetchSubjectLectures(
+export interface FetchSubjectLecturesOptions {
+	/** Skip the short-lived row cache, e.g. when the aggregate changed. */
+	bypassCache?: boolean;
+	signal?: AbortSignal;
+}
+
+/** Waits for the retry delay, but wakes up immediately if the pass is cancelled. */
+function retryDelay(ms: number, signal?: AbortSignal): Promise<void> {
+	return new Promise((resolve) => {
+		if (signal?.aborted) {
+			resolve();
+			return;
+		}
+		const finish = () => {
+			clearTimeout(timer);
+			signal?.removeEventListener("abort", finish);
+			resolve();
+		};
+		const timer = setTimeout(finish, ms);
+		signal?.addEventListener("abort", finish, { once: true });
+	});
+}
+
+async function requestSubjectLectures(
 	token: string,
 	payload: { courseCompId: number; courseId: number; studentId: number },
+	cacheKey: string,
+	options: FetchSubjectLecturesOptions,
 ): Promise<LectureListProps[] | { error: string }> {
-	if (
-		!payload.studentId ||
-		payload.studentId <= 0 ||
-		Number.isNaN(payload.studentId) ||
-		!payload.courseCompId ||
-		payload.courseCompId <= 0 ||
-		!payload.courseId ||
-		payload.courseId <= 0
-	) {
-		console.warn("fetchSubjectLectures skipped due to invalid IDs:", payload);
-		return { error: "Missing or invalid subject/student identifier." };
-	}
-
-	const cacheKey = lectureCacheKey(payload);
-	const cached = lectureCache.get(cacheKey);
-	if (cached && cached.expiresAt > Date.now()) {
-		return cached.lectures;
-	}
-
 	const authHeader = formatAuthHeader(token);
 	// One retry only: during an upstream slowdown, extra attempts multiply
 	// load and make the queue worse.
@@ -454,18 +462,31 @@ export async function fetchSubjectLectures(
 						"Content-Type": "application/json",
 						Authorization: authHeader,
 					},
+					signal: options.signal,
 					timeout: 15000,
 				},
 			);
-			const buckets = response.data.data;
-			const lectures =
-				!buckets || buckets.length === 0 ? [] : (buckets[0].lectureList ?? []);
+			const buckets = Array.isArray(response.data?.data)
+				? response.data.data
+				: [];
+			// The ERP may split a subject into multiple buckets. Keep every row
+			// instead of silently dropping all but the first bucket.
+			const lectures = buckets.flatMap((bucket) =>
+				Array.isArray(bucket?.lectureList) ? bucket.lectureList : [],
+			);
 			lectureCache.set(cacheKey, {
 				expiresAt: Date.now() + LECTURE_CACHE_TTL_MS,
 				lectures,
 			});
 			return lectures;
 		} catch (err) {
+			if (
+				axios.isCancel(err) ||
+				(axios.isAxiosError(err) && err.code === "ERR_CANCELED")
+			) {
+				return { error: "Request cancelled." };
+			}
+
 			const status = axios.isAxiosError(err) ? err.response?.status : undefined;
 			// Retry only transport failures and proxy/gateway timeouts. Spring
 			// 500s and all 4xx responses are not transient, and retrying them
@@ -475,9 +496,10 @@ export async function fetchSubjectLectures(
 				(!status || status === 502 || status === 503 || status === 504);
 
 			if (shouldRetry) {
-				await new Promise((resolve) =>
-					setTimeout(resolve, 400 + Math.random() * 300),
-				);
+				await retryDelay(400 + Math.random() * 300, options.signal);
+				if (options.signal?.aborted) {
+					return { error: "Request cancelled." };
+				}
 				continue;
 			}
 
@@ -534,6 +556,56 @@ export async function fetchSubjectLectures(
 		}
 	}
 	return { error: "Could not load attendance for this subject." };
+}
+
+/**
+ * One daywise call per subject. Failures are per-subject: the subject carries
+ * an error and the rest of the report still renders.
+ *
+ * Concurrent callers share the same in-flight request, so opening the checkup
+ * while the background reconciliation is running does not double the load.
+ */
+export async function fetchSubjectLectures(
+	token: string,
+	payload: { courseCompId: number; courseId: number; studentId: number },
+	options: FetchSubjectLecturesOptions = {},
+): Promise<LectureListProps[] | { error: string }> {
+	if (
+		!payload.studentId ||
+		payload.studentId <= 0 ||
+		Number.isNaN(payload.studentId) ||
+		!payload.courseCompId ||
+		payload.courseCompId <= 0 ||
+		!payload.courseId ||
+		payload.courseId <= 0
+	) {
+		console.warn("fetchSubjectLectures skipped due to invalid IDs:", payload);
+		return { error: "Missing or invalid subject/student identifier." };
+	}
+
+	const cacheKey = lectureCacheKey(payload);
+	if (!options.bypassCache) {
+		const cached = lectureCache.get(cacheKey);
+		if (cached && cached.expiresAt > Date.now()) {
+			return cached.lectures;
+		}
+	}
+
+	// Share an in-flight request even when bypassing the completed cache: it
+	// was started after the caller decided fresh rows were needed, so joining
+	// it cannot return older data than a new request would.
+	const pending = lectureRequests.get(cacheKey);
+	if (pending) return pending;
+
+	const request = requestSubjectLectures(token, payload, cacheKey, options);
+	lectureRequests.set(cacheKey, request);
+	try {
+		return await request;
+	} finally {
+		if (lectureRequests.get(cacheKey) === request) {
+			lectureRequests.delete(cacheKey);
+		}
+	}
 }
 
 /**

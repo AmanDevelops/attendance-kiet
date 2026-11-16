@@ -12,21 +12,72 @@ export function formatAuthHeader(token: string): string {
 	return `GlobalEducation ${clean}`;
 }
 
-export async function fetchStudentId(token: string): Promise<number | null> {
-	try {
-		const response = await axios.get(
-			`${getBaseUrl()}/api/student/dashboard/registered-courses`,
-			{ headers: { Authorization: formatAuthHeader(token) } },
-		);
+const STUDENT_ID_CACHE_TTL_MS = 5 * 60 * 1000;
+let studentIdCache: {
+	token: string;
+	id: number;
+	expiresAt: number;
+} | null = null;
+let studentIdInFlight: {
+	token: string;
+	promise: Promise<number | null>;
+} | null = null;
 
-		if (response.data.data.length > 0) {
-			return response.data.data[0].studentId;
-		} else {
+export function clearStudentIdCache(): void {
+	studentIdCache = null;
+	studentIdInFlight = null;
+}
+
+export async function fetchStudentId(
+	token: string,
+	timeoutMs = 10000,
+): Promise<number | null> {
+	if (
+		studentIdCache &&
+		studentIdCache.token === token &&
+		studentIdCache.expiresAt > Date.now()
+	) {
+		return studentIdCache.id;
+	}
+	if (studentIdInFlight?.token === token) {
+		return studentIdInFlight.promise;
+	}
+
+	const promise = (async (): Promise<number | null> => {
+		try {
+			const response = await axios.get(
+				`${getBaseUrl()}/api/student/dashboard/registered-courses`,
+				{
+					headers: { Authorization: formatAuthHeader(token) },
+					timeout: timeoutMs,
+				},
+			);
+
+			const rows = Array.isArray(response.data?.data) ? response.data.data : [];
+			if (rows.length === 0) return null;
+
+			const id = Number(rows[0]?.studentId);
+			if (!Number.isFinite(id) || id <= 0) return null;
+
+			studentIdCache = {
+				token,
+				id,
+				expiresAt: Date.now() + STUDENT_ID_CACHE_TTL_MS,
+			};
+			return id;
+		} catch (error) {
+			console.error("Error fetching registered courses", error);
 			return null;
 		}
-	} catch (error) {
-		console.error("Error fetching registered courses", error);
-		return null;
+	})();
+
+	studentIdInFlight = { token, promise };
+	try {
+		return await promise;
+	} finally {
+		if (studentIdInFlight?.promise === promise) {
+			studentIdInFlight = null;
+		}
 	}
 }
 
