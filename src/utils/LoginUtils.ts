@@ -6,7 +6,6 @@ import type {
 	StudentDetails,
 } from "../types/response";
 import { formatAuthHeader } from "../types/utils";
-import { reconcileAttendanceFromRows } from "./attendance";
 
 export const fetchAttendanceData = async (
 	token: string,
@@ -20,10 +19,11 @@ export const fetchAttendanceData = async (
 				},
 			},
 		);
-		return await reconcileAttendanceFromRows(
-			token,
-			attendanceResponse.data.data,
-		);
+		// Return the raw ERP aggregate. Callers schedule background row
+		// reconciliation from this object, then apply cached corrections for
+		// display; applying them here would make the scheduled fingerprints
+		// disagree with the cache and trigger a fetch on every reload.
+		return attendanceResponse.data.data;
 	} catch (err: unknown) {
 		if (axios.isAxiosError(err)) {
 			const status = err.response?.status;

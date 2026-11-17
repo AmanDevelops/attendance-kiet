@@ -1,5 +1,7 @@
 import Cookies from "js-cookie";
 import { AUTH_COOKIE_NAME, STUDENT_ID_COOKIE_NAME } from "../types/constants";
+import { clearStudentIdCache } from "../types/utils";
+import { cancelAttendanceReconciliation } from "./attendance";
 
 const FALLBACK_LIFETIME_MS = 60 * 60 * 1000;
 
@@ -44,6 +46,10 @@ export function msUntilAuthExpiry(): number | null {
 }
 
 export function clearAuthCookies(): void {
+	// Stop any background attendance sweep so it cannot keep calling the ERP
+	// with a token that is about to be discarded.
+	cancelAttendanceReconciliation();
+	clearStudentIdCache();
 	Cookies.remove(AUTH_COOKIE_NAME);
 	Cookies.remove(STUDENT_ID_COOKIE_NAME);
 }

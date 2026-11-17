@@ -1,180 +1,519 @@
+import Cookies from "js-cookie";
+import type { Dispatch, SetStateAction } from "react";
+import { STUDENT_ID_COOKIE_NAME } from "../types/constants";
 import type {
 	AttendanceComponentInfo,
-	LectureListProps,
+	CourseAttendanceInfo,
 	StudentDetails,
 } from "../types/response";
 import { fetchStudentId } from "../types/utils";
+import {
+	type CachedCorrection,
+	componentFingerprint,
+	countRowAttendance,
+	needsRowFetch,
+	reconcileComponentWithRows,
+	toCount,
+} from "./attendanceMath";
 import { fetchSubjectLectures } from "./checkup";
 
 /**
- * Recomputes attendance from the lecture rows instead of trusting the
- * aggregates CyberVidya returns with the course list.
- *
- * The row list is the finest-grained data the ERP exposes, and it disagrees
- * with those aggregates often enough to matter: a subject with 39 PRESENT and
- * 2 ADJUSTED rows still reports numberOfPresent 41, while a subject whose
- * adjusted lectures were credited separately keeps them out of the same field
- * and out of the subject's percentage. Reading PRESENT/ADJUSTED rows and
- * dividing by the rows actually held gives one consistent answer for both.
- *
- * A lecture is counted as attended when it is marked PRESENT or ADJUSTED.
- * ABSENT rows are not. The result is written back onto numberOfPresent and
- * numberOfPeriods, so every existing view (course cards, the overall bar, the
- * projection maths) agrees without any new UI.
+ * Row corrections are cached per student/component and invalidated when the
+ * ERP's own aggregate changes. This is what keeps a reload from turning into
+ * another daywise sweep: a normal visit applies the cache and makes zero extra
+ * requests. The TTL only exists to catch changes the aggregate does not
+ * reveal (for example an adjusted row that leaves the totals untouched).
  */
+const CORRECTION_CACHE_KEY = "kiet_attendance_row_corrections_v1";
+const CORRECTION_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const FAILED_FETCH_TTL_MS = 10 * 60 * 1000;
+const UNKNOWN_STATUS_TTL_MS = 30 * 60 * 1000;
+const START_DELAY_MS = 250;
+const REQUEST_STAGGER_MS = 200;
+const MAX_CONCURRENT_REQUESTS = 2;
+const RUN_BUDGET_MS = 20_000;
 
-const MAX_CONCURRENT_SUBJECTS = 4;
+type CorrectionCache = Record<string, CachedCorrection>;
 
-/** Collapses duplicate rows for the same day and slot. */
-function uniqueRows(lectures: LectureListProps[]): LectureListProps[] {
-	const seen = new Map<string, LectureListProps>();
-	for (const lecture of lectures) {
-		seen.set(`${lecture.planLecDate}|${lecture.timeSlot}`, lecture);
-	}
-	return Array.from(seen.values());
+interface ReconcileTask {
+	courseId: number;
+	component: AttendanceComponentInfo;
+	cacheKey: string;
+	fingerprint: string;
+	bypassCache: boolean;
+	priority: number;
 }
 
-export interface RowAttendance {
-	/** Rows that count as attended: PRESENT and ADJUSTED. */
-	attended: number;
-	/** Rows the ERP has recorded for this subject. */
-	held: number;
+interface ScheduleOptions {
+	token: string;
+	data: StudentDetails;
+	studentId?: number | null;
+	setAttendanceData: Dispatch<SetStateAction<StudentDetails | null>>;
+}
+
+let activeController: AbortController | null = null;
+
+function registrationKey(data: StudentDetails): string {
+	return String(data.registrationNumber ?? "")
+		.trim()
+		.toLowerCase();
+}
+
+function cacheEntryKey(
+	registration: string,
+	courseId: number,
+	componentId: number,
+): string {
+	return `${registration}:${courseId}:${componentId}`;
+}
+
+function readCorrectionCache(): CorrectionCache {
+	if (typeof window === "undefined") return {};
+	try {
+		const raw = localStorage.getItem(CORRECTION_CACHE_KEY);
+		if (!raw) return {};
+		const parsed: unknown = JSON.parse(raw);
+		if (!parsed || typeof parsed !== "object") return {};
+
+		const now = Date.now();
+		const cache: CorrectionCache = {};
+		for (const [key, value] of Object.entries(
+			parsed as Record<string, unknown>,
+		)) {
+			if (!value || typeof value !== "object") continue;
+			const entry = value as Partial<CachedCorrection>;
+			if (
+				typeof entry.fingerprint !== "string" ||
+				typeof entry.expiresAt !== "number" ||
+				entry.expiresAt <= now ||
+				!entry.stats
+			) {
+				continue;
+			}
+			const stats = entry.stats as Partial<CachedCorrection["stats"]>;
+			if (
+				typeof stats.attended !== "number" ||
+				typeof stats.held !== "number" ||
+				typeof stats.adjusted !== "number" ||
+				typeof stats.unknown !== "number"
+			) {
+				continue;
+			}
+			cache[key] = {
+				fingerprint: entry.fingerprint,
+				resultFingerprint:
+					typeof entry.resultFingerprint === "string"
+						? entry.resultFingerprint
+						: undefined,
+				expiresAt: entry.expiresAt,
+				stats: {
+					attended: stats.attended,
+					held: stats.held,
+					adjusted: stats.adjusted,
+					unknown: stats.unknown,
+				},
+			};
+		}
+		return cache;
+	} catch {
+		return {};
+	}
+}
+
+function writeCorrectionCache(cache: CorrectionCache): void {
+	if (typeof window === "undefined") return;
+	try {
+		localStorage.setItem(CORRECTION_CACHE_KEY, JSON.stringify(cache));
+	} catch {
+		// Private mode/full storage must not break the dashboard.
+	}
+}
+
+function sameCounts(
+	left: AttendanceComponentInfo,
+	right: AttendanceComponentInfo,
+): boolean {
+	return (
+		left.numberOfPresent === right.numberOfPresent &&
+		left.numberOfPeriods === right.numberOfPeriods &&
+		left.numberOfExtraAttendance === right.numberOfExtraAttendance
+	);
+}
+
+function reconcileCourseList(
+	courses: CourseAttendanceInfo[],
+	registration: string,
+	corrections: Map<string, CachedCorrection>,
+): { courses: CourseAttendanceInfo[]; changed: boolean } {
+	let changed = false;
+
+	const nextCourses = courses.map((course) => {
+		const components = course.attendanceCourseComponentNameInfoList;
+		if (!Array.isArray(components)) return course;
+
+		let courseChanged = false;
+		const nextComponents = components.map((component) => {
+			if (!component || component.isProjected) return component;
+			const entry = corrections.get(
+				cacheEntryKey(
+					registration,
+					course.courseId,
+					component.courseComponentId,
+				),
+			);
+			if (!entry || entry.fingerprint !== componentFingerprint(component)) {
+				return component;
+			}
+
+			const reconciled = reconcileComponentWithRows(component, entry.stats);
+			if (sameCounts(component, reconciled)) return component;
+			courseChanged = true;
+			return reconciled;
+		});
+
+		if (!courseChanged) return course;
+		changed = true;
+		return {
+			...course,
+			attendanceCourseComponentNameInfoList: nextComponents,
+		};
+	});
+
+	return { courses: changed ? nextCourses : courses, changed };
+}
+
+function applyCorrections(
+	data: StudentDetails,
+	corrections: Map<string, CachedCorrection>,
+): StudentDetails {
+	const registration = registrationKey(data);
+	if (!registration || corrections.size === 0) return data;
+
+	const { courses, changed } = reconcileCourseList(
+		data.attendanceCourseComponentInfoList ?? [],
+		registration,
+		corrections,
+	);
+	if (!changed) return data;
+	return {
+		...data,
+		attendanceCourseComponentInfoList: courses,
+	};
 }
 
 /**
- * Attended and held counts for one subject's row list.
+ * Applies any non-expired, fingerprint-matching correction synchronously.
+ * This is the path a normal page load takes: no ERP daywise call at all.
  */
-export function countRowAttendance(
-	lectures: LectureListProps[],
-): RowAttendance {
-	const rows = uniqueRows(lectures);
-	let attended = 0;
-	for (const row of rows) {
-		if (row.attendance === "PRESENT" || row.attendance === "ADJUSTED") {
-			attended += 1;
+export function applyCachedAttendanceCorrections(
+	data: StudentDetails,
+): StudentDetails {
+	const cache = readCorrectionCache();
+	const entries = Object.entries(cache);
+	if (entries.length === 0) return data;
+	return applyCorrections(data, new Map(entries));
+}
+
+function applySingleCorrection(
+	previous: StudentDetails | null,
+	registration: string,
+	courseId: number,
+	componentId: number,
+	entry: CachedCorrection,
+): StudentDetails | null {
+	if (!previous || registrationKey(previous) !== registration) return previous;
+
+	let changed = false;
+	const courses = previous.attendanceCourseComponentInfoList.map((course) => {
+		if (course.courseId !== courseId) return course;
+		const components = course.attendanceCourseComponentNameInfoList;
+		if (!Array.isArray(components)) return course;
+
+		let courseChanged = false;
+		const nextComponents = components.map((component) => {
+			if (
+				component.courseComponentId !== componentId ||
+				component.isProjected ||
+				entry.fingerprint !== componentFingerprint(component)
+			) {
+				return component;
+			}
+			const reconciled = reconcileComponentWithRows(component, entry.stats);
+			if (sameCounts(component, reconciled)) return component;
+			courseChanged = true;
+			return reconciled;
+		});
+
+		if (!courseChanged) return course;
+		changed = true;
+		return {
+			...course,
+			attendanceCourseComponentNameInfoList: nextComponents,
+		};
+	});
+
+	if (!changed) return previous;
+	return {
+		...previous,
+		attendanceCourseComponentInfoList: courses,
+	};
+}
+
+function reconcilePriority(
+	component: AttendanceComponentInfo,
+	hasStaleEntry: boolean,
+): number {
+	const periods = toCount(component.numberOfPeriods);
+	const present =
+		toCount(component.numberOfPresent) +
+		toCount(component.numberOfExtraAttendance);
+	let priority = hasStaleEntry ? 1 : 0;
+	if (toCount(component.numberOfExtraAttendance) > 0) priority += 4;
+	if (
+		periods > 0 &&
+		typeof component.presentPercentage === "number" &&
+		Math.abs(component.presentPercentage - (present / periods) * 100) > 1
+	) {
+		priority += 2;
+	}
+	return priority;
+}
+
+function collectTasks(
+	data: StudentDetails,
+	cache: CorrectionCache,
+): { registration: string; tasks: ReconcileTask[] } {
+	const registration = registrationKey(data);
+	if (!registration) return { registration, tasks: [] };
+
+	const tasks: ReconcileTask[] = [];
+	for (const course of data.attendanceCourseComponentInfoList ?? []) {
+		const components = course.attendanceCourseComponentNameInfoList;
+		if (!Array.isArray(components)) continue;
+		if (!course.courseId || course.courseId <= 0) continue;
+
+		for (const component of components) {
+			if (
+				!component ||
+				component.isProjected ||
+				!component.courseComponentId ||
+				component.courseComponentId <= 0
+			) {
+				continue;
+			}
+
+			// Nothing to correct when the ERP has no numbers at all for this
+			// component; skip the request entirely.
+			if (
+				toCount(component.numberOfPeriods) === 0 &&
+				toCount(component.numberOfPresent) === 0 &&
+				toCount(component.numberOfExtraAttendance) === 0
+			) {
+				continue;
+			}
+
+			const cacheKey = cacheEntryKey(
+				registration,
+				course.courseId,
+				component.courseComponentId,
+			);
+			const entry = cache[cacheKey];
+			if (!needsRowFetch(component, entry)) continue;
+
+			tasks.push({
+				courseId: course.courseId,
+				component,
+				cacheKey,
+				fingerprint: componentFingerprint(component),
+				bypassCache: Boolean(entry),
+				priority: reconcilePriority(component, Boolean(entry)),
+			});
 		}
 	}
-	return { attended, held: rows.length };
+
+	tasks.sort((left, right) => right.priority - left.priority);
+	return { registration, tasks };
 }
 
-function toFiniteCount(value: unknown): number {
-	return typeof value === "number" && Number.isFinite(value) ? value : 0;
+function readStudentIdCookie(): number | null {
+	const raw = (Cookies.get(STUDENT_ID_COOKIE_NAME) || "")
+		.replace(/^"|"$/g, "")
+		.trim();
+	const parsed = Number(raw);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-async function mapWithLimit<T, R>(
+async function resolveStudentId(
+	token: string,
+	provided: number | null | undefined,
+): Promise<number | null> {
+	if (provided && Number.isFinite(provided) && provided > 0) return provided;
+	const cookieId = readStudentIdCookie();
+	if (cookieId) return cookieId;
+	try {
+		return await fetchStudentId(token, 8000);
+	} catch {
+		return null;
+	}
+}
+
+function wait(ms: number, signal: AbortSignal): Promise<void> {
+	return new Promise((resolve) => {
+		if (signal.aborted) {
+			resolve();
+			return;
+		}
+		const timer = setTimeout(() => {
+			signal.removeEventListener("abort", onAbort);
+			resolve();
+		}, ms);
+		const onAbort = () => {
+			clearTimeout(timer);
+			resolve();
+		};
+		signal.addEventListener("abort", onAbort, { once: true });
+	});
+}
+
+async function mapWithLimit<T>(
 	items: T[],
 	limit: number,
-	run: (item: T) => Promise<R>,
-): Promise<R[]> {
-	const results: R[] = new Array(items.length);
+	run: (item: T) => Promise<void>,
+): Promise<void> {
 	let nextIndex = 0;
-
 	const worker = async () => {
 		while (nextIndex < items.length) {
 			const index = nextIndex;
 			nextIndex += 1;
-			results[index] = await run(items[index]);
+			await run(items[index]);
 		}
 	};
-
-	const workers = Math.min(limit, items.length);
-	await Promise.all(Array.from({ length: workers }, worker));
-	return results;
+	await Promise.all(
+		Array.from({ length: Math.min(limit, items.length) }, worker),
+	);
 }
 
-async function reconcileComponent(
-	lecturesByComponent: Map<number, LectureListProps[] | null>,
-	component: AttendanceComponentInfo,
-): Promise<AttendanceComponentInfo> {
-	const base: AttendanceComponentInfo = {
-		...component,
-		numberOfExtraAttendance: toFiniteCount(component.numberOfExtraAttendance),
-	};
+async function runReconciliation(
+	options: ScheduleOptions,
+	controller: AbortController,
+): Promise<void> {
+	await wait(START_DELAY_MS, controller.signal);
+	if (controller.signal.aborted) return;
 
-	const lectures = lecturesByComponent.get(component.courseComponentId);
-	if (!lectures || lectures.length === 0) return base;
+	const cache = readCorrectionCache();
+	const { registration, tasks } = collectTasks(options.data, cache);
+	if (tasks.length === 0 || controller.signal.aborted) return;
 
-	const { attended, held } = countRowAttendance(lectures);
-	if (held === 0) return base;
+	const studentId = await resolveStudentId(options.token, options.studentId);
+	if (!studentId || controller.signal.aborted) return;
 
-	// Never shrink the denominator below what the ERP has already charged the
-	// student for: rows can lag behind the scheduled count while a lecture is
-	// still being recorded.
-	const periods = Math.max(toFiniteCount(component.numberOfPeriods), held);
+	const startedAt = Date.now();
 
-	return {
-		...base,
-		numberOfPeriods: periods,
-		numberOfPresent: Math.min(attended, periods),
-		// Adjusted rows are already inside numberOfPresent now, so the old
-		// separate allowance would double count them.
-		numberOfExtraAttendance: 0,
-	};
+	await mapWithLimit(tasks, MAX_CONCURRENT_REQUESTS, async (task) => {
+		if (controller.signal.aborted) return;
+		if (Date.now() - startedAt > RUN_BUDGET_MS) return;
+
+		await wait(REQUEST_STAGGER_MS + Math.random() * 150, controller.signal);
+		if (controller.signal.aborted) return;
+
+		let stats: ReturnType<typeof countRowAttendance> | null = null;
+		try {
+			const result = await fetchSubjectLectures(
+				options.token,
+				{
+					courseId: task.courseId,
+					courseCompId: task.component.courseComponentId,
+					studentId,
+				},
+				{
+					signal: controller.signal,
+					bypassCache: task.bypassCache,
+				},
+			);
+			if (Array.isArray(result)) stats = countRowAttendance(result);
+		} catch (error) {
+			if (!controller.signal.aborted) {
+				console.warn(
+					"Attendance row reconciliation failed for component",
+					task.component.courseComponentId,
+					error,
+				);
+			}
+		}
+
+		if (controller.signal.aborted) return;
+
+		const expiresAt =
+			Date.now() +
+			(stats === null
+				? FAILED_FETCH_TTL_MS
+				: stats.unknown > 0
+					? UNKNOWN_STATUS_TTL_MS
+					: CORRECTION_CACHE_TTL_MS);
+
+		// Cache failures/unknown statuses briefly too. A broken subject should
+		// not be retried on every reload while the upstream is struggling.
+		const reconciled =
+			stats && stats.held > 0 && stats.unknown === 0
+				? reconcileComponentWithRows(task.component, stats)
+				: null;
+		const entry: CachedCorrection = {
+			fingerprint: task.fingerprint,
+			resultFingerprint: reconciled
+				? componentFingerprint(reconciled)
+				: undefined,
+			expiresAt,
+			stats: stats ?? { attended: 0, held: 0, adjusted: 0, unknown: 0 },
+		};
+		cache[task.cacheKey] = entry;
+		writeCorrectionCache(cache);
+
+		if (!stats || stats.held === 0 || stats.unknown > 0) return;
+
+		options.setAttendanceData((previous) =>
+			applySingleCorrection(
+				previous,
+				registration,
+				task.courseId,
+				task.component.courseComponentId,
+				entry,
+			),
+		);
+	});
 }
 
 /**
- * Rewrites every subject's counts from its own lecture rows.
+ * Starts a gentle background pass that corrects the ERP's aggregates from the
+ * daywise rows.
  *
- * Failures are swallowed per subject and leave that subject on the ERP's
- * numbers: a login should never break over this.
+ * It deliberately does not block login. Only components whose cached
+ * correction is missing, expired or tied to an older aggregate are fetched;
+ * requests run two at a time with a small stagger and a hard time budget. A
+ * normal reload therefore makes no daywise requests at all.
  */
-export async function reconcileAttendanceFromRows(
-	token: string,
-	data: StudentDetails,
-): Promise<StudentDetails> {
-	let studentId: number | null = null;
-	try {
-		studentId = await fetchStudentId(token);
-	} catch (error) {
-		console.warn("Could not resolve student id for attendance rows", error);
-	}
-	if (!studentId || studentId <= 0) return data;
+export function scheduleAttendanceReconciliation(
+	options: ScheduleOptions,
+): void {
+	const registration = registrationKey(options.data);
+	if (!registration) return;
 
-	const courses = data.attendanceCourseComponentInfoList ?? [];
+	cancelAttendanceReconciliation();
+	const controller = new AbortController();
+	activeController = controller;
 
-	const components = courses.flatMap((course) =>
-		course.attendanceCourseComponentNameInfoList.map((component) => ({
-			courseId: course.courseId,
-			component,
-		})),
-	);
+	void runReconciliation(options, controller)
+		.catch((error) => {
+			if (!controller.signal.aborted) {
+				console.warn("Attendance row reconciliation failed", error);
+			}
+		})
+		.finally(() => {
+			if (activeController === controller) activeController = null;
+		});
+}
 
-	const lectureLists = await mapWithLimit(
-		components,
-		MAX_CONCURRENT_SUBJECTS,
-		async ({ courseId, component }) => {
-			const lectures = await fetchSubjectLectures(token, {
-				courseId,
-				courseCompId: component.courseComponentId,
-				studentId,
-			});
-			return {
-				courseComponentId: component.courseComponentId,
-				lectures: Array.isArray(lectures) ? lectures : null,
-			};
-		},
-	);
-
-	const lecturesByComponent = new Map<number, LectureListProps[] | null>();
-	for (const entry of lectureLists) {
-		lecturesByComponent.set(entry.courseComponentId, entry.lectures);
-	}
-
-	const reconciled = await mapWithLimit(
-		courses,
-		MAX_CONCURRENT_SUBJECTS,
-		async (course) => ({
-			...course,
-			attendanceCourseComponentNameInfoList: await Promise.all(
-				course.attendanceCourseComponentNameInfoList.map((component) =>
-					reconcileComponent(lecturesByComponent, component),
-				),
-			),
-		}),
-	);
-
-	return {
-		...data,
-		attendanceCourseComponentInfoList: reconciled,
-	};
+/** Cancels any in-flight background pass, e.g. on logout or a user switch. */
+export function cancelAttendanceReconciliation(): void {
+	activeController?.abort();
+	activeController = null;
 }

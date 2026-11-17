@@ -8,6 +8,10 @@ import { AttendanceDataContext } from "./contexts/AppContext";
 import { TARGET_PERCENTAGE } from "./types/constants";
 import type { StudentDetails } from "./types/response";
 import {
+	applyCachedAttendanceCorrections,
+	scheduleAttendanceReconciliation,
+} from "./utils/attendance";
+import {
 	clearAuthCookies,
 	msUntilAuthExpiry,
 	setAuthCookie,
@@ -65,6 +69,12 @@ function App() {
 	const [isTnCVisible, setIsTnCVisible] = useState<boolean>(false);
 	const [showGreenBanner, setShowGreenBanner] = useState<boolean>(true);
 	const hasSelectedLiveRef = useRef<boolean>(false);
+	// Captured during render, before any effect can clean the URL. LoginForm
+	// uses this to avoid restoring the previous cookie session in parallel.
+	const [initialUrlToken] = useState<string | null>(() =>
+		new URLSearchParams(window.location.search).get("token"),
+	);
+	const tokenLoginStartedRef = useRef<boolean>(false);
 
 	const handleModeChange = (mode: "proxy" | "live") => {
 		if (mode === "live") {
@@ -75,47 +85,52 @@ function App() {
 	};
 
 	useEffect(() => {
-		const searchParams = new URLSearchParams(window.location.search);
-		const urlToken = searchParams.get("token");
+		if (!initialUrlToken || tokenLoginStartedRef.current) return;
+		tokenLoginStartedRef.current = true;
 
-		if (urlToken) {
-			// Token mode: fetch attendance data from the ERP API.
-			// The extension's DNR ruleset rewrites request headers so the
-			// ERP accepts calls originating from this app.
-			window.history.replaceState({}, document.title, window.location.pathname);
+		// Token mode: fetch attendance data from the ERP API.
+		// The extension's DNR ruleset rewrites request headers so the
+		// ERP accepts calls originating from this app.
+		window.history.replaceState({}, document.title, window.location.pathname);
 
-			const loginWithToken = async () => {
-				try {
-					// A fresh token mode login means a (possibly different) student is
-					// signing in, so drop any studentId left over from a previous
-					// session before storing the new auth cookie.
-					clearAuthCookies();
-					setAuthCookie(urlToken);
-					const data = await fetchAttendanceData(urlToken);
+		const loginWithToken = async () => {
+			try {
+				// A fresh token mode login means a (possibly different) student is
+				// signing in, so drop any studentId left over from a previous
+				// session before storing the new auth cookie.
+				clearAuthCookies();
+				setAuthCookie(initialUrlToken);
+				const data = await fetchAttendanceData(initialUrlToken);
 
-					const updatedStudentDetails: StudentDetails = {
-						...data,
-						attendanceCourseComponentInfoList:
-							data.attendanceCourseComponentInfoList.map((course) => ({
-								...course,
-								attendanceCourseComponentNameInfoList:
-									course.attendanceCourseComponentNameInfoList.map(
-										(component) => ({
-											...component,
-											isProjected: false,
-										}),
-									),
-							})),
-					};
+				const updatedStudentDetails: StudentDetails = {
+					...data,
+					attendanceCourseComponentInfoList:
+						data.attendanceCourseComponentInfoList.map((course) => ({
+							...course,
+							attendanceCourseComponentNameInfoList:
+								course.attendanceCourseComponentNameInfoList.map(
+									(component) => ({
+										...component,
+										isProjected: false,
+									}),
+								),
+						})),
+				};
 
-					setAttendanceData(updatedStudentDetails);
-				} catch (error) {
-					console.error("Failed to login with URL token", error);
-				}
-			};
-			loginWithToken();
-		}
-	}, []);
+				setAttendanceData(
+					applyCachedAttendanceCorrections(updatedStudentDetails),
+				);
+				scheduleAttendanceReconciliation({
+					token: initialUrlToken,
+					data: updatedStudentDetails,
+					setAttendanceData,
+				});
+			} catch (error) {
+				console.error("Failed to login with URL token", error);
+			}
+		};
+		loginWithToken();
+	}, [initialUrlToken]);
 
 	// Log out automatically the moment the JWT expires. Keyed on the boolean so
 	// the timer is not rebuilt every time attendanceData is updated.
@@ -189,6 +204,7 @@ function App() {
 							<LoginForm
 								setIsTnCVisible={setIsTnCVisible}
 								onModeChange={handleModeChange}
+								hasUrlToken={Boolean(initialUrlToken)}
 							/>
 						)
 					) : (
