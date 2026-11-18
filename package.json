@@ -11,6 +11,7 @@
 		"build": "tsc -b && vite build",
 		"lint": "npx @biomejs/biome check --write .",
 		"preview": "vite preview",
+		"test": "node --experimental-strip-types --test \"tests/**/*.test.ts\"",
 		"prepare": "husky"
 	},
 	"dependencies": {
