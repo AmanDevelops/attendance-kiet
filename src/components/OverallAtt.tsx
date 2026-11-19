@@ -1,6 +1,7 @@
 import ProgressBar from "@ramonak/react-progress-bar";
 import { memo } from "react";
 import { useAppContext } from "../contexts/AppContext";
+import { toCount } from "../utils/attendanceMath";
 
 const attendanceColour = {
 	above80: "22c55e",
@@ -17,15 +18,23 @@ const OverallAtt = memo(function OverallAtt() {
 	let totalClasses = 0;
 	let presentClasses = 0;
 
-	attendanceData.attendanceCourseComponentInfoList.forEach((course) => {
-		const courseData = course.attendanceCourseComponentNameInfoList[0];
+	// Every component counts: a course can have separate theory and lab rows,
+	// and the overall bar used to silently ignore everything after the first.
+	for (const course of attendanceData.attendanceCourseComponentInfoList ?? []) {
+		const components = course.attendanceCourseComponentNameInfoList;
+		if (!Array.isArray(components)) continue;
 
-		totalClasses += courseData.numberOfPeriods;
-		presentClasses +=
-			courseData.numberOfExtraAttendance + courseData.numberOfPresent;
-	});
+		for (const component of components) {
+			if (!component) continue;
+			totalClasses += toCount(component.numberOfPeriods);
+			presentClasses +=
+				toCount(component.numberOfExtraAttendance) +
+				toCount(component.numberOfPresent);
+		}
+	}
 
 	function handleAttendanceSliderColour(): string {
+		if (totalClasses <= 0) return attendanceColour.belowTarget;
 		const percentage = (presentClasses / totalClasses) * 100;
 
 		if (percentage >= 80) {
