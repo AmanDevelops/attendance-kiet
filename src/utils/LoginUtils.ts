@@ -19,6 +19,10 @@ export const fetchAttendanceData = async (
 				},
 			},
 		);
+		// Return the raw ERP aggregate. Callers schedule background row
+		// reconciliation from this object, then apply cached corrections for
+		// display; applying them here would make the scheduled fingerprints
+		// disagree with the cache and trigger a fetch on every reload.
 		return attendanceResponse.data.data;
 	} catch (err: unknown) {
 		if (axios.isAxiosError(err)) {

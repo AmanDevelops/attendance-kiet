@@ -20,7 +20,11 @@ import type {
 	StudentDetails,
 } from "../types/response";
 import PasswordInput from "../ui/PasswordInput";
-import { setAuthCookie } from "../utils/jwt";
+import {
+	applyCachedAttendanceCorrections,
+	scheduleAttendanceReconciliation,
+} from "../utils/attendance";
+import { clearAuthCookies, setAuthCookie } from "../utils/jwt";
 import { encryptPassword, fetchAttendanceData } from "../utils/LoginUtils";
 import InstallExtensionPage from "./InstallExtensionPage";
 
@@ -51,6 +55,7 @@ async function loadAttendance(
 	setAttendanceData: React.Dispatch<
 		React.SetStateAction<StudentDetails | null>
 	>,
+	studentId?: number | null,
 ) {
 	const data = await fetchAttendanceData(token);
 	const updatedStudentDetails: StudentDetails = {
@@ -66,15 +71,30 @@ async function loadAttendance(
 			})),
 	};
 
-	setAttendanceData(updatedStudentDetails);
+	// Schedule from the raw ERP aggregate so the cached fingerprints line up,
+	// then show the cached corrections immediately. The dashboard never waits
+	// for daywise requests.
+	scheduleAttendanceReconciliation({
+		token,
+		data: updatedStudentDetails,
+		studentId,
+		setAttendanceData,
+	});
+	setAttendanceData(applyCachedAttendanceCorrections(updatedStudentDetails));
 }
 
 interface LoginFormProps {
 	setIsTnCVisible: React.Dispatch<React.SetStateAction<boolean>>;
 	onModeChange?: (mode: "proxy" | "live") => void;
+	/** App is already logging in from a `?token=` URL parameter. */
+	hasUrlToken?: boolean;
 }
 
-function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
+function LoginForm({
+	setIsTnCVisible,
+	onModeChange,
+	hasUrlToken = false,
+}: LoginFormProps) {
 	const username: string = Cookies.get(USERNAME_COOKIE_NAME) || "";
 	const rememberMe: boolean = Cookies.get(REMEMBER_ME_COOKIE_NAME) === "true";
 	const savedPassword: string = rememberMe
@@ -98,6 +118,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 	const [isExtensionError, setIsExtensionError] = useState<boolean>(false);
 	const [showInstallPage, setShowInstallPage] = useState<boolean>(false);
 	const [loading, setLoading] = useState<boolean>(false);
+	const restoreStartedRef = useRef<boolean>(false);
 
 	const { setAttendanceData } = useAppContext();
 
@@ -141,6 +162,13 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 	};
 
 	useEffect(() => {
+		// A `?token=` login is handled by App. Restoring the saved cookie here
+		// would race that flow and fetch attendance twice (possibly for the
+		// previous account), so leave it to App until the URL is cleaned.
+		// The ref also collapses React StrictMode's double effect invocation.
+		if (hasUrlToken || restoreStartedRef.current) return;
+		restoreStartedRef.current = true;
+
 		const token = Cookies.get(AUTH_COOKIE_NAME);
 
 		if (token) {
@@ -150,13 +178,12 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 				} catch (error) {
 					setError(error instanceof Error ? error.message : String(error));
 					// Clear invalid token to allow fresh login
-					Cookies.remove(AUTH_COOKIE_NAME);
-					Cookies.remove(STUDENT_ID_COOKIE_NAME);
+					clearAuthCookies();
 				}
 			};
 			loadData();
 		}
-	}, [setAttendanceData]);
+	}, [hasUrlToken, setAttendanceData]);
 
 	// Saves the login cookies and loads the student's attendance data. Used by
 	// both the direct-login path and the OTP path once either one has a token.
@@ -192,7 +219,14 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		}
 
 		try {
-			await loadAttendance(token, setAttendanceData);
+			const numericStudentId = Number(studentId);
+			await loadAttendance(
+				token,
+				setAttendanceData,
+				Number.isFinite(numericStudentId) && numericStudentId > 0
+					? numericStudentId
+					: null,
+			);
 		} catch (fetchError) {
 			console.error(fetchError);
 			setError(
@@ -309,6 +343,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 		setIsExtensionError(false);
 
 		let token = "";
+		let otpStudentId: number | string | undefined;
 
 		try {
 			const otpResponse = await axios.post<LoginResponse>(
@@ -322,6 +357,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 			);
 
 			token = otpResponse.data.token || otpResponse.data.data?.token || "";
+			otpStudentId = otpResponse.data.data?.id;
 		} catch (otpError) {
 			handleAuthError(
 				otpError,
@@ -338,6 +374,7 @@ function LoginForm({ setIsTnCVisible, onModeChange }: LoginFormProps) {
 			username: submittedUsernameRef.current,
 			password: submittedPasswordRef.current,
 			rememberMe: submittedRememberMeRef.current,
+			studentId: otpStudentId,
 		});
 	};
 
