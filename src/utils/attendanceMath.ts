@@ -244,3 +244,84 @@ export function reconcileComponentWithRows(
 
 	return withCounts(component, present, periods, 0);
 }
+
+export interface AttendanceProjection {
+	status: "safe" | "warning";
+	message: string;
+}
+
+export function resolveSubjectTarget(
+	courseCode: string,
+	subjectOverrides: Record<string, number> = {},
+	globalCriteria: number = 75,
+): number {
+	const override = subjectOverrides[courseCode];
+	if (typeof override === "number" && Number.isFinite(override)) {
+		return Math.max(0, Math.min(100, Math.round(override)));
+	}
+	const fallback =
+		typeof globalCriteria === "number" && Number.isFinite(globalCriteria)
+			? globalCriteria
+			: 75;
+	return Math.max(0, Math.min(100, Math.round(fallback)));
+}
+
+export function calculateAttendanceProjection(
+	present: number,
+	total: number,
+	targetPercentage: number = 75,
+): AttendanceProjection {
+	if (total === 0) {
+		return { status: "safe", message: "No classes held yet." };
+	}
+
+	if (targetPercentage <= 0) {
+		return {
+			status: "safe",
+			message:
+				"You can miss all remaining classes without dropping below target",
+		};
+	}
+
+	if (targetPercentage >= 100) {
+		if (present < total) {
+			return {
+				status: "warning",
+				message: "100% attendance is no longer mathematically achievable",
+			};
+		}
+		return {
+			status: "safe",
+			message: "Try not to miss any more classes",
+		};
+	}
+
+	const currentPercentage = (present / total) * 100;
+
+	if (currentPercentage >= targetPercentage) {
+		const target = targetPercentage / 100;
+		const canMiss = Math.max(
+			0,
+			Math.floor((present - target * total) / target),
+		);
+		return {
+			status: "safe",
+			message:
+				canMiss > 0
+					? `You can miss ${canMiss} class${canMiss === 1 ? "" : "es"} only`
+					: "Try not to miss any more classes",
+		};
+	}
+
+	const target = targetPercentage / 100;
+	const needToAttend = Math.max(
+		1,
+		Math.ceil((target * total - present) / (1 - target)),
+	);
+	return {
+		status: "warning",
+		message: `Need to attend next ${needToAttend} class${
+			needToAttend === 1 ? "" : "es"
+		}`,
+	};
+}

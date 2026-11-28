@@ -19,13 +19,15 @@ export default function Profile({
 	setShowHolidayPlanner,
 	showHolidayPlanner,
 }: ProfileProps) {
-	const { attendanceData, setAttendanceData } = useAppContext();
+	const { attendanceData, setAttendanceData, clearAttendanceCriteria } =
+		useAppContext();
 
 	const [calendarLoading, setCalendarLoading] = useState(false);
 	const [calendarError, setCalendarError] = useState("");
 
 	function handleLogout(): void {
 		clearAuthCookies();
+		clearAttendanceCriteria();
 		setAttendanceData(null);
 	}
 

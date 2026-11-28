@@ -5,10 +5,12 @@ import type {
 	LectureListProps,
 } from "../src/types/response.ts";
 import {
+	calculateAttendanceProjection,
 	componentFingerprint,
 	countRowAttendance,
 	needsRowFetch,
 	reconcileComponentWithRows,
+	resolveSubjectTarget,
 	toCount,
 } from "../src/utils/attendanceMath.ts";
 
@@ -363,4 +365,136 @@ test("needsRowFetch skips fresh matching corrections and retries stale ones", ()
 		),
 		true,
 	);
+});
+
+test("calculateAttendanceProjection: 0 total classes returns safe and no classes message", () => {
+	const proj = calculateAttendanceProjection(0, 0, 75);
+	assert.equal(proj.status, "safe");
+	assert.equal(proj.message, "No classes held yet.");
+});
+
+test("calculateAttendanceProjection: 0% target allows missing all remaining classes", () => {
+	const proj = calculateAttendanceProjection(5, 10, 0);
+	assert.equal(proj.status, "safe");
+	assert.equal(
+		proj.message,
+		"You can miss all remaining classes without dropping below target",
+	);
+});
+
+test("calculateAttendanceProjection: 100% target when present < total is impossible", () => {
+	const proj = calculateAttendanceProjection(9, 10, 100);
+	assert.equal(proj.status, "warning");
+	assert.equal(
+		proj.message,
+		"100% attendance is no longer mathematically achievable",
+	);
+});
+
+test("calculateAttendanceProjection: 100% target when present === total", () => {
+	const proj = calculateAttendanceProjection(10, 10, 100);
+	assert.equal(proj.status, "safe");
+	assert.equal(proj.message, "Try not to miss any more classes");
+});
+
+test("calculateAttendanceProjection: target met calculates classes you can miss", () => {
+	// 16 / 20 = 80%. Target 75%.
+	// Can miss floor((16 - 0.75 * 20) / 0.75) = floor((16 - 15) / 0.75) = floor(1 / 0.75) = 1.
+	const proj1 = calculateAttendanceProjection(16, 20, 75);
+	assert.equal(proj1.status, "safe");
+	assert.equal(proj1.message, "You can miss 1 class only");
+
+	// 18 / 20 = 90%. Target 75%.
+	// floor((18 - 15) / 0.75) = floor(3 / 0.75) = 4.
+	const proj2 = calculateAttendanceProjection(18, 20, 75);
+	assert.equal(proj2.status, "safe");
+	assert.equal(proj2.message, "You can miss 4 classes only");
+
+	// Exactly on target: 15 / 20 = 75%. Target 75%.
+	const proj3 = calculateAttendanceProjection(15, 20, 75);
+	assert.equal(proj3.status, "safe");
+	assert.equal(proj3.message, "Try not to miss any more classes");
+});
+
+test("calculateAttendanceProjection: target not met calculates classes to attend", () => {
+	// 14 / 20 = 70%. Target 75%.
+	// Need to attend ceil((0.75 * 20 - 14) / (1 - 0.75)) = ceil(1 / 0.25) = 4.
+	const proj = calculateAttendanceProjection(14, 20, 75);
+	assert.equal(proj.status, "warning");
+	assert.equal(proj.message, "Need to attend next 4 classes");
+});
+
+test("calculateAttendanceProjection: edge cases never yield NaN or Infinity", () => {
+	for (let target = 0; target <= 100; target++) {
+		for (const [present, total] of [
+			[0, 0],
+			[0, 10],
+			[5, 10],
+			[10, 10],
+			[12, 10],
+		]) {
+			const proj = calculateAttendanceProjection(present, total, target);
+			assert.ok(proj.message.length > 0);
+			assert.ok(!proj.message.includes("NaN"));
+			assert.ok(!proj.message.includes("Infinity"));
+		}
+	}
+});
+
+test("resolveSubjectTarget: returns override when present and globalCriteria when absent", () => {
+	const overrides = { CS302B: 70, HS110L: 30 };
+
+	// Overridden subjects
+	assert.equal(resolveSubjectTarget("CS302B", overrides, 75), 70);
+	assert.equal(resolveSubjectTarget("HS110L", overrides, 75), 30);
+
+	// Non-overridden subjects fall back to globalCriteria
+	assert.equal(resolveSubjectTarget("IT401B", overrides, 75), 75);
+	assert.equal(resolveSubjectTarget("IT401B", overrides, 60), 60);
+
+	// Updating globalCriteria updates non-overridden but leaves overridden intact
+	const newGlobal = 85;
+	assert.equal(resolveSubjectTarget("CS302B", overrides, newGlobal), 70);
+	assert.equal(resolveSubjectTarget("IT401B", overrides, newGlobal), 85);
+});
+
+test("resolveSubjectTarget: clamps and handles edge values", () => {
+	assert.equal(resolveSubjectTarget("A", { A: -10 }, 75), 0);
+	assert.equal(resolveSubjectTarget("B", { B: 150 }, 75), 100);
+	assert.equal(resolveSubjectTarget("C", { C: 0 }, 75), 0);
+	assert.equal(resolveSubjectTarget("D", { D: 100 }, 75), 100);
+});
+
+test("per-subject projection calculation with custom overrides", () => {
+	const overrides: Record<string, number> = { CS302B: 70 };
+	const globalCriteria = 75;
+
+	// Subject 1: CS302B with 14/20 classes.
+	// At global 75%: 14/20 is 70% < 75%, need to attend 4 classes.
+	// At custom 70%: 14/20 is 70% >= 70%, target met!
+	const targetCS = resolveSubjectTarget("CS302B", overrides, globalCriteria);
+	assert.equal(targetCS, 70);
+	const projCS = calculateAttendanceProjection(14, 20, targetCS);
+	assert.equal(projCS.status, "safe");
+	assert.equal(projCS.message, "Try not to miss any more classes");
+
+	// Subject 2: IT401B (non-overridden) with 14/20 classes.
+	// Uses global 75%.
+	const targetIT = resolveSubjectTarget("IT401B", overrides, globalCriteria);
+	assert.equal(targetIT, 75);
+	const projIT = calculateAttendanceProjection(14, 20, targetIT);
+	assert.equal(projIT.status, "warning");
+	assert.equal(projIT.message, "Need to attend next 4 classes");
+});
+
+test("resolveSubjectTarget: in-memory fresh session defaults all subjects to 75%", () => {
+	const freshOverrides: Record<string, number> = {};
+	const freshGlobalCriteria = 75;
+
+	for (const code of ["CS302B", "HS110L", "IT401B", "MA101"]) {
+		assert.equal(
+			resolveSubjectTarget(code, freshOverrides, freshGlobalCriteria),
+			75,
+		);
+	}
 });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Attendance from "./components/Attendance";
 import ExtensionUpdateNotice from "./components/ExtensionUpdateNotice";
 import Footer from "./components/Footer";
@@ -32,26 +32,50 @@ function App() {
 	const [attendanceData, setAttendanceData] = useState<StudentDetails | null>(
 		null,
 	);
-	const [targetPercentage, setTargetPercentageState] = useState<number>(() => {
-		try {
-			const saved = localStorage.getItem("attendance_target_percentage");
-			if (saved === "60" || saved === "75") {
-				return Number(saved);
-			}
-		} catch {
-			// Ignore storage errors
-		}
-		return TARGET_PERCENTAGE;
-	});
+	// Pure in-memory criteria state. Always defaults to 75 and {} on refresh/login.
+	const [targetPercentage, setTargetPercentageState] =
+		useState<number>(TARGET_PERCENTAGE);
 
 	const setTargetPercentage = (val: number) => {
-		setTargetPercentageState(val);
+		setTargetPercentageState(Math.max(0, Math.min(100, Math.round(val))));
+	};
+
+	const [subjectOverrides, setSubjectOverrides] = useState<
+		Record<string, number>
+	>({});
+
+	const setSubjectOverride = (courseCode: string, target: number) => {
+		const clamped = Math.max(0, Math.min(100, Math.round(target)));
+		setSubjectOverrides((prev) => ({ ...prev, [courseCode]: clamped }));
+	};
+
+	const removeSubjectOverride = (courseCode: string) => {
+		setSubjectOverrides((prev) => {
+			if (!(courseCode in prev)) return prev;
+			const next = { ...prev };
+			delete next[courseCode];
+			return next;
+		});
+	};
+
+	const resetAllSubjectOverrides = () => {
+		setSubjectOverrides({});
+	};
+
+	const clearAttendanceCriteria = useCallback(() => {
+		setTargetPercentageState(TARGET_PERCENTAGE);
+		setSubjectOverrides({});
+	}, []);
+
+	// Clean up any legacy saved criteria keys from previous versions on mount
+	useEffect(() => {
 		try {
-			localStorage.setItem("attendance_target_percentage", String(val));
+			localStorage.removeItem("attendance_target_percentage");
+			localStorage.removeItem("attendance_subject_overrides");
 		} catch {
 			// Ignore storage errors
 		}
-	};
+	}, []);
 
 	const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
@@ -99,6 +123,7 @@ function App() {
 				// signing in, so drop any studentId left over from a previous
 				// session before storing the new auth cookie.
 				clearAuthCookies();
+				clearAttendanceCriteria();
 				setAuthCookie(initialUrlToken);
 				const data = await fetchAttendanceData(initialUrlToken);
 
@@ -130,7 +155,7 @@ function App() {
 			}
 		};
 		loginWithToken();
-	}, [initialUrlToken]);
+	}, [initialUrlToken, clearAttendanceCriteria]);
 
 	// Log out automatically the moment the JWT expires. Keyed on the boolean so
 	// the timer is not rebuilt every time attendanceData is updated.
@@ -153,6 +178,7 @@ function App() {
 			if (remaining === null) return;
 			if (remaining <= 0) {
 				clearAuthCookies();
+				clearAttendanceCriteria();
 				setAttendanceData(null);
 				return;
 			}
@@ -166,10 +192,10 @@ function App() {
 		// Runs if the component unmounts or the user logs out before the timer
 		// fires, so we don't try to update state that no longer exists.
 		return () => clearTimeout(timer);
-	}, [isLoggedIn]);
+	}, [isLoggedIn, clearAttendanceCriteria]);
 
 	return (
-		<div className="min-h-screen bg-gray-100 text-black dark:bg-gray-950 dark:text-gray-100 flex flex-col">
+		<div className="min-h-screen bg-gray-100 text-black dark:bg-gray-950 dark:text-gray-100 flex flex-col overflow-x-hidden">
 			{showGreenBanner && (
 				<div className="overflow-hidden m-auto bg-green-100 dark:bg-green-900 w-full">
 					<div className="py-2 text-center text-sm font-medium text-green-600 dark:text-green-300">
@@ -195,6 +221,11 @@ function App() {
 						setAttendanceData,
 						targetPercentage,
 						setTargetPercentage,
+						subjectOverrides,
+						setSubjectOverride,
+						removeSubjectOverride,
+						resetAllSubjectOverrides,
+						clearAttendanceCriteria,
 					}}
 				>
 					{!attendanceData ? (

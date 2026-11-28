@@ -120,7 +120,7 @@ function LoginForm({
 	const [loading, setLoading] = useState<boolean>(false);
 	const restoreStartedRef = useRef<boolean>(false);
 
-	const { setAttendanceData } = useAppContext();
+	const { setAttendanceData, clearAttendanceCriteria } = useAppContext();
 
 	const handleModeToggle = (newMode: "proxy" | "live") => {
 		setApiModeState(newMode);
@@ -179,11 +179,12 @@ function LoginForm({
 					setError(error instanceof Error ? error.message : String(error));
 					// Clear invalid token to allow fresh login
 					clearAuthCookies();
+					clearAttendanceCriteria();
 				}
 			};
 			loadData();
 		}
-	}, [hasUrlToken, setAttendanceData]);
+	}, [hasUrlToken, setAttendanceData, clearAttendanceCriteria]);
 
 	// Saves the login cookies and loads the student's attendance data. Used by
 	// both the direct-login path and the OTP path once either one has a token.
@@ -195,6 +196,9 @@ function LoginForm({
 		studentId?: number | string;
 	}) => {
 		const { token, username: user, password, rememberMe, studentId } = login;
+
+		// Fresh login starts with clean default criteria
+		clearAttendanceCriteria();
 
 		// Always drop any studentId left over from a previous session before
 		// possibly storing a fresh one below - otherwise a stale id can stick
