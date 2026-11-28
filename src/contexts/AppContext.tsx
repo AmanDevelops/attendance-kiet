@@ -11,6 +11,11 @@ export type AttendanceDataContextType = {
 	setAttendanceData: Dispatch<SetStateAction<StudentDetails | null>>;
 	targetPercentage: number;
 	setTargetPercentage: (val: number) => void;
+	subjectOverrides: Record<string, number>;
+	setSubjectOverride: (courseCode: string, target: number) => void;
+	removeSubjectOverride: (courseCode: string) => void;
+	resetAllSubjectOverrides: () => void;
+	clearAttendanceCriteria: () => void;
 };
 
 export const AttendanceDataContext = createContext<
